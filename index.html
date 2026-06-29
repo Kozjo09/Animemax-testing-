@@ -168,7 +168,7 @@
             // Stap 1: Directe verbinding proberen
             try {
                 const response = await fetch(url);
-                if (response.ok) return response;
+                if (response.ok || response.status === 404 || response.status === 500) return response;
             } catch (e) {
                 console.warn(`Directe verbinding mislukt voor ${url}, CORS proxy inschakelen...`, e);
             }
@@ -177,7 +177,7 @@
             try {
                 const proxyUrl = `https://corsproxy.io/?` + encodeURIComponent(url);
                 const response = await fetch(proxyUrl);
-                if (response.ok) return response;
+                if (response.ok || response.status === 404 || response.status === 500) return response;
             } catch (e) {
                 console.warn(`Proxy 1 mislukt voor ${url}, overschakelen naar AllOrigins...`, e);
             }
@@ -186,7 +186,16 @@
             try {
                 const proxyUrl = `https://api.allorigins.win/raw?url=` + encodeURIComponent(url);
                 const response = await fetch(proxyUrl);
-                if (response.ok) return response;
+                if (response.ok || response.status === 404 || response.status === 500) return response;
+            } catch (e) {
+                console.warn(`Proxy 2 mislukt voor ${url}, overschakelen naar Thingproxy...`, e);
+            }
+
+            // Stap 4: Vierde fallback proxy (thingproxy)
+            try {
+                const proxyUrl = `https://thingproxy.freeboard.io/fetch/` + url;
+                const response = await fetch(proxyUrl);
+                if (response.ok || response.status === 404 || response.status === 500) return response;
             } catch (e) {
                 console.error(`Alle fallbacks en proxies zijn mislukt voor ${url}`, e);
             }
@@ -273,32 +282,60 @@
             try {
                 const url = `${MIRURO_V1_BASE}/episodes/${anilistId}`;
                 const resV1 = await fetchWithCorsFallback(url);
-                const dataV1 = await resV1.json();
-                const parsedV1 = normalizeApiProviders(dataV1, 'v1');
-                allProviders = allProviders.concat(parsedV1);
-                console.log("V1 Geladen Providers:", parsedV1);
-                document.getElementById('diag-v1-status').innerHTML = '<span class="text-emerald-400"><i class="fa-solid fa-circle-check"></i> Actief (Proxy/CORS-vrij)</span>';
+                if (resV1.ok) {
+                    const dataV1 = await resV1.json();
+                    const parsedV1 = normalizeApiProviders(dataV1, 'v1');
+                    allProviders = allProviders.concat(parsedV1);
+                    console.log("V1 Geladen Providers:", parsedV1);
+                }
             } catch (e) {
-                console.error("V1 API mislukt:", e);
-                document.getElementById('diag-v1-status').innerHTML = '<span class="text-red-500"><i class="fa-solid fa-circle-exclamation"></i> Offline/CORS</span>';
+                console.error("V1 API Episodes fetch mislukt:", e);
             }
 
             // 2. Fetch V2 (Onafhankelijk om cascade crashes te voorkomen)
             try {
                 const url = `${MIRURO_V2_BASE}/episodes/${anilistId}`;
                 const resV2 = await fetchWithCorsFallback(url);
-                const dataV2 = await resV2.json();
-                const parsedV2 = normalizeApiProviders(dataV2, 'v2');
-                allProviders = allProviders.concat(parsedV2);
-                console.log("V2 Geladen Providers:", parsedV2);
-                document.getElementById('diag-v2-status').innerHTML = '<span class="text-emerald-400"><i class="fa-solid fa-circle-check"></i> Actief (Proxy/CORS-vrij)</span>';
+                if (resV2.ok) {
+                    const dataV2 = await resV2.json();
+                    const parsedV2 = normalizeApiProviders(dataV2, 'v2');
+                    allProviders = allProviders.concat(parsedV2);
+                    console.log("V2 Geladen Providers:", parsedV2);
+                }
             } catch (e) {
-                console.error("V2 API mislukt:", e);
-                document.getElementById('diag-v2-status').innerHTML = '<span class="text-red-500"><i class="fa-solid fa-circle-exclamation"></i> Offline/CORS</span>';
+                console.error("V2 API Episodes fetch mislukt:", e);
             }
 
             miruroEpisodesCache[anilistId] = allProviders;
             return allProviders;
+        };
+
+        window.checkApiDiagnostics = async function() {
+            // Test V1 Connectie
+            try {
+                const url = `${MIRURO_V1_BASE}/health`;
+                const resV1 = await fetchWithCorsFallback(url);
+                if (resV1.ok) {
+                    document.getElementById('diag-v1-status').innerHTML = '<span class="text-emerald-400"><i class="fa-solid fa-circle-check"></i> Online & Verbonden</span>';
+                } else {
+                    document.getElementById('diag-v1-status').innerHTML = `<span class="text-amber-400"><i class="fa-solid fa-triangle-exclamation"></i> Online (${resV1.status})</span>`;
+                }
+            } catch (e) {
+                document.getElementById('diag-v1-status').innerHTML = '<span class="text-red-500"><i class="fa-solid fa-circle-exclamation"></i> Offline/CORS</span>';
+            }
+
+            // Test V2 Connectie (via trending)
+            try {
+                const url = `${MIRURO_V2_BASE}/trending?per_page=1`;
+                const resV2 = await fetchWithCorsFallback(url);
+                if (resV2.ok) {
+                    document.getElementById('diag-v2-status').innerHTML = '<span class="text-emerald-400"><i class="fa-solid fa-circle-check"></i> Online & Verbonden</span>';
+                } else {
+                    document.getElementById('diag-v2-status').innerHTML = `<span class="text-amber-400"><i class="fa-solid fa-triangle-exclamation"></i> Online (${resV2.status})</span>`;
+                }
+            } catch (e) {
+                document.getElementById('diag-v2-status').innerHTML = '<span class="text-red-500"><i class="fa-solid fa-circle-exclamation"></i> Offline/CORS</span>';
+            }
         };
 
         window.setupNativePlayer = function(m3u8Url, subtitles = []) {
@@ -383,7 +420,7 @@
             }
 
             if (validServers.length === 0) {
-                container.innerHTML = '<span class="text-[9px] text-zinc-600 whitespace-nowrap">Geen alternatieve servers beschikbaar</span>';
+                container.innerHTML = '<span class="text-[9px] text-zinc-600 whitespace-nowrap">Geen alternatieve servers gevonden op dit moment</span>';
             }
 
             // Knoppen uittekenen voor werkende providers
@@ -1176,6 +1213,9 @@
                         });
                     }
                 });
+
+                // Test algemene serververbinding onafhankelijk van anime-id
+                window.checkApiDiagnostics();
 
                 const grid = document.getElementById('ep-grid');
                 for (let i = 1; i <= eps; i++) {
