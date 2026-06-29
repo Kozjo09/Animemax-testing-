@@ -130,12 +130,12 @@
         let mediaCache = {};
 
         const STATIC_TRENDING = [
-            { id: 147105, title: "Witch Hat Atelier", img: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx147105-X98uGbyg64gD.png" },
-            { id: 186333, title: "Kunon the Sorcerer Can See", img: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx186333-eWzW9l5y4Q5Z.png" },
-            { id: 191205, title: "Easygoing Territory Defense", img: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx191205-b3eF9YJ5K2Zq.png" },
-            { id: 185993, title: "Noble Reincarnation", img: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx185993-9qG4l8Y3K4Za.png" },
-            { id: 172019, title: "Dr. Stone: Science Future", img: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx172019-9uR6zG1yY2a5.png" },
-            { id: 101280, title: "That Time I Got Reincarnated as a Slime", img: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx101280-9tH8kL1vX2b5.png" }
+            { id: 147105, title: "Witch Hat Atelier", img: "https://s4.anilist.co/file/anilistcdn/media/indigo/cover/large/bx147105-X98uGbyg64gD.png" },
+            { id: 186333, title: "Kunon the Sorcerer Can See", img: "https://s4.anilist.co/file/anilistcdn/media/indigo/cover/large/bx186333-eWzW9l5y4Q5Z.png" },
+            { id: 191205, title: "Easygoing Territory Defense", img: "https://s4.anilist.co/file/anilistcdn/media/indigo/cover/large/bx191205-b3eF9YJ5K2Zq.png" },
+            { id: 185993, title: "Noble Reincarnation", img: "https://s4.anilist.co/file/anilistcdn/media/indigo/cover/large/bx185993-9qG4l8Y3K4Za.png" },
+            { id: 172019, title: "Dr. Stone: Science Future", img: "https://s4.anilist.co/file/anilistcdn/media/indigo/cover/large/bx172019-9uR6zG1yY2a5.png" },
+            { id: 101280, title: "That Time I Got Reincarnated as a Slime", img: "https://s4.anilist.co/file/anilistcdn/media/indigo/cover/large/bx101280-9tH8kL1vX2b5.png" }
         ];
 
         // --- TOASTS & MODALS ---
@@ -165,7 +165,7 @@
 
         // --- INTELLIGENT CORS PROXY WRAPPER ---
         async function fetchWithCorsFallback(url) {
-            // Stap 1: Directe verbinding proberen
+            // Probeer eerst een directe verbinding
             try {
                 const response = await fetch(url);
                 if (response.ok || response.status === 404 || response.status === 500) return response;
@@ -173,7 +173,7 @@
                 console.warn(`Directe verbinding mislukt voor ${url}, CORS proxy inschakelen...`, e);
             }
 
-            // Stap 2: Eerste snelle proxy (corsproxy.io)
+            // Snelle fallback proxy (corsproxy.io)
             try {
                 const proxyUrl = `https://corsproxy.io/?` + encodeURIComponent(url);
                 const response = await fetch(proxyUrl);
@@ -182,7 +182,7 @@
                 console.warn(`Proxy 1 mislukt voor ${url}, overschakelen naar AllOrigins...`, e);
             }
 
-            // Stap 3: Ultieme fallback proxy (allorigins.win)
+            // Ultieme fallback proxy (allorigins.win)
             try {
                 const proxyUrl = `https://api.allorigins.win/raw?url=` + encodeURIComponent(url);
                 const response = await fetch(proxyUrl);
@@ -191,7 +191,7 @@
                 console.warn(`Proxy 2 mislukt voor ${url}, overschakelen naar Thingproxy...`, e);
             }
 
-            // Stap 4: Vierde fallback proxy (thingproxy)
+            // Thingproxy
             try {
                 const proxyUrl = `https://thingproxy.freeboard.io/fetch/` + url;
                 const response = await fetch(proxyUrl);
