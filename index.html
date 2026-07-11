@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="k-session" content="">
-    <title>AnimeMax - Netflix van Anime</title>
+    <title>AnimeMax Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- HLS.js for native m3u8 streaming -->
@@ -13,23 +13,23 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap');
         body {
-            background: #040404;
+            background: #060606;
             color: #ffffff;
             font-family: 'Outfit', sans-serif;
             overflow-x: hidden;
             -webkit-tap-highlight-color: transparent;
         }
-        .accent { color: #e50914; } /* Netflix Red theme */
-        .bg-accent { background-color: #e50914; color: #fff; }
-        .text-accent-glow { text-shadow: 0 0 10px rgba(229, 9, 20, 0.4); }
+        .accent { color: #cae962; } /* Lime Green Theme */
+        .bg-accent { background-color: #cae962; color: #000; }
+        .text-accent-glow { text-shadow: 0 0 10px rgba(202, 233, 98, 0.4); }
         .glass-header {
-            background: rgba(4, 4, 4, 0.2);
+            background: rgba(6, 6, 6, 0.2);
             backdrop-filter: blur(0px);
             -webkit-backdrop-filter: blur(0px);
             transition: all 0.4s ease-in-out;
         }
         .glass-header.scrolled {
-            background: rgba(8, 8, 8, 0.95);
+            background: rgba(10, 10, 10, 0.95);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -42,13 +42,13 @@
         }
         .card:hover {
             transform: translateY(-4px);
-            border-color: rgba(229, 9, 20, 0.3);
+            border-color: rgba(202, 233, 98, 0.3);
             box-shadow: 0 10px 20px rgba(0,0,0,0.5);
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* Netflix-style Horizontal Scroll Shelf */
+        /* Horizontal Scroll Shelf */
         .shelf-container {
             display: flex;
             gap: 16px;
@@ -57,18 +57,9 @@
             padding-bottom: 16px;
         }
 
-        /* Video player overlay control styling */
-        .player-control-overlay {
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-        }
-        .player-container:hover .player-control-overlay {
-            opacity: 1;
-        }
-
         /* Toggle Switch */
-        .toggle-checkbox:checked + .toggle-bg { background-color: #e50914; }
-        .toggle-checkbox:checked + .toggle-bg .toggle-dot { transform: translateX(100%); background-color: #ffffff; }
+        .toggle-checkbox:checked + .toggle-bg { background-color: #cae962; }
+        .toggle-checkbox:checked + .toggle-bg .toggle-dot { transform: translateX(100%); background-color: #000000; }
         
         /* Toast Container */
         #toast-container {
@@ -112,16 +103,16 @@
             <p id="confirm-message" class="text-zinc-400 text-xs leading-relaxed mb-6"></p>
             <div class="flex gap-3">
                 <button id="confirm-cancel-btn" class="flex-1 bg-zinc-900 border border-white/5 py-3 rounded-xl text-xs font-black uppercase">Annuleren</button>
-                <button id="confirm-ok-btn" class="flex-1 bg-[#e50914] text-white py-3 rounded-xl text-xs font-black uppercase">Bevestigen</button>
+                <button id="confirm-ok-btn" class="flex-1 bg-[#cae962] text-black py-3 rounded-xl text-xs font-black uppercase font-bold">Bevestigen</button>
             </div>
         </div>
     </div>
 
-    <!-- Netflix Transparent Sticky Header -->
+    <!-- Lime-Green Glass Header -->
     <header id="app-header" class="fixed top-0 left-0 right-0 z-50 glass-header p-4 lg:px-10 hidden">
         <div class="flex items-center justify-between max-w-7xl mx-auto">
             <div class="flex items-center gap-6 lg:gap-12">
-                <button onclick="nav('home')" class="text-2xl lg:text-3xl font-black italic uppercase tracking-tighter text-[#e50914] transition-transform hover:scale-105">ANIME<span class="text-white">MAX</span></button>
+                <button onclick="nav('home')" class="text-2xl lg:text-3xl font-black italic uppercase tracking-tighter text-[#cae962] transition-transform hover:scale-105">ANIME<span class="text-white">MAX</span></button>
                 <nav class="hidden md:flex items-center gap-6 text-[11px] font-black uppercase tracking-widest text-zinc-400">
                     <button onclick="nav('home')" class="hover:text-white transition-colors" id="head-nav-home">Home</button>
                     <button onclick="nav('library')" class="hover:text-white transition-colors" id="head-nav-library">Mijn Lijst</button>
@@ -129,11 +120,11 @@
                 </nav>
             </div>
             <div class="flex gap-4 items-center">
-                <button onclick="nav('search')" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#e50914]/40 text-zinc-300 hover:text-[#e50914] transition-all duration-300" title="Zoeken"><i class="fa-solid fa-search text-xs"></i></button>
-                <button onclick="nav('profile')" id="prof-btn" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#e50914]/40 text-zinc-300 hover:text-white transition-all duration-300" title="Profiel & Instellingen">
+                <button onclick="nav('search')" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-[#cae962] transition-all duration-300" title="Zoeken"><i class="fa-solid fa-search text-xs"></i></button>
+                <button onclick="nav('profile')" id="prof-btn" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-all duration-300" title="Profiel & Instellingen">
                     <i class="fa-solid fa-user-astronaut"></i>
                 </button>
-                <button onclick="logout()" class="w-10 h-10 rounded-full bg-red-950/20 hover:bg-[#e50914] border border-red-500/10 hover:border-transparent flex items-center justify-center text-red-400 hover:text-white transition-all duration-300" title="Uitloggen"><i class="fa-solid fa-sign-out-alt text-xs"></i></button>
+                <button onclick="logout()" class="w-10 h-10 rounded-full bg-red-950/20 hover:bg-red-700 border border-red-500/10 hover:border-transparent flex items-center justify-center text-red-400 hover:text-white transition-all duration-300" title="Uitloggen"><i class="fa-solid fa-sign-out-alt text-xs"></i></button>
             </div>
         </div>
     </header>
@@ -141,7 +132,7 @@
     <!-- Main Content Area -->
     <main id="content" class="p-4 pt-24 max-w-7xl mx-auto min-h-[60vh]">
         <div class="text-center py-24" id="main-loader">
-            <i class="fa-solid fa-circle-notch animate-spin text-4xl text-[#e50914] mb-4"></i>
+            <i class="fa-solid fa-circle-notch animate-spin text-4xl text-[#cae962] mb-4"></i>
             <p class="text-xs uppercase tracking-widest text-zinc-500 animate-pulse">Laden en cloud-database verbinden...</p>
         </div>
     </main>
@@ -169,10 +160,10 @@
                 <div class="absolute bottom-6 left-6 md:left-10 z-20 flex gap-6 items-end">
                     <img id="detail-poster" class="hidden md:block w-28 h-40 rounded-xl object-cover shadow-2xl border border-white/10">
                     <div class="space-y-3">
-                        <span id="detail-badge" class="px-2.5 py-1 rounded bg-[#e50914]/20 text-[#e50914] text-[9px] font-black uppercase tracking-wider">SHOW</span>
+                        <span id="detail-badge" class="px-2.5 py-1 rounded bg-[#cae962]/20 text-[#cae962] text-[9px] font-black uppercase tracking-wider">SHOW</span>
                         <h2 id="detail-title" class="text-2xl md:text-5xl font-black italic uppercase tracking-tighter text-white leading-none"></h2>
                         <div class="flex items-center gap-3 text-[10px] md:text-xs font-bold text-zinc-400">
-                            <span id="detail-score" class="text-accent bg-red-500/10 px-2 py-0.5 rounded font-black"><i class="fa-solid fa-star text-[9px] mr-1"></i></span>
+                            <span id="detail-score" class="text-accent bg-lime-500/10 px-2 py-0.5 rounded font-black"><i class="fa-solid fa-star text-[9px] mr-1"></i></span>
                             <span id="detail-year" class="bg-zinc-800 px-2 py-0.5 rounded"></span>
                             <span id="detail-episodes" class="bg-zinc-800 px-2 py-0.5 rounded"></span>
                             <span id="detail-status" class="bg-zinc-800 px-2 py-0.5 rounded"></span>
@@ -236,11 +227,12 @@
 
     <script>
         // =========================================================================
-        // KUROVEXA / ANINEKO API IMPLEMENTATION
+        // ANIME API MANAGEMENT
         // =========================================================================
         const API_BASE = '/api/anime';
         const API_CACHE = new Map();
         const API_INFLIGHT = new Map();
+        const PROXY_BASE = 'https://corsproxy.io/?';
 
         function getApiCacheTtl(path) {
             if (!path) return 0;
@@ -398,7 +390,7 @@
             if(!container) return;
             const toast = document.createElement('div');
             toast.className = `p-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-between shadow-2xl border text-center animate-toast pointer-events-auto w-full ${
-                type === 'error' ? 'bg-red-950/95 text-red-400 border-red-500/20' : 'bg-zinc-900/95 text-emerald-400 border-emerald-500/20'
+                type === 'error' ? 'bg-red-950/95 text-red-400 border-red-500/20' : 'bg-zinc-900/95 text-accent border-accent/20'
             }`;
             toast.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()" class="ml-4 opacity-50 hover:opacity-100"><i class="fa-solid fa-times"></i></button>`;
             container.appendChild(toast);
@@ -417,6 +409,14 @@
             document.getElementById('confirm-ok-btn').onclick = () => { close(); onConfirm(); };
         };
 
+        function proxyM3u8(url, referer) {
+            if (!url || url.startsWith('blob:')) return url;
+            if (url.startsWith(PROXY_BASE)) return url;
+            let proxyUrl = `${PROXY_BASE}url=${encodeURIComponent(url)}`;
+            if (referer) proxyUrl += `&ref=${encodeURIComponent(referer)}`;
+            return proxyUrl;
+        }
+
         async function fetchWithCorsFallback(url) {
             try {
                 const response = await fetch(url);
@@ -425,7 +425,7 @@
                 console.warn(`Direct connection failed, applying CORS proxy fallbacks...`);
             }
             try {
-                return await fetch(`https://corsproxy.io/?` + encodeURIComponent(url));
+                return await fetch(proxyM3u8(url));
             } catch (e) {
                 throw new Error("Verbindingsfout naar stream.");
             }
@@ -645,42 +645,42 @@
             if (mode === 'register') {
                 main.innerHTML = `
                     <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#e50914]">ANIME<span class="text-white">MAX</span></h2>
+                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
                         <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Nieuw cloud-profiel aanmaken</p>
                         <div class="space-y-4">
-                            <input type="email" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#e50914] text-white font-bold text-xs" placeholder="E-mailadres">
-                            <input type="text" id="auth-username" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#e50914] text-white font-bold text-xs" placeholder="Gebruikersnaam">
-                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#e50914] text-white font-bold text-xs" placeholder="Wachtwoord (min. 6)">
-                            <button onclick="handleAuth('reg')" class="bg-[#e50914] text-white font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-red-700 transition">Account Aanmaken</button>
+                            <input type="email" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres">
+                            <input type="text" id="auth-username" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Gebruikersnaam">
+                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Wachtwoord (min. 6)">
+                            <button onclick="handleAuth('reg')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Account Aanmaken</button>
                             <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
-                            <p class="text-center text-xs text-zinc-500 mt-4">Al een account? <button onclick="showLoginPage('login')" class="text-[#e50914] font-bold hover:underline">Inloggen</button></p>
+                            <p class="text-center text-xs text-zinc-500 mt-4">Al een account? <button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline">Inloggen</button></p>
                         </div>
                     </div>`;
             } else if (mode === 'forgot') {
                 main.innerHTML = `
                     <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#e50914]">Wachtwoord Herstellen</h2>
+                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Wachtwoord Herstellen</h2>
                         <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Ontvang een herstellink</p>
                         <div class="space-y-4">
-                            <input type="text" id="auth-reset-input" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#e50914] text-white font-bold text-xs" placeholder="Gebruikersnaam of E-mailadres">
-                            <button onclick="handleForgotPassword()" class="bg-[#e50914] text-white font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-red-700 transition">Verstuur herstellink</button>
-                            <p class="text-center text-xs text-zinc-500 mt-4"><button onclick="showLoginPage('login')" class="text-[#e50914] font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i> Terug naar login</button></p>
+                            <input type="text" id="auth-reset-input" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Gebruikersnaam of E-mailadres">
+                            <button onclick="handleForgotPassword()" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Verstuur herstellink</button>
+                            <p class="text-center text-xs text-zinc-500 mt-4"><button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i> Terug naar login</button></p>
                         </div>
                     </div>`;
             } else {
                 main.innerHTML = `
                     <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#e50914]">ANIME<span class="text-white">MAX</span></h2>
+                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
                         <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Inloggen</p>
                         <div class="space-y-4">
-                            <input type="text" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#e50914] text-white font-bold text-xs" placeholder="E-mailadres of Gebruikersnaam">
-                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#e50914] text-white font-bold text-xs" placeholder="Wachtwoord">
+                            <input type="text" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres of Gebruikersnaam">
+                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Wachtwoord">
                             <div class="text-right">
                                 <button onclick="showLoginPage('forgot')" class="text-zinc-500 text-xs hover:text-white transition">Wachtwoord vergeten?</button>
                             </div>
-                            <button onclick="handleAuth('login')" class="bg-[#e50914] text-white font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-red-700 transition">Inloggen</button>
+                            <button onclick="handleAuth('login')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Inloggen</button>
                             <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
-                            <p class="text-center text-xs text-zinc-500 mt-4">Nieuw hier? <button onclick="showLoginPage('register')" class="text-[#e50914] font-bold hover:underline">Registreren</button></p>
+                            <p class="text-center text-xs text-zinc-500 mt-4">Nieuw hier? <button onclick="showLoginPage('register')" class="text-[#cae962] font-bold hover:underline">Registreren</button></p>
                         </div>
                     </div>`;
             }
@@ -693,11 +693,11 @@
             if(!main) return;
             main.innerHTML = `
                 <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                    <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#e50914]">Nieuw Wachtwoord</h2>
+                    <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Nieuw Wachtwoord</h2>
                     <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Stel een nieuw wachtwoord in</p>
                     <div class="space-y-4">
-                        <input type="password" id="reset-new-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#e50914] text-white font-bold text-xs" placeholder="Nieuw Wachtwoord (min. 6)">
-                        <button onclick="handleResetPassword()" class="bg-[#e50914] text-white font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-red-700 transition">Bevestig Wachtwoord</button>
+                        <input type="password" id="reset-new-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Nieuw Wachtwoord (min. 6)">
+                        <button onclick="handleResetPassword()" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Bevestig Wachtwoord</button>
                     </div>
                 </div>`;
         }
@@ -914,7 +914,7 @@
                             switch(data.type) {
                                 case Hls.ErrorTypes.NETWORK_ERROR:
                                     if (!streamUrl.includes('corsproxy.io')) {
-                                        const proxiedUrl = `https://corsproxy.io/?` + encodeURIComponent(m3u8Url);
+                                        const proxiedUrl = proxyM3u8(m3u8Url);
                                         hlsInstance.destroy();
                                         initHlsStream(proxiedUrl);
                                     } else {
@@ -936,7 +936,7 @@
                 }
             }
 
-            initHlsStream(m3u8Url);
+            initHlsStream(proxyM3u8(m3u8Url));
             video.ontimeupdate = () => { window.updateProgressUI(video.currentTime, video.duration); };
         };
 
@@ -973,11 +973,18 @@
                 saveCloudDataDebounced();
             }
 
+            // Always add MegaPlay as available embed source
+            const mBtn = document.createElement('button');
+            mBtn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${app.server === 'megaplay' ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
+            mBtn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> MEGAPLAY`;
+            mBtn.onclick = () => window.setServer('megaplay');
+            embedContainer.appendChild(mBtn);
+
             validServers.forEach(p => {
                 const btn = document.createElement('button');
                 const srvName = p.id;
                 const isActive = app.server === srvName;
-                btn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${isActive ? 'bg-[#e50914] text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
+                btn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${isActive ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
                 btn.innerHTML = `<i class="fa-solid fa-server mr-1"></i> ${p.provider.toUpperCase()}`;
                 btn.onclick = () => window.setServer(srvName);
 
@@ -991,6 +998,17 @@
         };
 
         window.loadStreamAndPlay = async function(anilistId, targetEp, mode, serverId) {
+            const iframeEl = document.getElementById('player');
+            const nativeEl = document.getElementById('native-player-container');
+
+            if (serverId === 'megaplay') {
+                iframeEl.src = `https://megaplay.buzz/stream/ani/${anilistId}/${targetEp}/${mode}`;
+                iframeEl.classList.remove('hidden'); iframeEl.classList.add('block');
+                nativeEl.classList.add('hidden'); nativeEl.classList.remove('block');
+                if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+                return;
+            }
+
             const providers = await loadAllProviders(anilistId);
             const pObj = providers.find(p => p.id === serverId);
             if (!pObj) return;
@@ -1003,8 +1021,6 @@
                 
                 if (streamData && streamData.streams && streamData.streams.length > 0) {
                     let best = streamData.streams.find(s => s.quality === '1080p' || s.quality === 'auto' || s.quality === '720p') || streamData.streams[0];
-                    const iframeEl = document.getElementById('player');
-                    const nativeEl = document.getElementById('native-player-container');
 
                     if (best.embed || best.type === 'embed' || EMBED_PROVIDERS.includes(pObj.provider.toLowerCase())) {
                         iframeEl.src = best.embed || best.url;
@@ -1017,10 +1033,12 @@
                         window.setupNativePlayer(best.url, streamData.subtitles || []);
                     }
                 } else {
-                    window.showToast("Stream momenteel offline of onbeschikbaar.", "error");
+                    window.showToast("Stream momenteel offline of onbeschikbaar. Megaplay geselecteerd.", "error");
+                    window.setServer('megaplay');
                 }
             } catch (err) {
                 console.error(err);
+                window.setServer('megaplay');
             }
         };
 
@@ -1060,7 +1078,7 @@
                 document.getElementById('detail-banner').src = m.bannerImage || m.coverImage.extraLarge || m.coverImage.large;
                 document.getElementById('detail-poster').src = m.coverImage.large || m.coverImage.extraLarge;
                 document.getElementById('detail-desc').innerHTML = m.description || "Geen synopsis beschikbaar.";
-                document.getElementById('detail-score').innerHTML = `<i class="fa-solid fa-star text-[9px] mr-1"></i> ${m.averageScore ? (m.averageScore/10) : '?'}`;
+                document.getElementById('detail-score').innerHTML = `<i class="fa-solid fa-star text-[9px] mr-1 text-[#cae962]"></i> ${m.averageScore ? (m.averageScore/10) : '?'}`;
                 document.getElementById('detail-year').innerText = m.seasonYear || "?";
                 document.getElementById('detail-episodes').innerText = (m.episodes || "?") + " Eps";
                 document.getElementById('detail-status').innerText = m.status;
@@ -1068,7 +1086,7 @@
                 // Watchlist Sync Setup for details modal
                 const loc = app.xmlLib.find(i => i && i.id == id);
                 const statStr = loc ? loc.status : "Not Watching";
-                document.getElementById('detail-action-text').innerHTML = loc ? `<span class="text-[#e50914] font-black">${loc.status}</span> - Progress: ${loc.progress}/${m.episodes||'?'}` : 'Niet in bibliotheek';
+                document.getElementById('detail-action-text').innerHTML = loc ? `<span class="text-[#cae962] font-black">${loc.status}</span> - Progress: ${loc.progress}/${m.episodes||'?'}` : 'Niet in bibliotheek';
                 document.getElementById('detail-status-dropdown').value = statStr;
 
                 // Render genres
@@ -1113,7 +1131,7 @@
                         <button onclick="openDetailsModal('${e.node.id}')" class="card p-4 flex justify-between items-center text-[10px] font-black uppercase text-left w-full">
                             <div class="truncate pr-4">
                                 <p class="text-white truncate">${rTitle}</p>
-                                <p class="text-[7px] text-[#e50914] mt-0.5">${e.relationType.replace(/_/g, ' ')}</p>
+                                <p class="text-[7px] text-[#cae962] mt-0.5">${e.relationType.replace(/_/g, ' ')}</p>
                             </div>
                             <i class="fa-solid fa-chevron-right text-zinc-600"></i>
                         </button>`;
@@ -1241,7 +1259,7 @@
             if (q.length < 3) {
                 grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ 3 of meer letters...</p>'; return;
             }
-            grid.innerHTML = '<div class="col-span-full text-center text-[#e50914] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
+            grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
 
             searchTimeout = setTimeout(async () => {
                 const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
@@ -1253,7 +1271,7 @@
                             <div onclick="openDetailsModal('${m.id}')" class="text-left group cursor-pointer animate-fade-in relative">
                                 <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
                                     <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                                    ${m.averageScore ? `<span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px]"></i> ${m.averageScore/10}</span>` : ''}
+                                    ${m.averageScore ? `<span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore/10}</span>` : ''}
                                 </div>
                                 <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${t}</p>
                             </div>`;
@@ -1291,9 +1309,9 @@
             if(loader) loader.style.display = 'none';
 
             // Sync Header Nav Styling
-            document.querySelectorAll('.nav-link').forEach(el => { el.classList.remove('text-[#e50914]'); el.classList.add('text-zinc-500'); });
+            document.querySelectorAll('.nav-link').forEach(el => { el.classList.remove('text-[#cae962]'); el.classList.add('text-zinc-500'); });
             const activeNav = document.getElementById('nav-' + app.view);
-            if(activeNav) { activeNav.classList.add('text-[#e50914]'); activeNav.classList.remove('text-zinc-500'); }
+            if(activeNav) { activeNav.classList.add('text-[#cae962]'); activeNav.classList.remove('text-zinc-500'); }
 
             if (app.view === 'watch') {
                 const loc = app.xmlLib.find(i => i && i.id == app.id) || app.recent.find(i => i && i.id == app.id);
@@ -1321,12 +1339,12 @@
                         <div class="bg-[#111111] p-6 rounded-2xl border border-white/5 space-y-6">
                             <div class="flex justify-between items-center flex-wrap gap-4 border-b border-white/5 pb-4">
                                 <div class="flex gap-2">
-                                    <button onclick="checkAudioAvailabilityAndPlay('sub')" class="px-5 py-2.5 rounded-xl text-xs font-black uppercase transition ${app.mode=='sub'?'bg-[#e50914] text-white':'bg-zinc-900 text-zinc-400'}" id="sub-btn">Sub</button>
-                                    <button onclick="checkAudioAvailabilityAndPlay('dub')" class="px-5 py-2.5 rounded-xl text-xs font-black uppercase transition ${app.mode=='dub'?'bg-[#e50914] text-white':'bg-zinc-900 text-zinc-400'}" id="dub-btn">Dub</button>
+                                    <button onclick="checkAudioAvailabilityAndPlay('sub')" class="px-5 py-2.5 rounded-xl text-xs font-black uppercase transition ${app.mode=='sub'?'bg-[#cae962] text-black font-bold':'bg-zinc-900 text-zinc-400'}" id="sub-btn">Sub</button>
+                                    <button onclick="checkAudioAvailabilityAndPlay('dub')" class="px-5 py-2.5 rounded-xl text-xs font-black uppercase transition ${app.mode=='dub'?'bg-[#cae962] text-black font-bold':'bg-zinc-900 text-zinc-400'}" id="dub-btn">Dub</button>
                                 </div>
                                 <div class="flex items-center gap-4">
-                                    <span class="text-xs text-zinc-500 font-bold uppercase"><i class="fa-regular fa-clock text-[#e50914] mr-1.5"></i> <span id="playback-time-text" class="text-white">0:00 / 0:00</span></span>
-                                    <span id="playback-progress-percentage" class="text-xs font-black text-[#e50914]">0%</span>
+                                    <span class="text-xs text-zinc-500 font-bold uppercase"><i class="fa-regular fa-clock text-[#cae962] mr-1.5"></i> <span id="playback-time-text" class="text-white">0:00 / 0:00</span></span>
+                                    <span id="playback-progress-percentage" class="text-xs font-black text-[#cae962]">0%</span>
                                 </div>
                             </div>
 
@@ -1335,11 +1353,11 @@
                                 <p class="text-[10px] font-black uppercase tracking-widest text-zinc-500">Streaming Bronnen</p>
                                 <div class="space-y-2">
                                     <div class="flex items-center gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
-                                        <span class="text-[10px] font-black text-[#e50914] w-24 uppercase">Embeds:</span>
+                                        <span class="text-[10px] font-black text-[#cae962] w-24 uppercase">Embeds:</span>
                                         <div id="anivexa-embeds-container" class="flex gap-2 flex-wrap"></div>
                                     </div>
                                     <div class="flex items-center gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
-                                        <span class="text-[10px] font-black text-[#e50914] w-24 uppercase">Direct / HLS:</span>
+                                        <span class="text-[10px] font-black text-[#cae962] w-24 uppercase">Direct / HLS:</span>
                                         <div id="anivexa-rest-container" class="flex gap-2 flex-wrap"></div>
                                     </div>
                                 </div>
@@ -1347,20 +1365,18 @@
                         </div>
 
                         <div id="next-ep-timer-container"></div>
-                        <h1 id="w-title" class="text-2xl md:text-3xl font-black text-[#e50914] uppercase italic">${title}</h1>
+                        <h1 id="w-title" class="text-2xl md:text-3xl font-black text-[#cae962] uppercase italic">${title}</h1>
 
                         <div id="ep-grid" class="grid grid-cols-5 sm:grid-cols-10 gap-2 mb-8"></div>
                     </div>`;
 
                 window.loadAnivexaAndRenderServers(app.id, app.ep, app.mode).then(validServers => {
-                    if (app.server !== 'megaplay' && validServers.find(s => s.id === app.server)) {
-                        window.loadStreamAndPlay(app.id, app.ep, app.mode, app.server);
-                    }
+                    window.loadStreamAndPlay(app.id, app.ep, app.mode, app.server);
                 });
 
                 const grid = document.getElementById('ep-grid');
                 for (let i = 1; i <= eps; i++) {
-                    let c = (i == app.ep) ? "bg-[#e50914] text-white" : (i <= prog ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700");
+                    let c = (i == app.ep) ? "bg-[#cae962] text-black font-bold" : (i <= prog ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700");
                     grid.innerHTML += `<button onclick="autoUpdateProgressOnEpClick('${app.id}', '${title.replace(/'/g, "\\'")}', ${i}, ${eps}, ''); nav('watch', {id:${app.id}, ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
                 }
 
@@ -1389,9 +1405,9 @@
                                 const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                                 const seconds = Math.floor((distance % (1000 * 60)) / 1000);
                                 if(timerContainer) timerContainer.innerHTML = `
-                                    <div class="bg-zinc-950 p-4 rounded-xl border border-[#e50914]/20 flex items-center justify-between shadow-lg">
+                                    <div class="bg-zinc-950 p-4 rounded-xl border border-[#cae962]/20 flex items-center justify-between shadow-lg">
                                         <span class="text-[10px] font-black uppercase text-zinc-400 flex items-center gap-2"><i class="fa-solid fa-clock"></i> Nieuwe Episode ${m.nextAiringEpisode.episode}</span>
-                                        <span class="text-xs font-black text-[#e50914] tabular-nums">≈ ${days}d ${hours}u ${minutes}m ${seconds}s</span>
+                                        <span class="text-xs font-black text-[#cae962] tabular-nums font-bold">≈ ${days}d ${hours}u ${minutes}m ${seconds}s</span>
                                     </div>`;
                             };
                             updateTimer(); countdownInterval = setInterval(updateTimer, 1000);
@@ -1403,7 +1419,7 @@
                 main.innerHTML = `
                     <div class="space-y-6">
                         <div class="flex items-center justify-between pb-4 border-b border-white/5">
-                            <h2 class="text-2xl font-black text-[#e50914] uppercase italic">Verder Kijken</h2>
+                            <h2 class="text-2xl font-black text-[#cae962] uppercase italic">Verder Kijken</h2>
                             <span class="text-[10px] text-zinc-500 uppercase font-black">${app.recent.length} items</span>
                         </div>
                         <div id="recent-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-6"></div>
@@ -1411,18 +1427,53 @@
                 const grid = document.getElementById('recent-grid');
                 if (!app.recent.length) return grid.innerHTML = '<p class="col-span-full text-center text-xs uppercase text-zinc-600 py-12">Geen geschiedenis.</p>';
 
+                // Fetch real-time up-to-date and next episode counts
+                const ids = app.recent.map(r => parseInt(r.id)).filter(id => !isNaN(id));
+                let latestEpMap = {};
+                if (ids.length > 0) {
+                    try {
+                        const gqlRes = await gql(`query($ids:[Int]){Page(perPage:50){media(id_in:$ids,type:ANIME){id episodes status nextAiringEpisode{episode}}}}`, { ids });
+                        if (gqlRes && gqlRes.data && gqlRes.data.Page.media) {
+                            gqlRes.data.Page.media.forEach(m => {
+                                let total = m.episodes || 12;
+                                if (m.status === 'RELEASING' && m.nextAiringEpisode) {
+                                    total = m.nextAiringEpisode.episode - 1;
+                                }
+                                latestEpMap[m.id] = total;
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Error fetching progress for up-to-date tags:", e);
+                    }
+                }
+
                 app.recent.forEach(r => {
                     if (!r) return;
                     const p = (r.time > 0 && r.duration > 0) ? Math.round((r.time / r.duration) * 100) : 0;
+                    const latestAvailable = latestEpMap[r.id] || r.ep || 12;
+                    const isUpToDate = r.ep >= latestAvailable;
+
+                    let actionBadge = '';
+                    if (isUpToDate) {
+                        actionBadge = `<span class="bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 text-[8px] font-black px-2.5 py-1 rounded-xl flex items-center gap-1 uppercase select-none"><i class="fa-solid fa-check"></i> Up-to-Date</span>`;
+                    } else {
+                        actionBadge = `<button onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${parseInt(r.ep)+1}})" class="bg-[#cae962] text-black text-[8px] font-black px-2.5 py-1 rounded-xl flex items-center gap-1 uppercase hover:scale-105 active:scale-95 transition-all"><i class="fa-solid fa-play"></i> Nieuwe Ep ${parseInt(r.ep)+1} Uit!</button>`;
+                    }
+
                     grid.innerHTML += `
-                        <div onclick="nav('watch', {id:'${r.id}', ep:${r.ep}})" class="group text-left relative cursor-pointer card p-3">
-                            <div class="aspect-video rounded-lg bg-zinc-900 border border-white/5 relative overflow-hidden mb-2">
-                                <img src="${r.img}" class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-all duration-500">
-                                <span class="absolute top-2 left-2 bg-black/85 px-1.5 py-0.5 rounded text-[8px] font-black text-[#e50914]">EP ${r.ep}</span>
-                                ${p > 0 ? `<div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#e50914]" style="width: ${p}%"></div></div>` : ''}
+                        <div onclick="nav('watch', {id:'${r.id}', ep:${r.ep}})" class="group text-left relative cursor-pointer card p-3 flex flex-col justify-between">
+                            <div>
+                                <div class="aspect-video rounded-lg bg-zinc-900 border border-white/5 relative overflow-hidden mb-2">
+                                    <img src="${r.img}" class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-all duration-500">
+                                    <span class="absolute top-2 left-2 bg-black/85 px-1.5 py-0.5 rounded text-[8px] font-black text-[#cae962]">EP ${r.ep}</span>
+                                    ${p > 0 ? `<div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#cae962]" style="width: ${p}%"></div></div>` : ''}
+                                </div>
+                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${r.title}</p>
                             </div>
-                            <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${r.title}</p>
-                            <button onclick="removeRecentAnime(event, '${r.id}')" class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#e50914] text-white flex items-center justify-center shadow-lg hover:scale-110 transition"><i class="fa-solid fa-xmark text-[10px]"></i></button>
+                            <div class="mt-3 flex justify-between items-center w-full">
+                                ${actionBadge}
+                                <button onclick="removeRecentAnime(event, '${r.id}')" class="w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 flex items-center justify-center hover:bg-red-700 hover:text-white transition"><i class="fa-solid fa-trash text-[9px]"></i></button>
+                            </div>
                         </div>`;
                 });
             }
@@ -1430,8 +1481,8 @@
                 main.innerHTML = `
                     <div class="max-w-md mx-auto space-y-6">
                         <!-- Profile Card -->
-                        <div class="card p-8 border border-[#e50914]/20 space-y-6">
-                            <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#e50914]"></i> Instellingen</span> <span class="bg-red-500/10 text-[#e50914] text-[9px] px-2 py-1 rounded">Username: ${app.user}</span></h2>
+                        <div class="card p-8 border border-[#cae962]/20 space-y-6">
+                            <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${app.user}</span></h2>
                             
                             <div class="space-y-4">
                                 <label class="flex justify-between items-center cursor-pointer p-1"><span class="text-xs font-black uppercase text-zinc-400">Toon 'Verder Kijken'</span>
@@ -1461,7 +1512,7 @@
                                 <div class="space-y-2 pt-2">
                                     <p class="text-[9px] font-black text-zinc-500 uppercase">Wijzig gebruikersnaam (Synchroniseert met Supabase Auth)</p>
                                     <input type="text" id="set-user" value="${app.user}" placeholder="Gebruikersnaam" class="w-full bg-black border border-white/10 p-3.5 rounded-xl text-center text-xs text-white font-black">
-                                    <button onclick="changeUsername()" class="bg-[#e50914] text-white font-black py-3 rounded-xl w-full text-xs uppercase hover:bg-red-700 transition">Update Naam</button>
+                                    <button onclick="changeUsername()" class="bg-[#cae962] text-black font-black py-3 rounded-xl w-full text-xs uppercase hover:bg-lime-400 transition font-bold">Update Naam</button>
                                 </div>
 
                                 <button onclick="saveSet()" class="bg-zinc-800 text-white font-black py-3.5 rounded-xl w-full text-xs uppercase hover:bg-zinc-700 transition">Instellingen Opslaan</button>
@@ -1485,9 +1536,9 @@
             else if (app.view === 'library') {
                 main.innerHTML = `
                     <div class="space-y-6">
-                        <div class="flex items-center justify-between pb-4 border-b border-white/5"><h2 class="text-2xl font-black text-[#e50914] uppercase italic">Mijn Lijst</h2><span class="text-[10px] text-zinc-500 uppercase font-black">${app.xmlLib.length} items</span></div>
+                        <div class="flex items-center justify-between pb-4 border-b border-white/5"><h2 class="text-2xl font-black text-[#cae962] uppercase italic">Mijn Lijst</h2><span class="text-[10px] text-zinc-500 uppercase font-black">${app.xmlLib.length} items</span></div>
                         <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                            ${['All', 'Watching', 'Watched', 'Dropped', 'Plan to Watch'].map(s => `<button onclick="filterXml('${s}')" class="flex-shrink-0 px-4 py-2 rounded-full text-[10px] font-black uppercase ${app.libraryFilter === s ? 'bg-[#e50914] text-white' : 'bg-zinc-900 text-zinc-400 border border-white/5'}">${s}</button>`).join('')}
+                            ${['All', 'Watching', 'Watched', 'Dropped', 'Plan to Watch'].map(s => `<button onclick="filterXml('${s}')" class="flex-shrink-0 px-4 py-2 rounded-full text-[10px] font-black uppercase ${app.libraryFilter === s ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-900 text-zinc-400 border border-white/5'}">${s}</button>`).join('')}
                         </div>
                         <div id="xml-display-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                     </div>`;
@@ -1495,7 +1546,7 @@
             }
             else if (app.view === 'search') {
                 main.innerHTML = `
-                    <div class="max-w-xl mx-auto mb-10"><input type="text" id="live-search" placeholder="Typ een anime titel..." onkeyup="liveSearch(event)" class="w-full bg-zinc-900 border border-white/10 p-5 rounded-2xl outline-none focus:border-[#e50914] text-white font-bold text-sm shadow-xl"></div>
+                    <div class="max-w-xl mx-auto mb-10"><input type="text" id="live-search" placeholder="Typ een anime titel..." onkeyup="liveSearch(event)" class="w-full bg-zinc-900 border border-white/10 p-5 rounded-2xl outline-none focus:border-[#cae962] text-white font-bold text-sm shadow-xl"></div>
                     <div id="search-grid" class="grid grid-cols-2 sm:grid-cols-6 gap-4"></div>`;
             }
             else {
@@ -1504,16 +1555,16 @@
                     <div class="space-y-8">
                         <!-- Hero Spotlight Banner -->
                         <div id="hero-spotlight-container" class="relative w-full h-[55vh] md:h-[70vh] rounded-3xl overflow-hidden border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                            <div class="absolute inset-0 bg-gradient-to-t from-[#040404] via-[#040404]/30 to-transparent z-10"></div>
-                            <div class="absolute inset-0 bg-gradient-to-r from-[#040404]/90 via-transparent to-transparent z-10"></div>
+                            <div class="absolute inset-0 bg-gradient-to-t from-[#060606] via-[#060606]/30 to-transparent z-10"></div>
+                            <div class="absolute inset-0 bg-gradient-to-r from-[#060606]/90 via-transparent to-transparent z-10"></div>
                             <img id="spotlight-bg" class="w-full h-full object-cover brightness-[0.5] select-none">
                             <div class="absolute bottom-10 left-6 md:left-12 z-20 max-w-xl space-y-4">
-                                <span class="px-2.5 py-1 rounded bg-[#e50914]/20 text-[#e50914] text-[9px] font-black uppercase tracking-wider">SPOTLIGHT</span>
+                                <span class="px-2.5 py-1 rounded bg-[#cae962]/20 text-[#cae962] text-[9px] font-black uppercase tracking-wider font-bold">SPOTLIGHT</span>
                                 <h1 id="spotlight-title" class="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-none text-white"></h1>
                                 <p id="spotlight-desc" class="text-zinc-400 text-xs md:text-sm line-clamp-3 leading-relaxed"></p>
                                 <div class="flex gap-4">
-                                    <button id="spotlight-play-btn" class="bg-white text-black font-black px-6 py-3 rounded-xl text-xs uppercase flex items-center gap-2 hover:scale-105 transition-all shadow-lg"><i class="fa-solid fa-play"></i> Afspelen</button>
-                                    <button id="spotlight-info-btn" class="bg-zinc-900/90 text-white font-black px-6 py-3 rounded-xl text-xs uppercase flex items-center gap-2 border border-white/10 hover:bg-zinc-800 transition-all"><i class="fa-solid fa-info-circle"></i> Meer Info</button>
+                                    <button id="spotlight-play-btn" class="bg-white text-black font-black px-6 py-3 rounded-xl text-xs uppercase flex items-center gap-2 hover:scale-105 transition-all shadow-lg font-bold"><i class="fa-solid fa-play"></i> Afspelen</button>
+                                    <button id="spotlight-info-btn" class="bg-zinc-900/90 text-white font-black px-6 py-3 rounded-xl text-xs uppercase flex items-center gap-2 border border-white/10 hover:bg-zinc-800 transition-all font-bold"><i class="fa-solid fa-info-circle"></i> Meer Info</button>
                                 </div>
                             </div>
                         </div>
@@ -1548,7 +1599,60 @@
 
             // Row 1: Continue Watching (from history)
             if (app.recent && app.recent.length > 0) {
-                container.innerHTML += renderShelf("Verder Kijken", app.recent, "shelf-recent");
+                // Fetch real-time up-to-date and next episode counts
+                const ids = app.recent.map(r => parseInt(r.id)).filter(id => !isNaN(id));
+                let latestEpMap = {};
+                if (ids.length > 0) {
+                    try {
+                        const gqlRes = await gql(`query($ids:[Int]){Page(perPage:50){media(id_in:$ids,type:ANIME){id episodes status nextAiringEpisode{episode}}}}`, { ids });
+                        if (gqlRes && gqlRes.data && gqlRes.data.Page.media) {
+                            gqlRes.data.Page.media.forEach(m => {
+                                let total = m.episodes || 12;
+                                if (m.status === 'RELEASING' && m.nextAiringEpisode) {
+                                    total = m.nextAiringEpisode.episode - 1;
+                                }
+                                latestEpMap[m.id] = total;
+                            });
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                // Render Continue Watching track with up-to-date alerts
+                let recentShelfHtml = `
+                    <div class="space-y-4">
+                        <h2 class="text-lg font-black uppercase tracking-wider flex items-center gap-2">
+                            <span class="w-1.5 h-6 bg-[#cae962] rounded-full"></span> Verder Kijken
+                        </h2>
+                        <div id="shelf-recent" class="shelf-container no-scrollbar">
+                            ${app.recent.map(r => {
+                                if (!r) return '';
+                                const p = (r.time > 0 && r.duration > 0) ? Math.round((r.time / r.duration) * 100) : 0;
+                                const latestAvailable = latestEpMap[r.id] || r.ep || 12;
+                                const isUpToDate = r.ep >= latestAvailable;
+
+                                let textBadge = '';
+                                if (isUpToDate) {
+                                    textBadge = `<span class="absolute top-2 left-2 bg-emerald-950/90 border border-emerald-500/40 text-emerald-400 text-[8px] font-black px-2 py-0.5 rounded shadow flex items-center gap-1"><i class="fa-solid fa-check"></i> UP-TO-DATE</span>`;
+                                } else {
+                                    textBadge = `<span class="absolute top-2 left-2 bg-[#cae962] text-black text-[8px] font-black px-2 py-0.5 rounded shadow flex items-center gap-1 font-bold animate-pulse"><i class="fa-solid fa-bell"></i> EP ${parseInt(r.ep)+1} OUT!</span>`;
+                                }
+
+                                return `
+                                    <div onclick="nav('watch', {id:'${r.id}', ep:${r.ep}})" class="flex-shrink-0 w-36 sm:w-44 cursor-pointer group select-none relative card p-2 bg-zinc-950/80">
+                                        <div class="aspect-video rounded-lg bg-zinc-900 border border-white/5 relative overflow-hidden mb-2">
+                                            <img src="${r.img}" class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-all duration-500">
+                                            <span class="absolute bottom-2 left-2 bg-black/85 px-1.5 py-0.5 rounded text-[8px] font-black text-[#cae962]">EP ${r.ep}</span>
+                                            ${textBadge}
+                                            ${p > 0 ? `<div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#cae962]" style="width: ${p}%"></div></div>` : ''}
+                                        </div>
+                                        <p class="text-[9px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${r.title}</p>
+                                    </div>`;
+                            }).join('')}
+                        </div>
+                    </div>`;
+                container.innerHTML += recentShelfHtml;
             }
 
             // Row 2: Airing Today / New Releases (from schedule)
@@ -1588,9 +1692,9 @@
         function renderShelf(title, list, elementId, isAiring = false) {
             if (!list || list.length === 0) return '';
             return `
-                <div class="space-y-4">
+                <div class="space-y-4 animate-fade-in">
                     <h2 class="text-lg font-black uppercase tracking-wider flex items-center gap-2">
-                        <span class="w-1.5 h-6 bg-[#e50914] rounded-full"></span> ${title}
+                        <span class="w-1.5 h-6 bg-[#cae962] rounded-full"></span> ${title}
                     </h2>
                     <div id="${elementId}" class="shelf-container no-scrollbar">
                         ${list.map(m => {
@@ -1600,9 +1704,9 @@
 
                             let badge = '';
                             if (isAiring && m.nextAiringEpisode) {
-                                badge = `<span class="absolute top-2 left-2 bg-[#e50914] text-white text-[8px] font-black px-2 py-0.5 rounded shadow">EPISODE ${m.nextAiringEpisode.episode}</span>`;
+                                badge = `<span class="absolute top-2 left-2 bg-[#cae962] text-black text-[8px] font-black px-2 py-0.5 rounded shadow font-bold">EPISODE ${m.nextAiringEpisode.episode}</span>`;
                             } else if (m.averageScore) {
-                                badge = `<span class="absolute top-2 left-2 bg-black/80 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1"></i>${m.averageScore/10}</span>`;
+                                badge = `<span class="absolute top-2 left-2 bg-black/80 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i>${m.averageScore/10}</span>`;
                             }
 
                             return `
@@ -1611,7 +1715,7 @@
                                         <img src="${cover}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
                                         ${badge}
                                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                                            <span class="w-8 h-8 rounded-full bg-[#e50914] text-white flex items-center justify-center text-xs font-black shadow-lg"><i class="fa-solid fa-play"></i></span>
+                                            <span class="w-8 h-8 rounded-full bg-[#cae962] text-black flex items-center justify-center text-xs font-black shadow-lg"><i class="fa-solid fa-play"></i></span>
                                         </div>
                                     </div>
                                     <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${t}</p>
@@ -1665,7 +1769,7 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2 self-end sm:self-auto">
-                            <button onclick="nav('watch', {id:'${item.id}', ep:${item.progress || 1}})" class="bg-[#1a1a1a] hover:bg-[#e50914] hover:text-white px-4 py-2.5 rounded-xl text-xs text-zinc-400 font-bold transition-colors"><i class="fa-solid fa-play"></i> Kijk</button>
+                            <button onclick="nav('watch', {id:'${item.id}', ep:${item.progress || 1}})" class="bg-[#1a1a1a] hover:bg-[#cae962] hover:text-black px-4 py-2.5 rounded-xl text-xs text-zinc-400 font-bold transition-colors"><i class="fa-solid fa-play"></i> Kijk</button>
                             <button onclick="quickIncrement('${item.id}')" class="bg-[#1a1a1a] hover:bg-zinc-800 px-4 py-2.5 rounded-xl text-xs text-zinc-400 font-black">+1 Ep</button>
                             <button onclick="deleteLocalItem('${item.id}')" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-3 rounded-xl text-xs transition-colors"><i class="fa-solid fa-trash"></i></button>
                         </div>
