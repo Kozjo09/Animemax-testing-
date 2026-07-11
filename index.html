@@ -9,6 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- HLS.js for native m3u8 streaming -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- reCAPTCHA v3 voor de nieuwe API calls -->
+    <script src="https://www.google.com/recaptcha/api.js?render=6LfzHX8sAAAAAN70WElpj4nM__wxhllZQNZCAFGb"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap');
@@ -391,7 +393,7 @@
                             <input type="email" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres">
                             <input type="text" id="auth-username" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Gebruikersnaam">
                             <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Wachtwoord (min. 6)">
-                            <button onclick="handleAuth('reg')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Account Aanmaken</button>
+                            <button onclick="handleAuth('reg')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold font-bold">Account Aanmaken</button>
                             <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
                             <p class="text-center text-xs text-zinc-500 mt-4">Al een account? <button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline">Inloggen</button></p>
                         </div>
@@ -403,7 +405,7 @@
                         <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Ontvang een herstellink</p>
                         <div class="space-y-4">
                             <input type="text" id="auth-reset-input" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Gebruikersnaam of E-mailadres">
-                            <button onclick="handleForgotPassword()" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Verstuur herstellink</button>
+                            <button onclick="handleForgotPassword()" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold font-bold">Verstuur herstellink</button>
                             <p class="text-center text-xs text-zinc-500 mt-4"><button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i> Terug naar login</button></p>
                         </div>
                     </div>`;
@@ -413,12 +415,12 @@
                         <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
                         <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Inloggen</p>
                         <div class="space-y-4">
-                            <input type="text" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres of Gebruikersnaam">
+                            <input type="email" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres">
                             <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Wachtwoord">
                             <div class="text-right">
                                 <button onclick="showLoginPage('forgot')" class="text-zinc-500 text-xs hover:text-white transition">Wachtwoord vergeten?</button>
                             </div>
-                            <button onclick="handleAuth('login')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold font-bold">Inloggen</button>
+                            <button onclick="handleAuth('login')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold font-bold font-bold">Inloggen</button>
                             <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
                             <p class="text-center text-xs text-zinc-500 mt-4">Nieuw hier? <button onclick="showLoginPage('register')" class="text-[#cae962] font-bold hover:underline">Registreren</button></p>
                         </div>
@@ -1100,7 +1102,7 @@
                     if (isUpToDate) {
                         actionBadge = `<span class="bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 text-[8px] font-black px-2.5 py-1 rounded-xl flex items-center gap-1 uppercase select-none"><i class="fa-solid fa-check"></i> Up-to-Date</span>`;
                     } else {
-                        actionBadge = `<button onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${parseInt(r.ep)+1}})" class="bg-[#cae962] text-black text-[8px] font-black px-2.5 py-1 rounded-xl flex items-center gap-1 uppercase hover:scale-105 active:scale-95 transition-all font-bold font-bold"><i class="fa-solid fa-play"></i> Nieuwe Ep ${parseInt(r.ep)+1} Uit!</button>`;
+                        actionBadge = `<button onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${parseInt(r.ep)+1}})" class="bg-[#cae962] text-black text-[8px] font-black px-2.5 py-1 rounded-xl flex items-center gap-1 uppercase hover:scale-105 active:scale-95 transition-all font-bold"><i class="fa-solid fa-play"></i> Nieuwe Ep ${parseInt(r.ep)+1} Uit!</button>`;
                     }
 
                     grid.innerHTML += `
@@ -1236,55 +1238,271 @@
             }
         }
 
+        async function loadHomeDashboardRows() {
+            const container = document.getElementById('home-shelves');
+            if (!container) return;
+
+            // Row 1: Continue Watching (from history)
+            if (app.recent && app.recent.length > 0) {
+                // Fetch real-time up-to-date and next episode counts
+                const ids = app.recent.map(r => parseInt(r.id)).filter(id => !isNaN(id));
+                let latestEpMap = {};
+                if (ids.length > 0) {
+                    try {
+                        const gqlRes = await gql(`query($ids:[Int]){Page(perPage:50){media(id_in:$ids,type:ANIME){id episodes status nextAiringEpisode{episode}}}}`, { ids });
+                        if (gqlRes && gqlRes.data && gqlRes.data.Page.media) {
+                            gqlRes.data.Page.media.forEach(m => {
+                                let total = m.episodes || 12;
+                                if (m.status === 'RELEASING' && m.nextAiringEpisode) {
+                                    total = m.nextAiringEpisode.episode - 1;
+                                }
+                                latestEpMap[m.id] = total;
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Error fetching progress for up-to-date tags:", e);
+                    }
+                }
+
+                // Render Continue Watching track with up-to-date alerts
+                let recentShelfHtml = `
+                    <div class="space-y-4">
+                        <h2 class="text-lg font-black uppercase tracking-wider flex items-center gap-2">
+                            <span class="w-1.5 h-6 bg-[#cae962] rounded-full"></span> Verder Kijken
+                        </h2>
+                        <div id="shelf-recent" class="shelf-container no-scrollbar">
+                            ${app.recent.map(r => {
+                                if (!r) return '';
+                                const p = (r.time > 0 && r.duration > 0) ? Math.round((r.time / r.duration) * 100) : 0;
+                                const latestAvailable = latestEpMap[r.id] || r.ep || 12;
+                                const isUpToDate = r.ep >= latestAvailable;
+
+                                let textBadge = '';
+                                if (isUpToDate) {
+                                    textBadge = `<span class="absolute top-2 left-2 bg-emerald-950/90 border border-emerald-500/40 text-emerald-400 text-[8px] font-black px-2 py-0.5 rounded shadow flex items-center gap-1"><i class="fa-solid fa-check"></i> UP-TO-DATE</span>`;
+                                } else {
+                                    textBadge = `<span class="absolute top-2 left-2 bg-[#cae962] text-black text-[8px] font-black px-2 py-0.5 rounded shadow flex items-center gap-1 font-bold animate-pulse"><i class="fa-solid fa-bell"></i> EP ${parseInt(r.ep)+1} OUT!</span>`;
+                                }
+
+                                return `
+                                    <div onclick="nav('watch', {id:'${r.id}', ep:${r.ep}})" class="flex-shrink-0 w-36 sm:w-44 cursor-pointer group select-none relative card p-2 bg-zinc-950/80">
+                                        <div class="aspect-video rounded-lg bg-zinc-900 border border-white/5 relative overflow-hidden mb-2">
+                                            <img src="${r.img}" class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-all duration-500">
+                                            <span class="absolute bottom-2 left-2 bg-black/85 px-1.5 py-0.5 rounded text-[8px] font-black text-[#cae962]">EP ${r.ep}</span>
+                                            ${textBadge}
+                                            ${p > 0 ? `<div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#cae962]" style="width: ${p}%"></div></div>` : ''}
+                                        </div>
+                                        <p class="text-[9px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${r.title}</p>
+                                    </div>`;
+                            }).join('')}
+                        </div>
+                    </div>`;
+                container.innerHTML += recentShelfHtml;
+            }
+
+            // Row 2: Airing Today / New Releases (from schedule)
+            try {
+                const nowSec = Math.floor(Date.now() / 1000);
+                const query = `query{Page(page:1,perPage:20){airingSchedules(airingAt_greater:${nowSec},airingAt_lesser:${nowSec + 4 * 86400},sort:TIME){media{id title{romaji english}coverImage{large}averageScore}episode}}}`;
+                const res = await fetch(ANILIST_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                const json = await res.json();
+                if (json.data && json.data.Page.airingSchedules) {
+                    const mappedList = json.data.Page.airingSchedules.map(item => ({
+                        ...item.media,
+                        nextAiringEpisode: { episode: item.episode }
+                    }));
+                    container.innerHTML += renderShelf("Nieuwe Releases (Airing)", mappedList, "shelf-airing", true);
+                }
+            } catch (e) {
+                console.error("Failed to load airing row:", e);
+            }
+
+            // Row 3: Trending Now
+            const trendingRes = await gql(`query{Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large}averageScore}}}`);
+            if (trendingRes && trendingRes.data) {
+                container.innerHTML += renderShelf("Nu Populair", trendingRes.data.Page.media, "shelf-trending");
+            }
+
+            // Row 4: Popular Shows
+            const popularRes = await gql(`query{Page(perPage:12){media(type:ANIME,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`);
+            if (popularRes && popularRes.data) {
+                container.innerHTML += renderShelf("Klassiekers & Favorieten", popularRes.data.Page.media, "shelf-popular");
+            }
+        }
+
+        function renderShelf(title, list, elementId, isAiring = false) {
+            if (!list || list.length === 0) return '';
+            return `
+                <div class="space-y-4 animate-fade-in">
+                    <h2 class="text-lg font-black uppercase tracking-wider flex items-center gap-2">
+                        <span class="w-1.5 h-6 bg-[#cae962] rounded-full"></span> ${title}
+                    </h2>
+                    <div id="${elementId}" class="shelf-container no-scrollbar">
+                        ${list.map(m => {
+                            if (!m) return '';
+                            const t = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
+                            const cover = m.coverImage?.large || m.img || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=150';
+
+                            let badge = '';
+                            if (isAiring && m.nextAiringEpisode) {
+                                badge = `<span class="absolute top-2 left-2 bg-[#cae962] text-black text-[8px] font-black px-2 py-0.5 rounded shadow font-bold">EPISODE ${m.nextAiringEpisode.episode}</span>`;
+                            } else if (m.averageScore) {
+                                badge = `<span class="absolute top-2 left-2 bg-black/80 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i>${m.averageScore/10}</span>`;
+                            }
+
+                            return `
+                                <div onclick="openDetailsModal('${m.id}')" class="flex-shrink-0 w-36 sm:w-44 cursor-pointer group select-none relative">
+                                    <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative bg-zinc-900">
+                                        <img src="${cover}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
+                                        ${badge}
+                                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
+                                            <span class="w-8 h-8 rounded-full bg-[#cae962] text-black flex items-center justify-center text-xs font-black shadow-lg"><i class="fa-solid fa-play"></i></span>
+                                        </div>
+                                    </div>
+                                    <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${t}</p>
+                                </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+        }
+
+        async function renderAniListConnectionStatus() {
+            const el = document.getElementById('anilist-connection-status');
+            if (!el) return;
+            if (app.anilistToken) {
+                const res = await gql(`query { Viewer { name avatar { large } } }`);
+                if (res && res.data && res.data.Viewer) {
+                    el.innerHTML = `
+                        <div class="flex items-center gap-3 bg-zinc-900/60 p-4 rounded-xl border border-white/5 max-w-xs mx-auto">
+                            <img src="${res.data.Viewer.avatar.large}" class="w-12 h-16 rounded-lg object-cover border border-white/10 shadow-lg">
+                            <div class="text-left">
+                                <p class="text-[9px] font-black text-emerald-400 uppercase">Gekoppeld</p>
+                                <h3 class="text-xs font-black text-white truncate max-w-[120px]">${res.data.Viewer.name}</h3>
+                                <button onclick="disconnectAniList()" class="text-red-500 text-[10px] font-bold uppercase hover:underline mt-1">Ontkoppelen</button>
+                            </div>
+                        </div>`;
+                    return;
+                }
+            }
+            el.innerHTML = `
+                <div class="text-center py-2">
+                    <span class="text-xs text-zinc-500 uppercase font-black">Niet verbonden</span>
+                </div>`;
+        }
+
+        window.renderLibraryGrid = function() {
+            const grid = document.getElementById('xml-display-grid'); if (!grid) return;
+            let fXml = app.libraryFilter === 'All' ? app.xmlLib : app.xmlLib.filter(i => i && (app.libraryFilter === 'Watched' ? (i.status === 'Watched' || i.status === 'Completed') : i.status === app.libraryFilter));
+
+            if (!fXml.length) return grid.innerHTML = `<p class="col-span-full text-xs uppercase font-black text-center text-zinc-600 py-12">Leeg in categorie ${app.libraryFilter}</p>`;
+
+            grid.innerHTML = '';
+            fXml.forEach(item => {
+                if (!item) return;
+                const dStat = item.status === 'Watched' ? 'COMPLETED' : item.status.toUpperCase();
+                grid.innerHTML += `
+                    <div id="lib-card-${item.id}" data-id="${item.id}" class="card p-4 flex flex-col sm:flex-row justify-between gap-4 border border-white/5 animate-fade-in bg-zinc-950">
+                        <div class="flex gap-4 items-center flex-1 min-w-0 cursor-pointer" onclick="openDetailsModal('${item.id}')">
+                            <img src="${item.coverImage || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=150'}" class="w-12 h-16 object-cover rounded-lg bg-zinc-900 border border-white/5">
+                            <div class="truncate pr-4 flex-1">
+                                <p class="text-white truncate font-bold text-sm mb-1">${item.title}</p>
+                                <div class="flex items-center gap-2"><span class="text-[9px] bg-zinc-900 text-accent px-2 py-0.5 rounded font-black">${dStat}</span><span class="text-[9px] text-zinc-500 font-bold uppercase">Prog: <span id="progress-val-${item.id}">${item.progress}</span> / <span id="eps-total-${item.id}">${item.episodes || '?'}</span></span></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 self-end sm:self-auto">
+                            <button onclick="nav('watch', {id:'${item.id}', ep:${item.progress || 1}})" class="bg-[#1a1a1a] hover:bg-[#cae962] hover:text-black px-4 py-2.5 rounded-xl text-xs text-zinc-400 font-bold transition-colors"><i class="fa-solid fa-play"></i> Kijk</button>
+                            <button onclick="quickIncrement('${item.id}')" class="bg-[#1a1a1a] hover:bg-zinc-800 px-4 py-2.5 rounded-xl text-xs text-zinc-400 font-black">+1 Ep</button>
+                            <button onclick="deleteLocalItem('${item.id}')" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-3 rounded-xl text-xs transition-colors"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>`;
+            });
+        };
+
+        window.quickIncrement = function(id) {
+            let item = app.xmlLib.find(i => i && i.id == id);
+            if (item) {
+                let current = parseInt(item.progress || 0);
+                let total = parseInt(item.episodes || 12);
+                if (current < total) {
+                    item.progress = current + 1;
+                    if (item.progress >= total) item.status = "Watched";
+                    saveCloudDataDebounced();
+                    renderLibraryGrid();
+                    window.syncProgressToAniList(id, item.progress, item.status);
+                    window.showToast(`Ep verhoogd naar ${item.progress}`);
+                } else {
+                    window.showToast("Laatste ep al bereikt!", "error");
+                }
+            }
+        };
+
+        window.deleteLocalItem = function(id) {
+            window.showConfirm("Verwijderen", "Weet je zeker dat je dit uit de lijst wilt verwijderen?", () => {
+                app.xmlLib = app.xmlLib.filter(i => i.id != id);
+                saveCloudDataDebounced();
+                renderLibraryGrid();
+            });
+        };
+
+        window.removeRecentAnime = function(e, id) {
+            if(e) { e.stopPropagation(); e.preventDefault(); }
+            window.showConfirm("Verwijderen", "Verwijderen uit geschiedenis?", () => {
+                app.recent = app.recent.filter(r => r && r.id != id);
+                saveCloudDataDebounced();
+                window.showToast("Verwijderd!");
+                render();
+            });
+        };
+
+        window.checkAudioAvailabilityAndPlay = function(targetMode) {
+            app.mode = targetMode;
+            saveCloudDataDebounced();
+            render();
+        };
+
+        window.handleAuth = async function(type) {
+            const p = document.getElementById('auth-password').value.trim();
+            let email = document.getElementById('auth-email').value.trim();
+
+            if (!email || !p) return window.showToast("Vul alles in!", "error");
+
+            if (type === 'reg') {
+                const u = document.getElementById('auth-username').value.trim();
+                if(!u) return window.showToast("Vul een gebruikersnaam in!", "error");
+                const { data, error } = await sb.auth.signUp({ email, password: p });
+                if (error) return window.showToast(error.message, "error");
+                app.user = u;
+                if (data.user) await sb.from('anime_users').insert([{ id: data.user.id, username: u, watchlist: [], recent: [] }]);
+                window.showToast("Succesvol! Log nu in.");
+                showLoginPage('login');
+            } else {
+                if (!email.includes('@')) email = `${email.toLowerCase()}@animemax.local`;
+                const { data, error } = await sb.auth.signInWithPassword({ email, password: p });
+                if (error) return window.showToast("Onjuiste gegevens.", "error");
+                sessionData = data.session;
+                await loadCloudData();
+            }
+        };
+
         window.onload = async () => {
             try {
                 sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-                // Catch password reset/recovery hash tokens
-                const hash = window.location.hash;
-                if (hash.includes('type=recovery') || hash.includes('access_token=')) {
-                    const parsedParams = new URLSearchParams(hash.substring(1));
-                    if (parsedParams.has('access_token')) {
-                        const token = parsedParams.get('access_token');
-                        const { data, error } = await sb.auth.setSession({ access_token: token, refresh_token: parsedParams.get('refresh_token') || "" });
-                        if (!error) {
-                            showResetPasswordView();
-                            return;
-                        }
-                    }
-                }
-
-                // Check for AniList OAuth token callback
-                if (hash.includes('access_token=') && !hash.includes('type=recovery')) {
-                    const parsedParams = new URLSearchParams(hash.substring(1));
-                    const access_token = parsedParams.get('access_token');
-                    if (access_token) {
-                        app.anilistToken = access_token;
-                        window.location.hash = ''; // clear hash
-                        verifyAndSaveAniListToken(access_token);
-                    }
-                }
-
-                // Check if we are running in headless test
-                const isHeadlessTest = window.navigator.webdriver || window.location.protocol === 'file:';
-                if (isHeadlessTest) {
-                    console.log("Headless/offline test detected, bypassing Supabase session fetch and loading login.");
+                // Playwright tests specific URL search trigger
+                const isPlaywrightTest = window.location.search.includes('test=true');
+                if (isPlaywrightTest) {
                     showLoginPage('login');
                     return;
                 }
 
                 const { data: { session } } = await sb.auth.getSession();
-                if (session) {
-                    sessionData = session;
-                    restoreStateFromUrl();
-                    await loadCloudData();
-                } else {
-                    showLoginPage('login');
-                }
-            } catch(e) {
-                console.error(e);
-                showLoginPage('login');
-            }
+                if (session) { sessionData = session; restoreStateFromUrl(); await loadCloudData(); }
+                else { showLoginPage('login'); }
+            } catch(e) { console.error(e); showLoginPage('login'); }
         };
     </script>
 </body>
