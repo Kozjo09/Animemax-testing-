@@ -225,140 +225,17 @@
         </div>
     </div>
 
+    <!-- ONE COHESIVE JAVASCRIPT BLOCK -->
     <script>
-        // =========================================================================
-        // ANIME API MANAGEMENT
-        // =========================================================================
-        const API_BASE = '/api/anime';
-        const API_CACHE = new Map();
-        const API_INFLIGHT = new Map();
-        const PROXY_BASE = 'https://corsproxy.io/?';
-
-        function getApiCacheTtl(path) {
-            if (!path) return 0;
-            if (path.startsWith('/watch/')) return 0;
-            if (path.startsWith('/suggestions')) return 20000;
-            if (path.startsWith('/spotlight')) return 0;
-            if (path.startsWith('/trending') || path.startsWith('/popular')) return 45000;
-            if (path.startsWith('/info/') || path.startsWith('/episodes/')) return 300000;
-            return 15000;
-        }
-
-        class CryptoManager {
-            constructor() {
-                this.key = null;
-                this.initPromise = this.init();
-            }
-            async init() {
-                const meta = document.querySelector('meta[name="k-session"]');
-                if (!meta || !meta.content) return;
-                try {
-                    const rawKey = this.base64ToArrayBuffer(meta.content);
-                    this.key = await window.crypto.subtle.importKey(
-                        "raw", rawKey, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]
-                    );
-                } catch (e) {
-                    console.error("[Crypto] Key import failed:", e);
-                }
-            }
-            base64ToArrayBuffer(base64) {
-                const binary_string = window.atob(base64);
-                const bytes = new Uint8Array(binary_string.length);
-                for (let i = 0; i < binary_string.length; i++) {
-                    bytes[i] = binary_string.charCodeAt(i);
-                }
-                return bytes.buffer;
-            }
-            arrayBufferToBase64(buffer) {
-                let binary = '';
-                const bytes = new Uint8Array(buffer);
-                for (let i = 0; i < bytes.byteLength; i++) {
-                    binary += String.fromCharCode(bytes[i]);
-                }
-                return window.btoa(binary);
-            }
-            async encryptPayload(obj) {
-                if (!this.key) return null;
-                const iv = window.crypto.getRandomValues(new Uint8Array(12));
-                const encoded = new TextEncoder().encode(JSON.stringify(obj));
-                const cipherBuffer = await window.crypto.subtle.encrypt(
-                    { name: "AES-GCM", iv: iv }, this.key, encoded
-                );
-                const payload = new Uint8Array(iv.length + cipherBuffer.byteLength);
-                payload.set(iv, 0);
-                payload.set(new Uint8Array(cipherBuffer), iv.length);
-                return this.arrayBufferToBase64(payload);
-            }
-            async decryptResponse(base64Str) {
-                if (!this.key) return null;
-                const buffer = this.base64ToArrayBuffer(base64Str);
-                const bytes = new Uint8Array(buffer);
-                const iv = bytes.slice(0, 12);
-                const ct = bytes.slice(12);
-                return await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, this.key, ct);
-            }
-        }
-
-        const cryptoInstance = new CryptoManager();
-
-        async function decompressGzip(buffer) {
-            if (typeof DecompressionStream !== 'undefined') {
-                const ds = new DecompressionStream('gzip');
-                const writer = ds.writable.getWriter();
-                writer.write(new Uint8Array(buffer));
-                writer.close();
-                return await new Response(ds.readable).arrayBuffer();
-            }
-            return buffer;
-        }
-
-        async function fetchAPI(path) {
-            await cryptoInstance.initPromise;
-            const cacheKey = path;
-            const ttlMs = getApiCacheTtl(path);
-            const now = Date.now();
-
-            if (ttlMs > 0) {
-                const cached = API_CACHE.get(cacheKey);
-                if (cached && cached.expiresAt > now) return cached.data;
-                if (cached) API_CACHE.delete(cacheKey);
-            }
-            if (API_INFLIGHT.has(cacheKey)) return API_INFLIGHT.get(cacheKey);
-
-            const runRequest = async () => {
-                if (cryptoInstance.key) {
-                    const payload = { path, method: 'GET', query: {}, body: null, version: '0.1.0' };
-                    const encryptedB64 = await cryptoInstance.encryptPayload(payload);
-                    const res = await fetch(`/api/secure/pipe?e=${encodeURIComponent(encryptedB64)}`);
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const responseB64 = await res.text();
-                    const decryptedBytes = await cryptoInstance.decryptResponse(responseB64);
-                    const decompressedBytes = await decompressGzip(decryptedBytes);
-                    return JSON.parse(new TextDecoder().decode(decompressedBytes));
-                } else {
-                    const res = await fetch(API_BASE + path);
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    return res.json();
-                }
-            };
-
-            const requestPromise = runRequest()
-                .then((data) => {
-                    if (ttlMs > 0) API_CACHE.set(cacheKey, { data, expiresAt: Date.now() + ttlMs });
-                    return data;
-                })
-                .finally(() => API_INFLIGHT.delete(cacheKey));
-
-            API_INFLIGHT.set(cacheKey, requestPromise);
-            return requestPromise;
-        }
-
+        // Global State Variables
         const ANILIST_ENDPOINT = 'https://graphql.anilist.co';
         const ANIVEXA_BASE = 'https://anivexa-three.vercel.app'; 
-        
         const SUPABASE_URL = "https://zieuivzmzzxbraefeovl.supabase.co";
         const SUPABASE_KEY = "sb_publishable_EpN5OqgyzVvorrR27-V2MA_ZPCnD7He";
-        
+        const ANILIST_API = 'https://graphql.anilist.co';
+        const EMBED_PROVIDERS = ['anikoto', 'animegg', 'anidbapp', 'reanime', 'anineko'];
+        const PROXY_BASE = 'https://corsproxy.io/?';
+
         let sb = null;
         let sessionData = null;
         let saveInterval = null;
@@ -381,40 +258,10 @@
         let currentDuration = 0;
         let activeModalId = null;
 
-        const ANILIST_API = 'https://graphql.anilist.co';
-        const EMBED_PROVIDERS = ['anikoto', 'animegg', 'anidbapp', 'reanime', 'anineko'];
-
-        // Core global functions
-        window.showToast = function(message, type = 'success') {
-            const container = document.getElementById('toast-container');
-            if(!container) return;
-            const toast = document.createElement('div');
-            toast.className = `p-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-between shadow-2xl border text-center animate-toast pointer-events-auto w-full ${
-                type === 'error' ? 'bg-red-950/95 text-red-400 border-red-500/20' : 'bg-zinc-900/95 text-accent border-accent/20'
-            }`;
-            toast.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()" class="ml-4 opacity-50 hover:opacity-100"><i class="fa-solid fa-times"></i></button>`;
-            container.appendChild(toast);
-            setTimeout(() => { if (toast.parentElement) toast.remove(); }, 4000);
-        };
-
-        window.showConfirm = function(title, message, onConfirm) {
-            const modal = document.getElementById('confirm-modal');
-            document.getElementById('confirm-title').textContent = title;
-            document.getElementById('confirm-message').textContent = message;
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-
-            const close = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); };
-            document.getElementById('confirm-cancel-btn').onclick = close;
-            document.getElementById('confirm-ok-btn').onclick = () => { close(); onConfirm(); };
-        };
-
+        // Custom CORS Proxy Resolver supporting both path prefixing and query arguments
         function proxyM3u8(url, referer) {
             if (!url || url.startsWith('blob:')) return url;
-            if (url.startsWith(PROXY_BASE)) return url;
-            let proxyUrl = `${PROXY_BASE}url=${encodeURIComponent(url)}`;
-            if (referer) proxyUrl += `&ref=${encodeURIComponent(referer)}`;
-            return proxyUrl;
+            return `${PROXY_BASE}${encodeURIComponent(url)}`;
         }
 
         async function fetchWithCorsFallback(url) {
@@ -425,10 +272,10 @@
                 console.warn(`Direct connection failed, applying CORS proxy fallbacks...`);
             }
             try {
-                return await fetch(proxyM3u8(url));
-            } catch (e) {
-                throw new Error("Verbindingsfout naar stream.");
-            }
+                const proxied = proxyM3u8(url);
+                return await fetch(proxied);
+            } catch (e) { }
+            throw new Error("Verbindingsfout naar stream.");
         }
 
         // Custom GraphQL Caller with automatic AniList Access Token binding
@@ -524,7 +371,67 @@
         });
 
         // =========================================================================
-        // ANILIST INTERACTIVE ACTIONS
+        // USER AUTH & FORGOT PASSWORD FLOWS
+        // =========================================================================
+        function showLoginPage(mode = 'login') {
+            document.getElementById('app-header').classList.add('hidden');
+            document.getElementById('app-navigation').classList.add('hidden');
+            const main = document.getElementById('content');
+            if(!main) return;
+
+            if (mode === 'register') {
+                main.innerHTML = `
+                    <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
+                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
+                        <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Nieuw cloud-profiel aanmaken</p>
+                        <div class="space-y-4">
+                            <input type="email" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres">
+                            <input type="text" id="auth-username" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Gebruikersnaam">
+                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Wachtwoord (min. 6)">
+                            <button onclick="handleAuth('reg')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Account Aanmaken</button>
+                            <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
+                            <p class="text-center text-xs text-zinc-500 mt-4">Al een account? <button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline">Inloggen</button></p>
+                        </div>
+                    </div>`;
+            } else if (mode === 'forgot') {
+                main.innerHTML = `
+                    <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
+                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Wachtwoord Herstellen</h2>
+                        <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Ontvang een herstellink</p>
+                        <div class="space-y-4">
+                            <input type="text" id="auth-reset-input" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Gebruikersnaam of E-mailadres">
+                            <button onclick="handleForgotPassword()" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Verstuur herstellink</button>
+                            <p class="text-center text-xs text-zinc-500 mt-4"><button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i> Terug naar login</button></p>
+                        </div>
+                    </div>`;
+            } else {
+                main.innerHTML = `
+                    <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
+                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
+                        <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Inloggen</p>
+                        <div class="space-y-4">
+                            <input type="text" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres of Gebruikersnaam">
+                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Wachtwoord">
+                            <div class="text-right">
+                                <button onclick="showLoginPage('forgot')" class="text-zinc-500 text-xs hover:text-white transition">Wachtwoord vergeten?</button>
+                            </div>
+                            <button onclick="handleAuth('login')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Inloggen</button>
+                            <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
+                            <p class="text-center text-xs text-zinc-500 mt-4">Nieuw hier? <button onclick="showLoginPage('register')" class="text-[#cae962] font-bold hover:underline">Registreren</button></p>
+                        </div>
+                    </div>`;
+            }
+        }
+        window.showLoginPage = showLoginPage;
+
+        window.handleGoogleLogin = async function() {
+            window.showToast("Google Login start...");
+            const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + window.location.pathname } });
+            if (error) window.showToast("Mislukt: " + error.message, "error");
+        };
+
+        // =========================================================================
+        // ANILIST CONNECTION & MANUALLY CONNECTIONS
         // =========================================================================
         window.loginAniListOAuth = function() {
             const client_id = "23340"; // Public AniList client ID
@@ -591,271 +498,8 @@
         };
 
         // =========================================================================
-        // USER AUTH & FORGOT PASSWORD FLOWS
-        // =========================================================================
-        window.onload = async () => {
-            try {
-                sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-                // Catch password reset/recovery hash tokens
-                const hash = window.location.hash;
-                if (hash.includes('type=recovery') || hash.includes('access_token=')) {
-                    const parsedParams = new URLSearchParams(hash.substring(1));
-                    if (parsedParams.has('access_token')) {
-                        const token = parsedParams.get('access_token');
-                        const { data, error } = await sb.auth.setSession({ access_token: token, refresh_token: parsedParams.get('refresh_token') || "" });
-                        if (!error) {
-                            showResetPasswordView();
-                            return;
-                        }
-                    }
-                }
-
-                // Check for AniList OAuth token callback
-                if (hash.includes('access_token=') && !hash.includes('type=recovery')) {
-                    const parsedParams = new URLSearchParams(hash.substring(1));
-                    const access_token = parsedParams.get('access_token');
-                    if (access_token) {
-                        app.anilistToken = access_token;
-                        window.location.hash = ''; // clear hash
-                        verifyAndSaveAniListToken(access_token);
-                    }
-                }
-
-                const { data: { session } } = await sb.auth.getSession();
-                if (session) {
-                    sessionData = session;
-                    restoreStateFromUrl();
-                    await loadCloudData();
-                } else {
-                    showLoginPage('login');
-                }
-            } catch(e) {
-                console.error(e);
-                showLoginPage('login');
-            }
-        };
-
-        function showLoginPage(mode = 'login') {
-            document.getElementById('app-header').classList.add('hidden');
-            document.getElementById('app-navigation').classList.add('hidden');
-            const main = document.getElementById('content');
-            if(!main) return;
-
-            if (mode === 'register') {
-                main.innerHTML = `
-                    <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
-                        <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Nieuw cloud-profiel aanmaken</p>
-                        <div class="space-y-4">
-                            <input type="email" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres">
-                            <input type="text" id="auth-username" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Gebruikersnaam">
-                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Wachtwoord (min. 6)">
-                            <button onclick="handleAuth('reg')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Account Aanmaken</button>
-                            <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
-                            <p class="text-center text-xs text-zinc-500 mt-4">Al een account? <button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline">Inloggen</button></p>
-                        </div>
-                    </div>`;
-            } else if (mode === 'forgot') {
-                main.innerHTML = `
-                    <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Wachtwoord Herstellen</h2>
-                        <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Ontvang een herstellink</p>
-                        <div class="space-y-4">
-                            <input type="text" id="auth-reset-input" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Gebruikersnaam of E-mailadres">
-                            <button onclick="handleForgotPassword()" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Verstuur herstellink</button>
-                            <p class="text-center text-xs text-zinc-500 mt-4"><button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i> Terug naar login</button></p>
-                        </div>
-                    </div>`;
-            } else {
-                main.innerHTML = `
-                    <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
-                        <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Inloggen</p>
-                        <div class="space-y-4">
-                            <input type="text" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres of Gebruikersnaam">
-                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Wachtwoord">
-                            <div class="text-right">
-                                <button onclick="showLoginPage('forgot')" class="text-zinc-500 text-xs hover:text-white transition">Wachtwoord vergeten?</button>
-                            </div>
-                            <button onclick="handleAuth('login')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Inloggen</button>
-                            <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
-                            <p class="text-center text-xs text-zinc-500 mt-4">Nieuw hier? <button onclick="showLoginPage('register')" class="text-[#cae962] font-bold hover:underline">Registreren</button></p>
-                        </div>
-                    </div>`;
-            }
-        }
-
-        function showResetPasswordView() {
-            document.getElementById('app-header').classList.add('hidden');
-            document.getElementById('app-navigation').classList.add('hidden');
-            const main = document.getElementById('content');
-            if(!main) return;
-            main.innerHTML = `
-                <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                    <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Nieuw Wachtwoord</h2>
-                    <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Stel een nieuw wachtwoord in</p>
-                    <div class="space-y-4">
-                        <input type="password" id="reset-new-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Nieuw Wachtwoord (min. 6)">
-                        <button onclick="handleResetPassword()" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Bevestig Wachtwoord</button>
-                    </div>
-                </div>`;
-        }
-
-        window.handleForgotPassword = async function() {
-            let input = document.getElementById('auth-reset-input').value.trim();
-            if(!input) return window.showToast("Vul uw gebruikersnaam of e-mailadres in!", "error");
-            if (!input.includes('@')) input = `${input.toLowerCase()}@animemax.local`;
-
-            window.showToast("Aanvraag verzenden...");
-            const { error } = await sb.auth.resetPasswordForEmail(input, {
-                redirectTo: window.location.origin + window.location.pathname
-            });
-            if (error) {
-                window.showToast("Mislukt: " + error.message, "error");
-            } else {
-                window.showToast("Herstellink verzonden! (Als u een Gmail-adres gebruikte)");
-                showLoginPage('login');
-            }
-        };
-
-        window.handleResetPassword = async function() {
-            const pass = document.getElementById('reset-new-password').value.trim();
-            if (pass.length < 6) return window.showToast("Wachtwoord moet minimaal 6 tekens bevatten!", "error");
-
-            window.showToast("Wachtwoord updaten...");
-            const { error } = await sb.auth.updateUser({ password: pass });
-            if (error) {
-                window.showToast("Mislukt: " + error.message, "error");
-            } else {
-                window.showToast("Succesvol hersteld! Log nu in.");
-                await sb.auth.signOut();
-                showLoginPage('login');
-            }
-        };
-
-        window.changeUsername = async function() {
-            const newUsername = document.getElementById('set-user').value.trim();
-            if (!newUsername) return window.showToast("Vul een gebruikersnaam in!", "error");
-            if (newUsername === app.user) return window.showToast("Gebruikersnaam is niet gewijzigd.");
-
-            window.showToast("Profiel bijwerken...");
-            try {
-                const { data, error } = await sb.rpc('update_username_and_auth_email', {
-                    target_user_id: sessionData.user.id,
-                    new_username: newUsername
-                });
-
-                if (error) throw error;
-
-                if (data && data.success) {
-                    app.user = newUsername;
-                    saveCloudDataDebounced();
-                    window.showToast("Gebruikersnaam succesvol bijgewerkt!");
-                    render();
-                } else {
-                    window.showToast(data ? data.message : "Gebruikersnaam al in gebruik.", "error");
-                }
-            } catch(e) {
-                console.error(e);
-                window.showToast("Er is een fout opgetreden.", "error");
-            }
-        };
-
-        window.handleAuth = async function(type) {
-            const p = document.getElementById('auth-password').value.trim();
-            let email = document.getElementById('auth-email').value.trim();
-
-            if (!email || !p) return window.showToast("Vul alles in!", "error");
-
-            if (type === 'reg') {
-                const u = document.getElementById('auth-username').value.trim();
-                if(!u) return window.showToast("Vul een gebruikersnaam in!", "error");
-                if (!email.includes('@')) email = `${email.toLowerCase()}@animemax.local`;
-
-                const { data, error } = await sb.auth.signUp({ email, password: p });
-                if (error) return window.showToast(error.message, "error");
-                app.user = u;
-                if (data.user) {
-                    await sb.from('anime_users').insert([{ id: data.user.id, username: u, watchlist: [], recent: [] }]);
-                }
-                window.showToast("Succesvol geregistreerd! Log nu in.");
-                showLoginPage('login');
-            } else {
-                if (!email.includes('@')) email = `${email.toLowerCase()}@animemax.local`;
-                const { data, error } = await sb.auth.signInWithPassword({ email, password: p });
-                if (error) return window.showToast("Onjuiste inloggegevens.", "error");
-                sessionData = data.session;
-                await loadCloudData();
-            }
-        };
-
-        async function loadCloudData() {
-            if (!sessionData) return;
-            const { data } = await sb.from('anime_users').select('*').eq('id', sessionData.user.id).maybeSingle();
-            if (data) {
-                app.xmlLib = data.watchlist || [];
-                app.recent = data.recent || [];
-                if (data.settings) {
-                    app.defaultAudio = data.settings.defaultAudio || 'sub'; app.mode = app.defaultAudio;
-                    app.server = data.settings.server || 'megaplay';
-                    app.user = data.settings.user || app.user; app.showContinue = data.settings.showContinue !== false;
-                    app.lang = data.settings.lang || 'english'; app.autoPlay = data.settings.autoPlay !== false;
-                    app.autoNext = data.settings.autoNext !== false; app.autoSkipIntro = data.settings.autoSkipIntro === true;
-                    app.skipSeconds = parseInt(data.settings.skipSeconds || '85'); app.autoDubFallback = data.settings.autoDubFallback !== false;
-                    app.anilistToken = data.settings.anilistToken || null;
-                }
-            } else {
-                app.user = sessionData.user.email.split('@')[0];
-                await sb.from('anime_users').insert([{ id: sessionData.user.id, username: app.user, watchlist: [], recent: [], settings: { user: app.user, server: 'megaplay' } }]);
-            }
-            document.getElementById('app-header').classList.remove('hidden');
-            document.getElementById('app-navigation').classList.remove('hidden');
-            render();
-        }
-
-        window.logout = async function() { await sb.auth.signOut(); sessionData = null; window.location.hash = ''; showLoginPage('login'); };
-
-        // =========================================================================
         // EPISODES & VIDEOPLAYERS IMPLEMENTATION
         // =========================================================================
-        function extractEpisodes(episodesData) {
-            let sub = []; let dub = [];
-            if (Array.isArray(episodesData)) {
-                episodesData.forEach(ep => {
-                    if (ep.dub || ep.category === 'dub' || (ep.type && ep.type.toLowerCase() === 'dub') || (ep.audio && ep.audio.toLowerCase() === 'dub')) {
-                        dub.push(ep);
-                    } else {
-                        sub.push(ep);
-                    }
-                });
-            } else if (episodesData && typeof episodesData === 'object') {
-                if (Array.isArray(episodesData.sub)) sub = episodesData.sub;
-                if (Array.isArray(episodesData.dub)) dub = episodesData.dub;
-            }
-            return { sub, dub };
-        }
-
-        function normalizeApiProviders(data, apiVersion) {
-            let list = []; if (!data) return list;
-            const providers = data.providers || data; if (!providers) return list;
-            if (Array.isArray(providers)) {
-                providers.forEach(p => {
-                    const providerName = p.providerId || p.id || p.name || "unknown";
-                    const { sub, dub } = extractEpisodes(p.episodes || p);
-                    list.push({ id: `${apiVersion}-${providerName}`, api: apiVersion, provider: providerName, sub: sub, dub: dub });
-                });
-            } else if (typeof providers === 'object') {
-                for (const [providerName, pData] of Object.entries(providers)) {
-                    if (pData && typeof pData === 'object') {
-                        const { sub, dub } = extractEpisodes(pData.episodes || pData);
-                        list.push({ id: `${apiVersion}-${providerName}`, api: apiVersion, provider: providerName, sub: sub, dub: dub });
-                    }
-                }
-            }
-            return list;
-        }
-
         window.loadAllProviders = async function(anilistId) {
             if (anivexaEpisodesCache[anilistId]) return anivexaEpisodesCache[anilistId];
             let allProviders = [];
@@ -913,12 +557,13 @@
                         if (data.fatal) {
                             switch(data.type) {
                                 case Hls.ErrorTypes.NETWORK_ERROR:
+                                    // Bypasses locked stream CORS errors by securely proxying manifest & chunks
                                     if (!streamUrl.includes('corsproxy.io')) {
                                         const proxiedUrl = proxyM3u8(m3u8Url);
                                         hlsInstance.destroy();
                                         initHlsStream(proxiedUrl);
                                     } else {
-                                        window.showToast("Oeps, videobron weigert verbinding door CORS-beveiliging.", "error");
+                                        window.showToast("Videobron weigert verbinding.", "error");
                                     }
                                     break;
                                 case Hls.ErrorTypes.MEDIA_ERROR:
@@ -936,7 +581,7 @@
                 }
             }
 
-            initHlsStream(proxyM3u8(m3u8Url));
+            initHlsStream(m3u8Url); // Load stream directly first (much faster + no lag)
             video.ontimeupdate = () => { window.updateProgressUI(video.currentTime, video.duration); };
         };
 
@@ -967,11 +612,6 @@
                       validServers.push(p);
                  }
             });
-
-            if (app.server !== 'megaplay' && !validServers.find(vs => vs.id === app.server)) {
-                app.server = validServers.length > 0 ? validServers[0].id : 'megaplay';
-                saveCloudDataDebounced();
-            }
 
             // Always add MegaPlay as available embed source
             const mBtn = document.createElement('button');
@@ -1033,12 +673,10 @@
                         window.setupNativePlayer(best.url, streamData.subtitles || []);
                     }
                 } else {
-                    window.showToast("Stream momenteel offline of onbeschikbaar. Megaplay geselecteerd.", "error");
-                    window.setServer('megaplay');
+                    window.showToast("Stream offline of onbeschikbaar.", "error");
                 }
             } catch (err) {
                 console.error(err);
-                window.setServer('megaplay');
             }
         };
 
@@ -1407,7 +1045,7 @@
                                 if(timerContainer) timerContainer.innerHTML = `
                                     <div class="bg-zinc-950 p-4 rounded-xl border border-[#cae962]/20 flex items-center justify-between shadow-lg">
                                         <span class="text-[10px] font-black uppercase text-zinc-400 flex items-center gap-2"><i class="fa-solid fa-clock"></i> Nieuwe Episode ${m.nextAiringEpisode.episode}</span>
-                                        <span class="text-xs font-black text-[#cae962] tabular-nums font-bold">≈ ${days}d ${hours}u ${minutes}m ${seconds}s</span>
+                                        <span class="text-xs font-black text-[#cae962] tabular-nums font-bold font-bold">≈ ${days}d ${hours}u ${minutes}m ${seconds}s</span>
                                     </div>`;
                             };
                             updateTimer(); countdownInterval = setInterval(updateTimer, 1000);
@@ -1457,7 +1095,7 @@
                     if (isUpToDate) {
                         actionBadge = `<span class="bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 text-[8px] font-black px-2.5 py-1 rounded-xl flex items-center gap-1 uppercase select-none"><i class="fa-solid fa-check"></i> Up-to-Date</span>`;
                     } else {
-                        actionBadge = `<button onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${parseInt(r.ep)+1}})" class="bg-[#cae962] text-black text-[8px] font-black px-2.5 py-1 rounded-xl flex items-center gap-1 uppercase hover:scale-105 active:scale-95 transition-all"><i class="fa-solid fa-play"></i> Nieuwe Ep ${parseInt(r.ep)+1} Uit!</button>`;
+                        actionBadge = `<button onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${parseInt(r.ep)+1}})" class="bg-[#cae962] text-black text-[8px] font-black px-2.5 py-1 rounded-xl flex items-center gap-1 uppercase hover:scale-105 active:scale-95 transition-all font-bold"><i class="fa-solid fa-play"></i> Nieuwe Ep ${parseInt(r.ep)+1} Uit!</button>`;
                     }
 
                     grid.innerHTML += `
@@ -1509,10 +1147,10 @@
                                 <div class="flex justify-between items-center p-1"><span class="text-xs font-black uppercase text-zinc-400">Titel Taal</span>
                                 <div class="flex gap-4 text-xs font-bold text-zinc-300"><label><input type="radio" name="lang" value="english" ${app.lang=='english'?'checked':''}> ENG</label><label><input type="radio" name="lang" value="japanese" ${app.lang=='japanese'?'checked':''}> JAP</label></div></div>
 
-                                <div class="space-y-2 pt-2">
+                                <div class="space-y-2 pt-2 border-t border-white/5">
                                     <p class="text-[9px] font-black text-zinc-500 uppercase">Wijzig gebruikersnaam (Synchroniseert met Supabase Auth)</p>
                                     <input type="text" id="set-user" value="${app.user}" placeholder="Gebruikersnaam" class="w-full bg-black border border-white/10 p-3.5 rounded-xl text-center text-xs text-white font-black">
-                                    <button onclick="changeUsername()" class="bg-[#cae962] text-black font-black py-3 rounded-xl w-full text-xs uppercase hover:bg-lime-400 transition font-bold">Update Naam</button>
+                                    <button onclick="changeUsername()" class="bg-[#cae962] text-black font-black py-3 rounded-xl w-full text-xs uppercase hover:bg-lime-400 transition font-bold font-bold">Update Naam</button>
                                 </div>
 
                                 <button onclick="saveSet()" class="bg-zinc-800 text-white font-black py-3.5 rounded-xl w-full text-xs uppercase hover:bg-zinc-700 transition">Instellingen Opslaan</button>
@@ -1615,7 +1253,7 @@
                             });
                         }
                     } catch (e) {
-                        console.error(e);
+                        console.error("Error fetching progress for up-to-date tags:", e);
                     }
                 }
 
@@ -1817,6 +1455,61 @@
             app.mode = targetMode;
             saveCloudDataDebounced();
             render();
+        };
+
+        // Suppress reference error by properly defining window.onload
+        window.onload = async () => {
+            try {
+                sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+                // Catch password reset/recovery hash tokens
+                const hash = window.location.hash;
+                if (hash.includes('type=recovery') || hash.includes('access_token=')) {
+                    const parsedParams = new URLSearchParams(hash.substring(1));
+                    if (parsedParams.has('access_token')) {
+                        const token = parsedParams.get('access_token');
+                        const { data, error } = await sb.auth.setSession({ access_token: token, refresh_token: parsedParams.get('refresh_token') || "" });
+                        if (!error) {
+                            showResetPasswordView();
+                            return;
+                        }
+                    }
+                }
+
+                // Check for AniList OAuth token callback
+                if (hash.includes('access_token=') && !hash.includes('type=recovery')) {
+                    const parsedParams = new URLSearchParams(hash.substring(1));
+                    const access_token = parsedParams.get('access_token');
+                    if (access_token) {
+                        app.anilistToken = access_token;
+                        window.location.hash = ''; // clear hash
+                        verifyAndSaveAniListToken(access_token);
+                    }
+                }
+
+                // Race session fetch with a 2-second timeout to handle offline gracefully
+                const sessionPromise = sb.auth.getSession();
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2000));
+
+                let session = null;
+                try {
+                    const res = await Promise.race([sessionPromise, timeoutPromise]);
+                    session = res.data?.session;
+                } catch (e) {
+                    console.warn("Supabase session check timed out or network is offline.");
+                }
+
+                if (session) {
+                    sessionData = session;
+                    restoreStateFromUrl();
+                    await loadCloudData();
+                } else {
+                    showLoginPage('login');
+                }
+            } catch(e) {
+                console.error(e);
+                showLoginPage('login');
+            }
         };
     </script>
 </body>
