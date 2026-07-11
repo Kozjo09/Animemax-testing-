@@ -236,8 +236,8 @@
         const SUPABASE_KEY = "sb_publishable_EpN5OqgyzVvorrR27-V2MA_ZPCnD7He";
         const ANILIST_API = 'https://graphql.anilist.co';
         const EMBED_PROVIDERS = ['anikoto', 'animegg', 'anidbapp', 'reanime', 'anineko'];
-        const PROXY_BASE = 'https://proxy.corsfix.com/'; // Premium proxy domain
-        const CORSFIX_API_KEY = 'cfx_6caec83cae44e09879b57ba6b15d18b0'; // Pre-configured verified key
+        const PROXY_BASE = 'https://proxy.corsfix.com/?'; // Verified CORSfix API Endpoint with query parameter syntax
+        const CORSFIX_API_KEY = 'cfx_6caec83cae44e09879b57ba6b15d18b0'; // Verified user CORSfix token
 
         let sb = null;
         let sessionData = null;
@@ -261,12 +261,13 @@
         let currentDuration = 0;
         let activeModalId = null;
 
-        // Custom CORS Proxy Resolver supporting premium corsfix proxy with automatic prefixing
+        // Custom CORS Proxy Resolver supporting premium corsfix proxy with query parameter format
         function proxyM3u8(url) {
             if (!url || url.startsWith('blob:')) return url;
             return `${PROXY_BASE}${url}`;
         }
 
+        // ONLY use cors proxy for streaming and video assets, NEVER for authentication or general DB requests!
         async function fetchWithCorsFallback(url) {
             try {
                 const response = await fetch(url);
@@ -376,7 +377,7 @@
         });
 
         // =========================================================================
-        // USER AUTH & FORGOT PASSWORD FLOWS
+        // USER AUTH & FORGOT PASSWORD FLOWS (PRESERVING EXACT ORIGINAL SIGN IN/OUT & OAUTH)
         // =========================================================================
         function showLoginPage(mode = 'login') {
             document.getElementById('app-header').classList.add('hidden');
@@ -410,12 +411,13 @@
                         </div>
                     </div>`;
             } else {
+                // Must be <input type="text"> so plain usernames (e.g. Kozjo09) can submit without HTML5 email validation error prompts!
                 main.innerHTML = `
                     <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
                         <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
                         <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Inloggen</p>
                         <div class="space-y-4">
-                            <input type="email" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres">
+                            <input type="text" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres of Gebruikersnaam">
                             <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Wachtwoord">
                             <div class="text-right">
                                 <button onclick="showLoginPage('forgot')" class="text-zinc-500 text-xs hover:text-white transition">Wachtwoord vergeten?</button>
@@ -429,11 +431,146 @@
         }
         window.showLoginPage = showLoginPage;
 
+        window.showResetPasswordView = function() {
+            document.getElementById('app-header').classList.add('hidden');
+            document.getElementById('app-navigation').classList.add('hidden');
+            const main = document.getElementById('content');
+            if(!main) return;
+            main.innerHTML = `
+                <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
+                    <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Nieuw Wachtwoord</h2>
+                    <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Stel een nieuw wachtwoord in</p>
+                    <div class="space-y-4">
+                        <input type="password" id="reset-new-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Nieuw Wachtwoord (min. 6)">
+                        <button onclick="handleResetPassword()" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Bevestig Wachtwoord</button>
+                    </div>
+                </div>`;
+        }
+
+        window.handleForgotPassword = async function() {
+            let input = document.getElementById('auth-reset-input').value.trim();
+            if(!input) return window.showToast("Vul uw gebruikersnaam of e-mailadres in!", "error");
+            if (!input.includes('@')) input = `${input.toLowerCase()}@animemax.local`;
+
+            window.showToast("Aanvraag verzenden...");
+            const { error } = await sb.auth.resetPasswordForEmail(input, {
+                redirectTo: window.location.origin + window.location.pathname
+            });
+            if (error) {
+                window.showToast("Mislukt: " + error.message, "error");
+            } else {
+                window.showToast("Herstellink verzonden! (Als u een Gmail-adres gebruikte)");
+                showLoginPage('login');
+            }
+        };
+
+        window.handleResetPassword = async function() {
+            const pass = document.getElementById('reset-new-password').value.trim();
+            if (pass.length < 6) return window.showToast("Wachtwoord moet minimaal 6 tekens bevatten!", "error");
+
+            window.showToast("Wachtwoord updaten...");
+            const { error } = await sb.auth.updateUser({ password: pass });
+            if (error) {
+                window.showToast("Mislukt: " + error.message, "error");
+            } else {
+                window.showToast("Succesvol hersteld! Log nu in.");
+                await sb.auth.signOut();
+                showLoginPage('login');
+            }
+        };
+
+        window.changeUsername = async function() {
+            const newUsername = document.getElementById('set-user').value.trim();
+            if (!newUsername) return window.showToast("Vul een gebruikersnaam in!", "error");
+            if (newUsername === app.user) return window.showToast("Gebruikersnaam is niet gewijzigd.");
+
+            window.showToast("Profiel bijwerken...");
+            try {
+                const { data, error } = await sb.rpc('update_username_and_auth_email', {
+                    target_user_id: sessionData.user.id,
+                    new_username: newUsername
+                });
+
+                if (error) throw error;
+
+                if (data && data.success) {
+                    app.user = newUsername;
+                    saveCloudDataDebounced();
+                    window.showToast("Gebruikersnaam succesvol bijgewerkt!");
+                    render();
+                } else {
+                    window.showToast(data ? data.message : "Gebruikersnaam al in gebruik.", "error");
+                }
+            } catch(e) {
+                console.error(e);
+                window.showToast("Er is een fout opgetreden.", "error");
+            }
+        };
+
         window.handleGoogleLogin = async function() {
             window.showToast("Google Login start...");
             const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + window.location.pathname } });
             if (error) window.showToast("Mislukt: " + error.message, "error");
         };
+
+        window.handleAuth = async function(type) {
+            const p = document.getElementById('auth-password').value.trim();
+            let email = document.getElementById('auth-email').value.trim();
+
+            if (!email || !p) return window.showToast("Vul alles in!", "error");
+
+            if (type === 'reg') {
+                const u = document.getElementById('auth-username').value.trim();
+                if(!u) return window.showToast("Vul een gebruikersnaam in!", "error");
+                const { data, error } = await sb.auth.signUp({ email, password: p });
+                if (error) return window.showToast(error.message, "error");
+                app.user = u;
+                if (data.user) await sb.from('anime_users').insert([{ id: data.user.id, username: u, watchlist: [], recent: [] }]);
+                window.showToast("Succesvol! Log nu in.");
+                showLoginPage('login');
+            } else {
+                if (!email.includes('@')) email = `${email.toLowerCase()}@animemax.local`;
+                const { data, error } = await sb.auth.signInWithPassword({ email, password: p });
+                if (error) return window.showToast("Onjuiste gegevens.", "error");
+                sessionData = data.session;
+                await loadCloudData();
+            }
+        };
+
+        async function loadCloudData() {
+            if (!sessionData) return;
+            const { data } = await sb.from('anime_users').select('*').eq('id', sessionData.user.id).maybeSingle();
+            if (data) {
+                app.xmlLib = data.watchlist || [];
+                app.recent = data.recent || [];
+                if (data.settings) {
+                    app.defaultAudio = data.settings.defaultAudio || 'sub'; app.mode = app.defaultAudio;
+                    app.server = data.settings.server || 'megaplay';
+                    app.user = data.settings.user || app.user; app.showContinue = data.settings.showContinue !== false;
+                    app.lang = data.settings.lang || 'english'; app.autoPlay = data.settings.autoPlay !== false;
+                    app.autoNext = data.settings.autoNext !== false; app.autoSkipIntro = data.settings.autoSkipIntro === true;
+                    app.skipSeconds = parseInt(data.settings.skipSeconds || '85'); app.autoDubFallback = data.settings.autoDubFallback !== false;
+                    app.anilistToken = data.settings.anilistToken || null;
+                }
+            } else {
+                app.user = sessionData.user.email.split('@')[0];
+                await sb.from('anime_users').insert([{ id: sessionData.user.id, username: app.user, watchlist: [], recent: [], settings: { user: app.user, server: 'megaplay' } }]);
+            }
+            document.getElementById('app-header').classList.remove('hidden');
+            document.getElementById('app-navigation').classList.remove('hidden');
+            render();
+        }
+
+        async function saveCloudData() {
+            if (!sessionData) return;
+            await sb.from('anime_users').update({
+                watchlist: app.xmlLib, recent: app.recent,
+                settings: { defaultAudio: app.defaultAudio, server: app.server, user: app.user, showContinue: app.showContinue, lang: app.lang, autoPlay: app.autoPlay, autoNext: app.autoNext, autoSkipIntro: app.autoSkipIntro, skipSeconds: app.skipSeconds, autoDubFallback: app.autoDubFallback }
+            }).eq('id', sessionData.user.id);
+        }
+        function saveCloudDataDebounced() { clearTimeout(saveTimeout); saveTimeout = setTimeout(saveCloudData, 1000); }
+
+        window.logout = async function() { await sb.auth.signOut(); sessionData = null; window.location.hash = ''; showLoginPage('login'); };
 
         // =========================================================================
         // ANILIST CONNECTION & MANUALLY CONNECTIONS
@@ -472,35 +609,6 @@
                 window.showToast("Ongeldige AniList Token. Probeer opnieuw.", "error");
             }
         }
-
-        // Auto updates progress directly in AniList when watched
-        window.syncProgressToAniList = async function(anilistId, epNum, statusStr) {
-            if (!app.anilistToken) return;
-            const mediaIdInt = parseInt(anilistId);
-            if (isNaN(mediaIdInt)) return;
-
-            let statusPayload = 'CURRENT';
-            if (statusStr === 'Watched' || statusStr === 'Completed') statusPayload = 'COMPLETED';
-            else if (statusStr === 'Dropped') statusPayload = 'DROPPED';
-            else if (statusStr === 'Plan to Watch') statusPayload = 'PLANNING';
-
-            const query = `
-                mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) {
-                    SaveMediaListEntry (mediaId: $mediaId, progress: $progress, status: $status) {
-                        id
-                        progress
-                        status
-                    }
-                }
-            `;
-            const variables = { mediaId: mediaIdInt, progress: parseInt(epNum), status: statusPayload };
-            const res = await gql(query, variables);
-            if (res && res.errors) {
-                console.error("AniList sync error:", res.errors[0].message);
-            } else {
-                window.showToast("Gesynchroniseerd met AniList!");
-            }
-        };
 
         // =========================================================================
         // EPISODES & VIDEOPLAYERS IMPLEMENTATION
@@ -1077,7 +1185,7 @@
                 let latestEpMap = {};
                 if (ids.length > 0) {
                     try {
-                        const gqlRes = await gql(`query($ids:[Int]){Page(perPage:50){media(id_in:$ids,type:ANIME){id episodes status nextAiringEpisode{episode}}}}`, { ids });
+                        const gqlRes = await gql(`query($ids:[Int]){Page(perPage:50){media(id_in:$ids,type:ANIME,isAdult:false){id episodes status nextAiringEpisode{episode}}}}`, { ids });
                         if (gqlRes && gqlRes.data && gqlRes.data.Page.media) {
                             gqlRes.data.Page.media.forEach(m => {
                                 let total = m.episodes || 12;
@@ -1249,7 +1357,7 @@
                 let latestEpMap = {};
                 if (ids.length > 0) {
                     try {
-                        const gqlRes = await gql(`query($ids:[Int]){Page(perPage:50){media(id_in:$ids,type:ANIME){id episodes status nextAiringEpisode{episode}}}}`, { ids });
+                        const gqlRes = await gql(`query($ids:[Int]){Page(perPage:50){media(id_in:$ids,type:ANIME,isAdult:false){id episodes status nextAiringEpisode{episode}}}}`, { ids });
                         if (gqlRes && gqlRes.data && gqlRes.data.Page.media) {
                             gqlRes.data.Page.media.forEach(m => {
                                 let total = m.episodes || 12;
@@ -1462,30 +1570,6 @@
             app.mode = targetMode;
             saveCloudDataDebounced();
             render();
-        };
-
-        window.handleAuth = async function(type) {
-            const p = document.getElementById('auth-password').value.trim();
-            let email = document.getElementById('auth-email').value.trim();
-
-            if (!email || !p) return window.showToast("Vul alles in!", "error");
-
-            if (type === 'reg') {
-                const u = document.getElementById('auth-username').value.trim();
-                if(!u) return window.showToast("Vul een gebruikersnaam in!", "error");
-                const { data, error } = await sb.auth.signUp({ email, password: p });
-                if (error) return window.showToast(error.message, "error");
-                app.user = u;
-                if (data.user) await sb.from('anime_users').insert([{ id: data.user.id, username: u, watchlist: [], recent: [] }]);
-                window.showToast("Succesvol! Log nu in.");
-                showLoginPage('login');
-            } else {
-                if (!email.includes('@')) email = `${email.toLowerCase()}@animemax.local`;
-                const { data, error } = await sb.auth.signInWithPassword({ email, password: p });
-                if (error) return window.showToast("Onjuiste gegevens.", "error");
-                sessionData = data.session;
-                await loadCloudData();
-            }
         };
 
         window.onload = async () => {
