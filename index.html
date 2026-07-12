@@ -252,7 +252,7 @@
         let app = {
             view: 'home', id: null, ep: 1, mode: 'sub', server: 'megaplay', searchQuery: '', libraryFilter: 'All',
             user: 'Gebruiker', showContinue: true, lang: 'english', autoPlay: true, autoNext: true, autoSkipIntro: false, skipSeconds: 85, 
-            defaultAudio: 'sub', recent: [], xmlLib: [], autoDubFallback: true
+            defaultAudio: 'sub', recent: [], xmlLib: [], autoDubFallback: true, anilistToken: null
         };
 
         let currentPlaybackTime = 0;
@@ -1320,150 +1320,122 @@
                                 <div class="border-t border-white/5 pt-4 space-y-3">
                                     <p class="text-[10px] font-black uppercase text-zinc-500">AniList Integratie</p>
                                     ${app.anilistToken ? 
-                                        `<button onclick="disconnectAniList()" class="w-full bg-red-950/30 border border-red-500/20 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-red-400 hover:bg-red-900/50 transition"><i class="fa-solid fa-unlink"></i> AniList Ontkoppelen</button>` : 
-                                        `<button onclick="loginAniListOAuth()" class="w-full bg-[#2b2d42] border border-[#3db4f2]/30 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-[#3db4f2] hover:bg-[#3db4f2]/20 transition"><i class="fa-solid fa-link"></i> Koppel via AniList</button>
-                                         <button onclick="loginAniListManualToken()" class="w-full bg-zinc-900 border border-white/5 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-zinc-400 hover:text-white transition mt-2">Plak Handmatige Token</button>`
+                                        `<button onclick="disconnectAniList()" class="w-full bg-red-950/30 border border-red-500/30 py-3 rounded-xl text-[10px] font-black uppercase text-red-400 hover:bg-red-900 transition flex items-center justify-center gap-2"><i class="fa-solid fa-unlink"></i> Ontkoppel AniList</button>` : 
+                                        `<button onclick="loginAniListOAuth()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl text-[10px] font-black uppercase text-white transition flex items-center justify-center gap-2 mb-2"><i class="fa-solid fa-link"></i> Koppel via AniList Login</button>
+                                         <button onclick="loginAniListManualToken()" class="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl text-[10px] font-black uppercase text-zinc-300 transition flex items-center justify-center gap-2"><i class="fa-solid fa-key"></i> Handmatig Token Invoeren</button>`
                                     }
+                                </div>
+                                <div class="border-t border-white/5 pt-4">
+                                    <button onclick="logout()" class="w-full bg-red-950/20 hover:bg-red-700 border border-red-500/10 hover:border-transparent py-4 rounded-xl text-[10px] font-black uppercase text-red-400 hover:text-white transition flex items-center justify-center gap-2"><i class="fa-solid fa-sign-out-alt"></i> Uitloggen</button>
                                 </div>
                             </div>
                         </div>
                     </div>`;
+            } 
+            else if (app.view === 'home') {
+                main.innerHTML = `
+                    <div class="space-y-10">
+                        ${app.showContinue && app.recent.length > 0 ? `
+                        <div class="space-y-4 animate-fade-in">
+                            <h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-play text-[#cae962]"></i> Verder Kijken</h2>
+                            <div class="shelf-container no-scrollbar pb-4">
+                                ${app.recent.slice(0,5).map(r => `
+                                    <div onclick="nav('watch', {id:'${r.id}', ep:${r.ep}})" class="flex-shrink-0 w-48 group cursor-pointer">
+                                        <div class="aspect-video rounded-xl bg-zinc-900 border border-white/5 relative overflow-hidden mb-2">
+                                            <img src="${r.img}" class="w-full h-full object-cover group-hover:scale-105 transition-duration-500 opacity-80 group-hover:opacity-100">
+                                            <div class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition"></div>
+                                            <i class="fa-solid fa-play absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/50 group-hover:text-[#cae962] text-2xl transition-all scale-75 group-hover:scale-100"></i>
+                                            <span class="absolute top-2 left-2 bg-black/90 px-1.5 py-0.5 rounded text-[8px] font-black text-[#cae962]">EP ${r.ep}</span>
+                                        </div>
+                                        <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${r.title}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>` : ''}
+                        
+                        <div id="home-trending" class="space-y-4"></div>
+                        <div id="home-popular" class="space-y-4"></div>
+                    </div>`;
+                    
+                // Ophalen van Trending en Popular via AniList GraphQL
+                gql(`query{Trending:Page(perPage:15){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large}averageScore}} Popular:Page(perPage:15){media(type:ANIME,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`).then(res => {
+                    if(!res || !res.data) return;
+                    
+                    const buildShelf = (title, items, icon) => {
+                        let html = `<h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid ${icon} text-[#cae962]"></i> ${title}</h2><div class="shelf-container no-scrollbar">`;
+                        items.forEach(m => {
+                            const t = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
+                            html += `
+                                <div onclick="openDetailsModal('${m.id}')" class="flex-shrink-0 w-32 group cursor-pointer relative">
+                                    <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
+                                        <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                        ${m.averageScore ? `<span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore/10}</span>` : ''}
+                                    </div>
+                                    <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${t}</p>
+                                </div>`;
+                        });
+                        return html + `</div>`;
+                    };
+
+                    document.getElementById('home-trending').innerHTML = buildShelf('Trending Nu', res.data.Trending.media, 'fa-fire');
+                    document.getElementById('home-popular').innerHTML = buildShelf('All-Time Populair', res.data.Popular.media, 'fa-heart');
+                });
             }
             else if (app.view === 'search') {
                 main.innerHTML = `
                     <div class="space-y-6">
-                        <div class="relative w-full max-w-2xl mx-auto">
+                        <div class="relative max-w-2xl mx-auto">
                             <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"></i>
-                            <input type="text" value="${app.searchQuery}" onkeyup="liveSearch(event)" placeholder="Zoek een anime..." class="w-full bg-zinc-900 border border-white/5 p-4 pl-12 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-sm shadow-xl">
+                            <input type="text" id="search-input" oninput="liveSearch(event)" value="${app.searchQuery}" placeholder="Zoek een anime..." class="w-full bg-zinc-900 border border-white/10 py-4 pl-12 pr-4 rounded-2xl text-white font-bold text-sm outline-none focus:border-[#cae962] transition-colors shadow-2xl" autofocus>
                         </div>
-                        <div id="search-grid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4">
-                            ${app.searchQuery.length < 3 ? '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ 3 of meer letters...</p>' : '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>'}
+                        <div id="search-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
+                            <p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ iets om te zoeken...</p>
                         </div>
                     </div>`;
-                if(app.searchQuery.length >= 3) {
-                    liveSearch({target: {value: app.searchQuery}});
+                if (app.searchQuery) {
+                    document.getElementById('search-input').dispatchEvent(new Event('input'));
                 }
             }
             else if (app.view === 'library') {
                 main.innerHTML = `
                     <div class="space-y-6">
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/5">
-                            <h2 class="text-2xl font-black text-[#cae962] uppercase italic">Mijn Lijst</h2>
+                            <h2 class="text-2xl font-black text-[#cae962] uppercase italic flex items-center gap-2"><i class="fa-solid fa-layer-group"></i> Mijn Lijst</h2>
                             <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0">
-                                ${['All', 'Watching', 'Plan to Watch', 'Completed', 'Dropped'].map(f => 
-                                    `<button onclick="filterXml('${f}')" class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase whitespace-nowrap transition ${app.libraryFilter === f ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-900 text-zinc-400 hover:text-white'}">${f}</button>`
-                                ).join('')}
+                                ${['All', 'Watching', 'Plan to Watch', 'Completed', 'Dropped'].map(f => `
+                                    <button onclick="filterXml('${f}')" class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase whitespace-nowrap transition-all ${app.libraryFilter === f ? 'bg-[#cae962] text-black' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}">${f}</button>
+                                `).join('')}
                             </div>
                         </div>
-                        <div id="lib-grid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4"></div>
+                        <div id="lib-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4"></div>
                     </div>`;
                 window.renderLibraryGrid();
             }
-            else if (app.view === 'home') {
-                main.innerHTML = `
-                    <div class="space-y-10">
-                        <div id="home-hero" class="w-full h-[40vh] bg-zinc-900 rounded-3xl overflow-hidden border border-white/5 relative flex items-end p-6 md:p-10 shadow-2xl">
-                            <div class="absolute inset-0 bg-gradient-to-t from-[#060606] via-[#060606]/80 to-transparent z-10"></div>
-                            <div class="relative z-20 space-y-4 max-w-2xl">
-                                <span class="bg-[#cae962] text-black text-[9px] font-black px-2 py-1 rounded uppercase tracking-wider font-bold">Populairste Nu</span>
-                                <h1 class="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white" id="hero-title">Laden...</h1>
-                                <p class="text-xs text-zinc-400 line-clamp-2 md:line-clamp-3" id="hero-desc"></p>
-                                <div class="flex gap-3 pt-2">
-                                    <button id="hero-play" class="bg-[#cae962] text-black px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:scale-105 transition shadow-[0_0_20px_rgba(202,233,98,0.3)] font-bold"><i class="fa-solid fa-play mr-2"></i> Kijk Nu</button>
-                                    <button id="hero-info" class="bg-zinc-800/80 backdrop-blur text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-700 transition"><i class="fa-solid fa-info-circle mr-2"></i> Info</button>
-                                </div>
-                            </div>
-                            <img id="hero-img" class="absolute inset-0 w-full h-full object-cover opacity-50">
-                        </div>
-                        
-                        <div class="space-y-4">
-                            <h3 class="text-sm font-black uppercase text-zinc-500 tracking-wider flex items-center gap-2"><i class="fa-solid fa-fire text-[#cae962]"></i> Trending Deze Week</h3>
-                            <div id="home-trending" class="shelf-container"></div>
-                        </div>
-
-                        <div class="space-y-4">
-                            <h3 class="text-sm font-black uppercase text-zinc-500 tracking-wider flex items-center gap-2"><i class="fa-solid fa-star text-[#cae962]"></i> Hoogst Beoordeeld</h3>
-                            <div id="home-popular" class="shelf-container"></div>
-                        </div>
-                    </div>`;
-
-                gql(`query{
-                    trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
-                    popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
-                }`).then(res => {
-                    if(!res || !res.data) return;
-                    
-                    const tData = res.data.trending.media;
-                    if(tData.length > 0) {
-                        const hero = tData[0];
-                        const ht = app.lang === 'english' ? (hero.title.english || hero.title.romaji) : hero.title.romaji;
-                        document.getElementById('hero-title').innerText = ht;
-                        document.getElementById('hero-desc').innerHTML = hero.description || '';
-                        document.getElementById('hero-img').src = hero.bannerImage || hero.coverImage.extraLarge;
-                        document.getElementById('hero-play').onclick = () => nav('watch', {id: hero.id, ep: 1});
-                        document.getElementById('hero-info').onclick = () => openDetailsModal(hero.id);
-
-                        const trendShelf = document.getElementById('home-trending');
-                        trendShelf.innerHTML = '';
-                        tData.slice(1).forEach(m => {
-                            const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
-                            trendShelf.innerHTML += `
-                                <div onclick="openDetailsModal('${m.id}')" class="flex-none w-32 md:w-40 text-left group cursor-pointer">
-                                    <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
-                                        <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                                    </div>
-                                    <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${mt}</p>
-                                </div>`;
-                        });
-                    }
-
-                    const popShelf = document.getElementById('home-popular');
-                    popShelf.innerHTML = '';
-                    res.data.popular.media.forEach(m => {
-                        const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
-                        popShelf.innerHTML += `
-                            <div onclick="openDetailsModal('${m.id}')" class="flex-none w-32 md:w-40 text-left group cursor-pointer relative">
-                                <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
-                                    <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                                    <span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore/10}</span>
-                                </div>
-                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${mt}</p>
-                            </div>`;
-                    });
-                });
-            }
         }
 
-        // Helper Functies (Library Render, Delete, Toasts, Sync)
+        // =========================================================================
+        // HELPER FUNCTIES VOOR RENDER, ALERTS EN API
+        // =========================================================================
         window.renderLibraryGrid = function() {
             const grid = document.getElementById('lib-grid');
             if(!grid) return;
-            let list = app.xmlLib;
-            if (app.libraryFilter !== 'All') {
-                const mapStat = app.libraryFilter === 'Completed' ? 'Watched' : app.libraryFilter;
-                list = list.filter(i => i && i.status === mapStat);
-            }
-            if(!list.length) {
-                grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Geen animes gevonden in deze lijst.</p>';
+            const filtered = app.libraryFilter === 'All' ? app.xmlLib : app.xmlLib.filter(i => i.status === app.libraryFilter);
+            
+            if (!filtered.length) {
+                grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs py-12">Geen anime gevonden in deze categorie.</p>';
                 return;
             }
-            grid.innerHTML = '';
-            list.forEach(m => {
-                if(!m) return;
-                let statColor = 'bg-zinc-800 text-white';
-                if(m.status === 'Watching') statColor = 'bg-[#cae962] text-black font-bold';
-                else if(m.status === 'Watched' || m.status === 'Completed') statColor = 'bg-emerald-600 text-white';
-                else if(m.status === 'Dropped') statColor = 'bg-red-900 text-white';
 
+            grid.innerHTML = '';
+            filtered.forEach(m => {
                 grid.innerHTML += `
                     <div onclick="openDetailsModal('${m.id}')" class="text-left group cursor-pointer relative animate-fade-in">
                         <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
-                            <img src="${m.coverImage}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100">
-                            <span class="absolute top-2 left-2 ${statColor} text-[8px] font-black px-1.5 py-0.5 rounded shadow uppercase">${m.status}</span>
-                            <div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#cae962]" style="width: ${(m.progress/m.episodes)*100}%"></div></div>
+                            <img src="${m.coverImage}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                            <span class="absolute top-2 left-2 bg-black/85 text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow">${m.progress}/${m.episodes}</span>
+                            <span class="absolute bottom-2 right-2 bg-[#cae962] text-black text-[7px] font-black px-1.5 py-0.5 rounded uppercase shadow">${m.status}</span>
                         </div>
                         <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${m.title}</p>
-                        <p class="text-[8px] font-bold text-zinc-500 pl-1 uppercase mt-0.5">${m.progress} / ${m.episodes || '?'} EPS</p>
                     </div>`;
             });
         };
@@ -1473,87 +1445,115 @@
             app.recent = app.recent.filter(r => r.id != id);
             saveCloudDataDebounced();
             render();
+            window.showToast("Verwijderd uit geschiedenis.");
         };
 
-        window.checkAudioAvailabilityAndPlay = function(mode) {
+        window.checkAudioAvailabilityAndPlay = async function(mode) {
+            if (app.mode === mode) return;
             app.mode = mode;
-            app.defaultAudio = mode; 
-            saveCloudDataDebounced();
+            document.getElementById('sub-btn').className = `px-5 py-2.5 rounded-xl text-xs font-black uppercase transition ${app.mode=='sub'?'bg-[#cae962] text-black font-bold':'bg-zinc-900 text-zinc-400'}`;
+            document.getElementById('dub-btn').className = `px-5 py-2.5 rounded-xl text-xs font-black uppercase transition ${app.mode=='dub'?'bg-[#cae962] text-black font-bold':'bg-zinc-900 text-zinc-400'}`;
+            
+            window.showToast(`Overschakelen naar ${mode.toUpperCase()}...`);
             window.loadStreamAndPlay(app.id, app.ep, mode, app.server);
-            render(); 
         };
 
-        window.syncProgressToAniList = async function(id, ep, status) {
-            if(!app.anilistToken) return;
-            const alStatMap = { "Watching": "CURRENT", "Watched": "COMPLETED", "Plan to Watch": "PLANNING", "Dropped": "DROPPED" };
-            const alStat = alStatMap[status] || "CURRENT";
-            const query = `mutation($id:Int,$prog:Int,$stat:MediaListStatus){SaveMediaListEntry(mediaId:$id,progress:$prog,status:$stat){id}}`;
-            await gql(query, { id: parseInt(id), prog: parseInt(ep), stat: alStat });
-        };
-
-        window.showToast = function(msg, type = "info") {
+        window.showToast = function(msg, type='info') {
             const container = document.getElementById('toast-container');
-            if(!container) return;
-            const t = document.createElement('div');
-            const color = type === "error" ? "bg-red-500 text-white" : "bg-[#cae962] text-black";
-            const icon = type === "error" ? "fa-circle-xmark" : "fa-circle-check";
-            t.className = `${color} px-4 py-3 rounded-xl text-xs font-black shadow-2xl animate-toast flex items-center gap-3 border border-white/20`;
-            t.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${msg}</span>`;
-            container.appendChild(t);
+            const el = document.createElement('div');
+            el.className = `animate-toast p-4 rounded-xl flex items-center gap-3 text-xs font-black uppercase tracking-widest shadow-2xl border ${type === 'error' ? 'bg-red-950 text-red-200 border-red-500/30' : (type === 'success' ? 'bg-emerald-950 text-emerald-200 border-emerald-500/30' : 'bg-[#cae962] text-black border-lime-400')}`;
+            el.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : (type === 'success' ? 'fa-check' : 'fa-info-circle')}"></i> ${msg}`;
+            container.appendChild(el);
             setTimeout(() => {
-                t.style.animation = "slideDown 0.3s reverse forwards";
-                setTimeout(() => t.remove(), 300);
+                el.style.animation = 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards';
+                setTimeout(() => el.remove(), 300);
             }, 3000);
         };
 
         window.showConfirm = function(title, msg, onConfirm) {
-            const m = document.getElementById('confirm-modal');
+            const modal = document.getElementById('confirm-modal');
             document.getElementById('confirm-title').innerText = title;
             document.getElementById('confirm-message').innerText = msg;
-            m.classList.remove('hidden'); m.classList.add('flex');
-            document.getElementById('confirm-cancel-btn').onclick = () => { m.classList.add('hidden'); m.classList.remove('flex'); };
-            document.getElementById('confirm-ok-btn').onclick = () => { m.classList.add('hidden'); m.classList.remove('flex'); onConfirm(); };
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            document.getElementById('confirm-cancel-btn').onclick = () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            };
+            
+            document.getElementById('confirm-ok-btn').onclick = () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                onConfirm();
+            };
         };
 
-        // =========================================================================
-        // MAIN INITIALIZATION LISTENER
-        // =========================================================================
-        document.addEventListener('DOMContentLoaded', async () => {
-            sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        window.syncProgressToAniList = async function(id, ep, status) {
+            if (!app.anilistToken) return;
+            const statusMap = { "Watching": "CURRENT", "Completed": "COMPLETED", "Plan to Watch": "PLANNING", "Dropped": "DROPPED" };
+            const aniStatus = statusMap[status] || "CURRENT";
+            const query = `mutation($id:Int, $ep:Int, $status:MediaListStatus){ SaveMediaListEntry(mediaId:$id, progress:$ep, status:$status){id status progress} }`;
+            try {
+                await fetch(ANILIST_API, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + app.anilistToken, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ query, variables: { id: parseInt(id), ep: parseInt(ep), status: aniStatus } })
+                });
+            } catch (e) {
+                console.error("AniList sync failed", e);
+            }
+        };
 
-            // AUTH STATE LISTENER - Cruciaal voor correcte Google OAuth werking.
+        // Normalize anivexa api response to standardize structure
+        function normalizeApiProviders(apiData, apiType) {
+            let providers = [];
+            if (!apiData || !apiData.episodes) return providers;
+            
+            for (const [providerName, providerData] of Object.entries(apiData.episodes)) {
+                providers.push({
+                    id: `${apiType}-${providerName}`,
+                    api: apiType,
+                    provider: providerName,
+                    sub: providerData.sub || [],
+                    dub: providerData.dub || []
+                });
+            }
+            return providers;
+        }
+
+        // =========================================================================
+        // INIT & BOOTSTRAP
+        // =========================================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            
             sb.auth.onAuthStateChange(async (event, session) => {
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                     sessionData = session;
                     await loadCloudData();
-                    
-                    // Verwijder de lelijke access_token uit de URL nadat we succesvol zijn ingelogd.
-                    if (window.location.hash.includes('access_token=')) {
-                        window.location.hash = '';
-                        restoreStateFromUrl();
-                        render();
-                    }
+                    restoreStateFromUrl();
                 } else if (event === 'SIGNED_OUT') {
                     sessionData = null;
+                    app.view = 'home';
                     showLoginPage('login');
+                } else if (event === 'PASSWORD_RECOVERY') {
+                    showResetPasswordView();
                 }
             });
 
-            const { data: { session } } = await sb.auth.getSession();
-            
-            // Voorkom dat de router crasht tijdens het inladen van de Google Token Hash
-            if (window.location.hash.includes('access_token=')) {
-                return; // Laat onAuthStateChange dit hierboven afhandelen.
-            }
-
-            if (session) {
-                sessionData = session;
-                await loadCloudData();
-                restoreStateFromUrl();
-            } else {
-                restoreStateFromUrl();
-                showLoginPage('login');
-            }
+            sb.auth.getSession().then(({ data: { session } }) => {
+                if (session) {
+                    sessionData = session;
+                    loadCloudData().then(() => restoreStateFromUrl());
+                } else {
+                    if (window.location.hash.includes('type=recovery')) {
+                        showResetPasswordView();
+                    } else {
+                        showLoginPage('login');
+                    }
+                }
+            });
         });
     </script>
 </body>
