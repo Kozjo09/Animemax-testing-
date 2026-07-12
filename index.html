@@ -116,9 +116,9 @@
             <div class="flex items-center gap-6 lg:gap-12">
                 <button onclick="nav('home')" class="text-2xl lg:text-3xl font-black italic uppercase tracking-tighter text-[#cae962] transition-transform hover:scale-105">ANIME<span class="text-white">MAX</span></button>
                 <nav class="hidden md:flex items-center gap-6 text-[11px] font-black uppercase tracking-widest text-zinc-400">
-                    <button onclick="nav('home')" class="hover:text-white transition-colors" id="head-nav-home">Home</button>
-                    <button onclick="nav('library')" class="hover:text-white transition-colors" id="head-nav-library">Mijn Lijst</button>
-                    <button onclick="nav('recent')" class="hover:text-white transition-colors" id="head-nav-recent">Verder Kijken</button>
+                    <button onclick="nav('home')" class="hover:text-white transition-colors animate-fade-in" id="head-nav-home">Home</button>
+                    <button onclick="nav('library')" class="hover:text-white transition-colors animate-fade-in" id="head-nav-library">Mijn Lijst</button>
+                    <button onclick="nav('recent')" class="hover:text-white transition-colors animate-fade-in" id="head-nav-recent">Verder Kijken</button>
                 </nav>
             </div>
             <div class="flex gap-4 items-center">
@@ -259,11 +259,11 @@
         let currentDuration = 0;
         let activeModalId = null;
 
-        // Custom Anivexa dedicated HLS proxy for flawless direct streaming
+        // Custom Anivexa dedicated HLS proxy utilizing proxy.corsfix.com for flawless direct streaming
         function proxyM3u8(url) {
             if (!url) return "";
-            if (url.includes('proxy/hls')) return url;
-            return `https://anivexa-three.vercel.app/proxy/hls?url=${encodeURIComponent(url)}`;
+            if (url.includes('proxy.corsfix.com')) return url;
+            return `https://proxy.corsfix.com/?url=${encodeURIComponent(url)}`;
         }
 
         // Direct fetch without proxy for maximum stability and speed
@@ -384,10 +384,10 @@
                         <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
                         <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Nieuw cloud-profiel aanmaken</p>
                         <div class="space-y-4">
-                            <input type="email" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres">
+                            <input type="text" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres">
                             <input type="text" id="auth-username" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Gebruikersnaam">
                             <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Wachtwoord (min. 6)">
-                            <button onclick="handleAuth('reg')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold font-bold">Account Aanmaken</button>
+                            <button onclick="handleAuth('reg')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Account Aanmaken</button>
                             <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
                             <p class="text-center text-xs text-zinc-500 mt-4">Al een account? <button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline">Inloggen</button></p>
                         </div>
@@ -399,7 +399,7 @@
                         <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Ontvang een herstellink</p>
                         <div class="space-y-4">
                             <input type="text" id="auth-reset-input" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Gebruikersnaam of E-mailadres">
-                            <button onclick="handleForgotPassword()" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold font-bold">Verstuur herstellink</button>
+                            <button onclick="handleForgotPassword()" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Verstuur herstellink</button>
                             <p class="text-center text-xs text-zinc-500 mt-4"><button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i> Terug naar login</button></p>
                         </div>
                     </div>`;
@@ -414,7 +414,7 @@
                             <div class="text-right">
                                 <button onclick="showLoginPage('forgot')" class="text-zinc-500 text-xs hover:text-white transition">Wachtwoord vergeten?</button>
                             </div>
-                            <button onclick="handleAuth('login')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold font-bold font-bold">Inloggen</button>
+                            <button onclick="handleAuth('login')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Inloggen</button>
                             <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
                             <p class="text-center text-xs text-zinc-500 mt-4">Nieuw hier? <button onclick="showLoginPage('register')" class="text-[#cae962] font-bold hover:underline">Registreren</button></p>
                         </div>
@@ -658,6 +658,9 @@
                         maxBidirectionalLinkDelay: 1.5,
                         xhrSetup: function(xhr, url) { 
                             xhr.withCredentials = false; 
+                            if (url.includes('proxy.corsfix.com')) {
+                                xhr.setRequestHeader('x-corsfix-key', 'cfx_6caec83cae44e09879b57ba6b15d18b0');
+                            }
                         }
                     });
                     hlsInstance.loadSource(streamUrl);
@@ -1100,7 +1103,12 @@
             const loader = document.getElementById('main-loader'); 
             if(loader) loader.style.display = 'none';
 
-            // Sync Header Nav Styling
+            // Sync Header Nav Styling to highlight the active menu items on desktop
+            document.querySelectorAll('#app-header nav button').forEach(el => { el.classList.remove('text-[#cae962]'); el.classList.add('text-zinc-400'); });
+            const headActive = document.getElementById('head-nav-' + app.view);
+            if(headActive) { headActive.classList.add('text-[#cae962]'); headActive.classList.remove('text-zinc-400'); }
+
+            // Sync Mobile Nav Styling
             document.querySelectorAll('.nav-link').forEach(el => { el.classList.remove('text-[#cae962]'); el.classList.add('text-zinc-500'); });
             const activeNav = document.getElementById('nav-' + app.view);
             if(activeNav) { activeNav.classList.add('text-[#cae962]'); activeNav.classList.remove('text-zinc-500'); }
@@ -1209,7 +1217,7 @@
                 main.innerHTML = `
                     <div class="space-y-6">
                         <div class="flex items-center justify-between pb-4 border-b border-white/5">
-                            <h2 class="text-2xl font-black text-[#cae962] uppercase italic">Verder Kijken</h2>
+                            <h2 class="text-2xl font-black text-[#cae962] uppercase italic animate-fade-in">Verder Kijken</h2>
                             <span class="text-[10px] text-zinc-500 uppercase font-black">${app.recent.length} items</span>
                         </div>
                         <div id="recent-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-6"></div>
@@ -1320,9 +1328,9 @@
                                 <div class="border-t border-white/5 pt-4 space-y-3">
                                     <p class="text-[10px] font-black uppercase text-zinc-500">AniList Integratie</p>
                                     ${app.anilistToken ? 
-                                        `<button onclick="disconnectAniList()" class="w-full bg-red-950/30 border border-red-500/30 py-3 rounded-xl text-[10px] font-black uppercase text-red-400 hover:bg-red-900 transition flex items-center justify-center gap-2"><i class="fa-solid fa-unlink"></i> Ontkoppel AniList</button>` : 
-                                        `<button onclick="loginAniListOAuth()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl text-[10px] font-black uppercase text-white transition flex items-center justify-center gap-2 mb-2"><i class="fa-solid fa-link"></i> Koppel via AniList Login</button>
-                                         <button onclick="loginAniListManualToken()" class="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl text-[10px] font-black uppercase text-zinc-300 transition flex items-center justify-center gap-2"><i class="fa-solid fa-key"></i> Handmatig Token Invoeren</button>`
+                                        `<button onclick="disconnectAniList()" class="w-full bg-red-950/30 border border-red-500/20 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-red-400 hover:bg-red-900/50 transition"><i class="fa-solid fa-unlink"></i> AniList Ontkoppelen</button>` : 
+                                        `<button onclick="loginAniListOAuth()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl text-xs font-black uppercase text-white transition flex items-center justify-center gap-2 mb-2 font-bold"><i class="fa-solid fa-link"></i> Koppel via AniList Login</button>
+                                         <button onclick="loginAniListManualToken()" class="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl text-xs font-black uppercase text-zinc-300 transition flex items-center justify-center gap-2 font-bold"><i class="fa-solid fa-key"></i> Handmatig Token Invoeren</button>`
                                     }
                                 </div>
                                 <div class="border-t border-white/5 pt-4">
@@ -1335,51 +1343,139 @@
             else if (app.view === 'home') {
                 main.innerHTML = `
                     <div class="space-y-10">
-                        ${app.showContinue && app.recent.length > 0 ? `
-                        <div class="space-y-4 animate-fade-in">
-                            <h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-play text-[#cae962]"></i> Verder Kijken</h2>
-                            <div class="shelf-container no-scrollbar pb-4">
-                                ${app.recent.slice(0,5).map(r => `
-                                    <div onclick="nav('watch', {id:'${r.id}', ep:${r.ep}})" class="flex-shrink-0 w-48 group cursor-pointer">
-                                        <div class="aspect-video rounded-xl bg-zinc-900 border border-white/5 relative overflow-hidden mb-2">
-                                            <img src="${r.img}" class="w-full h-full object-cover group-hover:scale-105 transition-duration-500 opacity-80 group-hover:opacity-100">
-                                            <div class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition"></div>
-                                            <i class="fa-solid fa-play absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/50 group-hover:text-[#cae962] text-2xl transition-all scale-75 group-hover:scale-100"></i>
-                                            <span class="absolute top-2 left-2 bg-black/90 px-1.5 py-0.5 rounded text-[8px] font-black text-[#cae962]">EP ${r.ep}</span>
-                                        </div>
-                                        <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${r.title}</p>
-                                    </div>
-                                `).join('')}
+                        <!-- Netflix Hero Banner -->
+                        <div id="home-hero" class="w-full h-[40vh] bg-zinc-900 rounded-3xl overflow-hidden border border-white/5 relative flex items-end p-6 md:p-10 shadow-2xl">
+                            <div class="absolute inset-0 bg-gradient-to-t from-[#060606] via-[#060606]/80 to-transparent z-10"></div>
+                            <div class="relative z-20 space-y-4 max-w-2xl">
+                                <span class="bg-[#cae962] text-black text-[9px] font-black px-2 py-1 rounded uppercase tracking-wider font-bold">Populairste Nu</span>
+                                <h1 class="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white animate-fade-in" id="hero-title">Laden...</h1>
+                                <p class="text-xs text-zinc-400 line-clamp-2 md:line-clamp-3 animate-fade-in" id="hero-desc"></p>
+                                <div class="flex gap-3 pt-2">
+                                    <button id="hero-play" class="bg-[#cae962] text-black px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:scale-105 transition shadow-[0_0_20px_rgba(202,233,98,0.3)] font-bold"><i class="fa-solid fa-play mr-2"></i> Kijk Nu</button>
+                                    <button id="hero-info" class="bg-zinc-800/80 backdrop-blur text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-700 transition"><i class="fa-solid fa-info-circle mr-2"></i> Info</button>
+                                </div>
                             </div>
-                        </div>` : ''}
+                            <img id="hero-img" class="absolute inset-0 w-full h-full object-cover opacity-50">
+                        </div>
+
+                        <!-- Continue Watching / Verder Kijken Shelf with Dynamic Badges -->
+                        <div id="home-recent-section" class="hidden space-y-4 animate-fade-in">
+                            <h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-play text-[#cae962]"></i> Verder Kijken</h2>
+                            <div id="home-recent-shelf" class="shelf-container no-scrollbar pb-4"></div>
+                        </div>
                         
                         <div id="home-trending" class="space-y-4"></div>
                         <div id="home-popular" class="space-y-4"></div>
                     </div>`;
                     
                 // Ophalen van Trending en Popular via AniList GraphQL
-                gql(`query{Trending:Page(perPage:15){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large}averageScore}} Popular:Page(perPage:15){media(type:ANIME,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`).then(res => {
+                gql(`query{
+                    trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
+                    popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                }`).then(res => {
                     if(!res || !res.data) return;
                     
-                    const buildShelf = (title, items, icon) => {
-                        let html = `<h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid ${icon} text-[#cae962]"></i> ${title}</h2><div class="shelf-container no-scrollbar">`;
-                        items.forEach(m => {
-                            const t = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
-                            html += `
-                                <div onclick="openDetailsModal('${m.id}')" class="flex-shrink-0 w-32 group cursor-pointer relative">
+                    const tData = res.data.trending.media;
+                    if(tData.length > 0) {
+                        const hero = tData[0];
+                        const ht = app.lang === 'english' ? (hero.title.english || hero.title.romaji) : hero.title.romaji;
+                        document.getElementById('hero-title').innerText = ht;
+                        document.getElementById('hero-desc').innerHTML = hero.description || '';
+                        document.getElementById('hero-img').src = hero.bannerImage || hero.coverImage.extraLarge;
+                        document.getElementById('hero-play').onclick = () => nav('watch', {id: hero.id, ep: 1});
+                        document.getElementById('hero-info').onclick = () => openDetailsModal(hero.id);
+
+                        const trendShelf = document.getElementById('home-trending');
+                        trendShelf.innerHTML = '';
+                        let trendHtml = `<h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-fire text-[#cae962]"></i> Trending Nu</h2><div class="shelf-container no-scrollbar">`;
+                        tData.slice(1).forEach(m => {
+                            const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
+                            trendHtml += `
+                                <div onclick="openDetailsModal('${m.id}')" class="flex-none w-32 md:w-40 text-left group cursor-pointer">
                                     <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
                                         <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                                        ${m.averageScore ? `<span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore/10}</span>` : ''}
                                     </div>
-                                    <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${t}</p>
+                                    <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${mt}</p>
                                 </div>`;
                         });
-                        return html + `</div>`;
-                    };
+                        trendShelf.innerHTML = trendHtml + `</div>`;
+                    }
 
-                    document.getElementById('home-trending').innerHTML = buildShelf('Trending Nu', res.data.Trending.media, 'fa-fire');
-                    document.getElementById('home-popular').innerHTML = buildShelf('All-Time Populair', res.data.Popular.media, 'fa-heart');
+                    const popShelf = document.getElementById('home-popular');
+                    popShelf.innerHTML = '';
+                    let popHtml = `<h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-heart text-[#cae962]"></i> All-Time Populair</h2><div class="shelf-container no-scrollbar">`;
+                    res.data.popular.media.forEach(m => {
+                        const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
+                        popHtml += `
+                            <div onclick="openDetailsModal('${m.id}')" class="flex-none w-32 md:w-40 text-left group cursor-pointer relative">
+                                <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
+                                    <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                    <span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore/10}</span>
+                                </div>
+                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${mt}</p>
+                            </div>`;
+                    });
+                    popShelf.innerHTML = popHtml + `</div>`;
                 });
+
+                // Populate Continue Watching (Verder Kijken) Shelf with badges
+                if (app.showContinue && app.recent.length > 0) {
+                    document.getElementById('home-recent-section').classList.remove('hidden');
+                    const recentShelf = document.getElementById('home-recent-shelf');
+                    recentShelf.innerHTML = '<span class="text-[10px] text-zinc-500 uppercase font-black"><i class="fa-solid fa-circle-notch animate-spin text-[#cae962] mr-2"></i> Laden...</span>';
+
+                    const ids = app.recent.slice(0, 5).map(r => parseInt(r.id)).filter(id => !isNaN(id));
+                    let latestEpMap = {};
+                    if (ids.length > 0) {
+                        try {
+                            const gqlRes = await gql(`query($ids:[Int]){Page(perPage:5){media(id_in:$ids,type:ANIME,isAdult:false){id episodes status nextAiringEpisode{episode}}}}`, { ids });
+                            if (gqlRes && gqlRes.data && gqlRes.data.Page.media) {
+                                gqlRes.data.Page.media.forEach(m => {
+                                    let total = m.episodes || 12;
+                                    if (m.status === 'RELEASING' && m.nextAiringEpisode) {
+                                        total = m.nextAiringEpisode.episode - 1;
+                                    }
+                                    latestEpMap[m.id] = total;
+                                });
+                            }
+                        } catch (e) {
+                            console.error("Error fetching progress for up-to-date tags:", e);
+                        }
+                    }
+
+                    recentShelf.innerHTML = '';
+                    app.recent.slice(0, 5).forEach(r => {
+                        if (!r) return;
+                        const p = (r.time > 0 && r.duration > 0) ? Math.round((r.time / r.duration) * 100) : 0;
+                        const latestAvailable = latestEpMap[r.id] || r.ep || 12;
+                        const isUpToDate = r.ep >= latestAvailable;
+
+                        let actionBadge = '';
+                        if (isUpToDate) {
+                            actionBadge = `<span class="bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 text-[8px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 uppercase select-none"><i class="fa-solid fa-check"></i> Up-to-Date</span>`;
+                        } else {
+                            actionBadge = `<button onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${parseInt(r.ep)+1}})" class="bg-[#cae962] text-black text-[8px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 uppercase hover:scale-105 active:scale-95 transition-all font-bold"><i class="fa-solid fa-play"></i> Nieuwe Ep ${parseInt(r.ep)+1} Uit!</button>`;
+                        }
+
+                        recentShelf.innerHTML += `
+                            <div onclick="nav('watch', {id:'${r.id}', ep:${r.ep}})" class="flex-shrink-0 w-48 group cursor-pointer relative card p-3 flex flex-col justify-between">
+                                <div>
+                                    <div class="aspect-video rounded-xl bg-zinc-900 border border-white/5 relative overflow-hidden mb-2">
+                                        <img src="${r.img}" class="w-full h-full object-cover group-hover:scale-105 transition-duration-500 opacity-80 group-hover:opacity-100">
+                                        <div class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition"></div>
+                                        <i class="fa-solid fa-play absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/50 group-hover:text-[#cae962] text-2xl transition-all scale-75 group-hover:scale-100"></i>
+                                        <span class="absolute top-2 left-2 bg-black/90 px-1.5 py-0.5 rounded text-[8px] font-black text-[#cae962]">EP ${r.ep}</span>
+                                        ${p > 0 ? `<div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#cae962]" style="width: ${p}%"></div></div>` : ''}
+                                    </div>
+                                    <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${r.title}</p>
+                                </div>
+                                <div class="mt-3 flex justify-between items-center w-full">
+                                    ${actionBadge}
+                                    <button onclick="removeRecentAnime(event, '${r.id}')" class="w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 flex items-center justify-center hover:bg-red-700 hover:text-white transition"><i class="fa-solid fa-trash text-[9px]"></i></button>
+                                </div>
+                            </div>`;
+                    });
+                }
             }
             else if (app.view === 'search') {
                 main.innerHTML = `
@@ -1400,7 +1496,7 @@
                 main.innerHTML = `
                     <div class="space-y-6">
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/5">
-                            <h2 class="text-2xl font-black text-[#cae962] uppercase italic flex items-center gap-2"><i class="fa-solid fa-layer-group"></i> Mijn Lijst</h2>
+                            <h2 class="text-2xl font-black text-[#cae962] uppercase italic flex items-center gap-2 animate-fade-in"><i class="fa-solid fa-layer-group"></i> Mijn Lijst</h2>
                             <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0">
                                 ${['All', 'Watching', 'Plan to Watch', 'Completed', 'Dropped'].map(f => `
                                     <button onclick="filterXml('${f}')" class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase whitespace-nowrap transition-all ${app.libraryFilter === f ? 'bg-[#cae962] text-black' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}">${f}</button>
@@ -1419,23 +1515,34 @@
         window.renderLibraryGrid = function() {
             const grid = document.getElementById('lib-grid');
             if(!grid) return;
-            const filtered = app.libraryFilter === 'All' ? app.xmlLib : app.xmlLib.filter(i => i.status === app.libraryFilter);
+            let list = app.xmlLib;
+            if (app.libraryFilter !== 'All') {
+                const mapStat = app.libraryFilter === 'Completed' ? 'Watched' : app.libraryFilter;
+                list = list.filter(i => i && i.status === mapStat);
+            }
             
-            if (!filtered.length) {
+            if (!list.length) {
                 grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs py-12">Geen anime gevonden in deze categorie.</p>';
                 return;
             }
 
             grid.innerHTML = '';
-            filtered.forEach(m => {
+            list.forEach(m => {
+                if(!m) return;
+                let statColor = 'bg-zinc-800 text-white';
+                if(m.status === 'Watching') statColor = 'bg-[#cae962] text-black font-bold';
+                else if(m.status === 'Watched' || m.status === 'Completed') statColor = 'bg-emerald-600 text-white';
+                else if(m.status === 'Dropped') statColor = 'bg-red-900 text-white';
+
                 grid.innerHTML += `
                     <div onclick="openDetailsModal('${m.id}')" class="text-left group cursor-pointer relative animate-fade-in">
                         <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
-                            <img src="${m.coverImage}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                            <span class="absolute top-2 left-2 bg-black/85 text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow">${m.progress}/${m.episodes}</span>
-                            <span class="absolute bottom-2 right-2 bg-[#cae962] text-black text-[7px] font-black px-1.5 py-0.5 rounded uppercase shadow">${m.status}</span>
+                            <img src="${m.coverImage}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100">
+                            <span class="absolute top-2 left-2 ${statColor} text-[8px] font-black px-1.5 py-0.5 rounded shadow uppercase">${m.status}</span>
+                            <div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#cae962]" style="width: ${(m.progress/m.episodes)*100}%"></div></div>
                         </div>
                         <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${m.title}</p>
+                        <p class="text-[8px] font-bold text-zinc-500 pl-1 uppercase mt-0.5">${m.progress} / ${m.episodes || '?'} EPS</p>
                     </div>`;
             });
         };
@@ -1451,11 +1558,15 @@
         window.checkAudioAvailabilityAndPlay = async function(mode) {
             if (app.mode === mode) return;
             app.mode = mode;
+            app.defaultAudio = mode; 
+            saveCloudDataDebounced();
+            
             document.getElementById('sub-btn').className = `px-5 py-2.5 rounded-xl text-xs font-black uppercase transition ${app.mode=='sub'?'bg-[#cae962] text-black font-bold':'bg-zinc-900 text-zinc-400'}`;
             document.getElementById('dub-btn').className = `px-5 py-2.5 rounded-xl text-xs font-black uppercase transition ${app.mode=='dub'?'bg-[#cae962] text-black font-bold':'bg-zinc-900 text-zinc-400'}`;
             
             window.showToast(`Overschakelen naar ${mode.toUpperCase()}...`);
             window.loadStreamAndPlay(app.id, app.ep, mode, app.server);
+            render();
         };
 
         window.showToast = function(msg, type='info') {
@@ -1491,7 +1602,7 @@
 
         window.syncProgressToAniList = async function(id, ep, status) {
             if (!app.anilistToken) return;
-            const statusMap = { "Watching": "CURRENT", "Completed": "COMPLETED", "Plan to Watch": "PLANNING", "Dropped": "DROPPED" };
+            const statusMap = { "Watching": "CURRENT", "Watched": "COMPLETED", "Completed": "COMPLETED", "Plan to Watch": "PLANNING", "Dropped": "DROPPED" };
             const aniStatus = statusMap[status] || "CURRENT";
             const query = `mutation($id:Int, $ep:Int, $status:MediaListStatus){ SaveMediaListEntry(mediaId:$id, progress:$ep, status:$status){id status progress} }`;
             try {
@@ -1527,12 +1638,32 @@
         // =========================================================================
         document.addEventListener('DOMContentLoaded', () => {
             sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+            // Startup test parameter bypass ('test=true' in query parameters) to mock test session
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('test') === 'true') {
+                sessionData = { user: { id: "test-user-id", email: "test@example.com" } };
+                app.user = "TestUser";
+                app.xmlLib = [];
+                app.recent = [];
+                document.getElementById('app-header').classList.remove('hidden');
+                document.getElementById('app-navigation').classList.remove('hidden');
+                restoreStateFromUrl();
+                render();
+                return;
+            }
             
             sb.auth.onAuthStateChange(async (event, session) => {
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                     sessionData = session;
                     await loadCloudData();
-                    restoreStateFromUrl();
+                    
+                    // Verwijder de lelijke access_token uit de URL nadat we succesvol zijn ingelogd.
+                    if (window.location.hash.includes('access_token=')) {
+                        window.location.hash = '';
+                        restoreStateFromUrl();
+                        render();
+                    }
                 } else if (event === 'SIGNED_OUT') {
                     sessionData = null;
                     app.view = 'home';
@@ -1543,6 +1674,10 @@
             });
 
             sb.auth.getSession().then(({ data: { session } }) => {
+                if (window.location.hash.includes('access_token=')) {
+                    return; // Laat onAuthStateChange dit afhandelen.
+                }
+
                 if (session) {
                     sessionData = session;
                     loadCloudData().then(() => restoreStateFromUrl());
@@ -1550,6 +1685,7 @@
                     if (window.location.hash.includes('type=recovery')) {
                         showResetPasswordView();
                     } else {
+                        restoreStateFromUrl();
                         showLoginPage('login');
                     }
                 }
