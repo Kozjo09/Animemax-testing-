@@ -238,7 +238,6 @@
 
         // ANILIST CREDENTIALS
         const AL_CLIENT_ID = "45642";
-        const AL_CLIENT_SECRET = "R4ib1YKW5CMvFk1c03vuWbZrhgZ3dG6lEwtFVfyZ";
 
         let sb = null;
         let sessionData = null;
@@ -572,10 +571,14 @@
 
         window.logout = async function() { await sb.auth.signOut(); sessionData = null; window.location.hash = ''; showLoginPage('login'); };
 
-        // AniList Login Flow (Fix: Authorization Code Flow)
+        // =========================================================================
+        // AniList Login Flow (Fix: IMPLICIT GRANT FLOW)
+        // =========================================================================
         window.loginAniListOAuth = function() {
-            const redirect_uri = window.location.origin + window.location.pathname;
-            window.location.href = `https://anilist.co/api/v2/oauth/authorize?client_id=${AL_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirect_uri)}&response_type=code`;
+            // Door redirect_uri weg te laten, forceer je AniList om de standaard URL
+            // uit jouw dashboard instellingen (https://animemax-nu.vercel.app) te gebruiken.
+            // Dit lost de 'invalid_client' foutmelding direct op!
+            window.location.href = `https://anilist.co/api/v2/oauth/authorize?client_id=${AL_CLIENT_ID}&response_type=token`;
         };
 
         window.loginAniListManualToken = function() {
@@ -1152,7 +1155,7 @@
                             </div>
                         </div>
 
-                        <!-- Fix: Restored and Fixed AniList Section met Authorization Code Flow -->
+                        <!-- Oplossing toegepast: Implicit Flow / Zonder Redirect_URI mismatch  -->
                         <div class="card p-8 border border-white/5 space-y-4">
                             <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center gap-2"><i class="fa-solid fa-link text-[#cae962]"></i> AniList Koppeling</h2>
                             <p class="text-xs text-zinc-400 mb-2">Koppel je AniList account om automatisch je kijk-voortgang in de cloud en op AniList bij te werken.</p>
@@ -1167,53 +1170,32 @@
         }
 
         // =========================================================================
-        // INITIALIZATION EN OAUTH ONDERSCHEPPING
+        // INITIALIZATION EN IMPLICIT OAUTH ONDERSCHEPPING
         // =========================================================================
         window.addEventListener('DOMContentLoaded', async () => {
-            sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            
-            // 1. Onderschep de AniList Authorization Code in de URL
-            const urlParams = new URLSearchParams(window.location.search);
+            // 1. Onderschep de AniList Token (Implicit Flow) uit de URL hash VOORDAT Supabase laadt
+            // Dit zorgt ervoor dat de token direct onderschept wordt en weggewist uit de adresbalk.
+            const hashStr = window.location.hash.substring(1);
             let pendingAniListToken = null;
 
-            if (urlParams.has('code')) {
-                const code = urlParams.get('code');
-                // Wis onmiddellijk de '?code=...' parameter uit de browserbalk
-                window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+            if (hashStr.includes('access_token=') && hashStr.includes('token_type=Bearer')) {
+                const params = new URLSearchParams(hashStr);
+                pendingAniListToken = params.get('access_token');
                 
-                try {
-                    window.showToast("AniList code verifiëren...");
-                    const res = await fetch('https://anilist.co/api/v2/oauth/token', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            grant_type: 'authorization_code',
-                            client_id: AL_CLIENT_ID,
-                            client_secret: AL_CLIENT_SECRET,
-                            redirect_uri: window.location.origin + window.location.pathname,
-                            code: code
-                        })
-                    });
-                    const data = await res.json();
-                    if (data.access_token) {
-                        pendingAniListToken = data.access_token;
-                    }
-                } catch(e) {
-                    console.error("AniList OAuth Fout:", e);
-                    window.showToast("Kan AniList token niet ophalen.", "error");
-                }
+                // Wis de hash zodat Supabase er niet door in de war raakt
+                window.history.replaceState({}, document.title, window.location.pathname);
             }
 
-            // 2. Controleer Supabase sessie
+            // 2. Initialiseer Supabase pas NADAT we de URL hebben "opgeschoond" van de AniList-token
+            sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            
+            // 3. Controleer Supabase sessie
             const { data } = await sb.auth.getSession();
             if (data.session) {
                 sessionData = data.session;
                 await loadCloudData();
 
-                // 3. Als we net een token kregen via OAuth, sla deze dan nu op in het profiel
+                // 4. Als we net een AniList token kregen uit de URL, koppel deze dan aan de profiel data!
                 if (pendingAniListToken) {
                     verifyAndSaveAniListToken(pendingAniListToken);
                 }
@@ -1242,4 +1224,3 @@
     </script>
 </body>
 </html>
-
