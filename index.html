@@ -236,6 +236,7 @@
         const SUPABASE_KEY = "sb_publishable_EpN5OqgyzVvorrR27-V2MA_ZPCnD7He";
         const ANILIST_API = 'https://graphql.anilist.co';
         const EMBED_PROVIDERS = ['anikoto', 'animegg', 'anidbapp', 'reanime', 'anineko'];
+        const AL_CLIENT_ID = "45642";
 
         let sb = null;
         let sessionData = null;
@@ -960,6 +961,7 @@
                 }
             }
             saveCloudDataDebounced();
+            window.syncProgressToAniList(activeModalId, item ? item.progress : 0, statusVal);
             window.showToast("Mijn Lijst succesvol bijgewerkt!");
             openDetailsModal(activeModalId); 
         };
@@ -1608,19 +1610,16 @@
             };
         };
 
-        window.syncProgressToAniList = async function(id, ep, status) {
+        window.syncProgressToAniList = async function(animeId, progress, status) {
             if (!app.anilistToken) return;
             const statusMap = { "Watching": "CURRENT", "Watched": "COMPLETED", "Completed": "COMPLETED", "Plan to Watch": "PLANNING", "Dropped": "DROPPED" };
-            const aniStatus = statusMap[status] || "CURRENT";
-            const query = `mutation($id:Int, $ep:Int, $status:MediaListStatus){ SaveMediaListEntry(mediaId:$id, progress:$ep, status:$status){id status progress} }`;
+            const alStatus = statusMap[status] || "CURRENT";
+            
+            const query = `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) { SaveMediaListEntry (mediaId: $mediaId, progress: $progress, status: $status) { id status progress } }`;
             try {
-                await fetch(ANILIST_API, {
-                    method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + app.anilistToken, 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({ query, variables: { id: parseInt(id), ep: parseInt(ep), status: aniStatus } })
-                });
+                await gql(query, { mediaId: parseInt(animeId), progress: parseInt(progress), status: alStatus });
             } catch (e) {
-                console.error("AniList sync failed", e);
+                console.error("Fout bij synchroniseren met AniList:", e);
             }
         };
 
@@ -1724,4 +1723,5 @@
     </script>
 </body>
 </html>
+
 
