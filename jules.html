@@ -889,6 +889,7 @@
             gql(`query($id:Int){Media(id:$id,type:ANIME){id title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
                 if (!res || !res.data || !res.data.Media) return;
                 const m = res.data.Media;
+                const eps = m.episodes || 12;
                 const titleStr = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                 
                 document.getElementById('detail-title').innerText = titleStr;
@@ -915,7 +916,6 @@
                 }
                 
                 const playBtn = document.getElementById('detail-play-btn');
-                const eps = m.episodes || 12;
                 if (playBtn) {
                     playBtn.innerHTML = `<i class="fa-solid fa-play"></i> Kijk Ep ${targetEp}`;
                     playBtn.onclick = () => {
@@ -948,7 +948,6 @@
 
                 const epGrid = document.getElementById('detail-episodes-grid');
                 epGrid.innerHTML = '';
-                const eps = m.episodes || 12;
                 const prog = loc ? parseInt(loc.progress || 0) : 0;
                 for (let i = 1; i <= eps; i++) {
                     let c = (i <= prog) ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700";
