@@ -121,7 +121,7 @@
                     <button onclick="nav('recent')" class="hover:text-white transition-colors animate-fade-in" id="head-nav-recent">Verder Kijken</button>
                 </nav>
             </div>
-            <div class="flex gap-4 items-center">
+            <div id="header-right-controls" class="flex gap-4 items-center">
                 <button onclick="nav('search')" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-[#cae962] transition-all duration-300" title="Zoeken"><i class="fa-solid fa-search text-xs"></i></button>
                 <button onclick="nav('profile')" id="prof-btn" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-all duration-300" title="Profiel & Instellingen">
                     <i class="fa-solid fa-user-astronaut"></i>
@@ -256,7 +256,7 @@
         let app = {
             view: 'home', id: null, ep: 1, mode: 'sub', server: 'megaplay', searchQuery: '', libraryFilter: 'All',
             user: 'Gebruiker', showContinue: true, lang: 'english', autoPlay: true, autoNext: true, autoSkipIntro: false, skipSeconds: 85, 
-            defaultAudio: 'sub', recent: [], xmlLib: [], autoDubFallback: true, anilistToken: null
+            defaultAudio: 'sub', recent: [], xmlLib: [], autoDubFallback: true, anilistToken: null, anilistProfile: null
         };
 
         let currentPlaybackTime = 0;
@@ -553,6 +553,11 @@
                     app.autoNext = data.settings.autoNext !== false; app.autoSkipIntro = data.settings.autoSkipIntro === true;
                     app.skipSeconds = parseInt(data.settings.skipSeconds || '85'); app.autoDubFallback = data.settings.autoDubFallback !== false;
                     app.anilistToken = data.settings.anilistToken || null;
+                    if (app.anilistToken) {
+                        fetchAniListProfile().then(() => {
+                            window.syncAniListListToLocal(false);
+                        });
+                    }
                 }
             } else {
                 app.user = sessionData.user.email.split('@')[0];
@@ -598,18 +603,161 @@
             });
         };
 
+        async function fetchAniListProfile() {
+            if (!app.anilistToken) {
+                app.anilistProfile = null;
+                return null;
+            }
+            if (app.anilistProfile) return app.anilistProfile;
+            try {
+                const res = await gql(`query { Viewer { id name avatar { large } } }`);
+                if (res && res.data && res.data.Viewer) {
+                    app.anilistProfile = {
+                        name: res.data.Viewer.name,
+                        avatar: res.data.Viewer.avatar.large
+                    };
+                    return app.anilistProfile;
+                }
+            } catch (e) {
+                console.error("Fout bij ophalen AniList profiel:", e);
+            }
+            return null;
+        }
+
         async function verifyAndSaveAniListToken(token) {
             app.anilistToken = token;
             const res = await gql(`query { Viewer { id name avatar { large } } }`);
             if (res && res.data && res.data.Viewer) {
+                app.anilistProfile = {
+                    name: res.data.Viewer.name,
+                    avatar: res.data.Viewer.avatar.large
+                };
                 saveCloudData();
                 window.showToast(`Welkom, ${res.data.Viewer.name}! Gekoppeld met AniList.`);
-                render();
+                await window.syncAniListListToLocal(true);
             } else {
                 app.anilistToken = null;
+                app.anilistProfile = null;
                 window.showToast("Ongeldige AniList Token. Probeer opnieuw.", "error");
             }
         }
+
+        window.syncAniListListToLocal = async function(manualToast = true) {
+            if (!app.anilistToken) {
+                if (manualToast) window.showToast("Log eerst in met AniList!", "error");
+                return;
+            }
+            if (manualToast) window.showToast("AniList lijst ophalen...");
+            
+            try {
+                const viewerRes = await gql(`query { Viewer { id name avatar { large } } }`);
+                if (!viewerRes || !viewerRes.data || !viewerRes.data.Viewer) {
+                    if (manualToast) window.showToast("Kon AniList profiel niet ophalen.", "error");
+                    return;
+                }
+                const viewer = viewerRes.data.Viewer;
+                app.anilistProfile = {
+                    name: viewer.name,
+                    avatar: viewer.avatar.large
+                };
+
+                const listRes = await gql(`
+                    query ($userId: Int) {
+                        MediaListCollection(userId: $userId, type: ANIME) {
+                            lists {
+                                name
+                                status
+                                entries {
+                                    id
+                                    status
+                                    progress
+                                    media {
+                                        id
+                                        title {
+                                            romaji
+                                            english
+                                        }
+                                        episodes
+                                        coverImage {
+                                            large
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                `, { userId: viewer.id });
+
+                if (!listRes || !listRes.data || !listRes.data.MediaListCollection) {
+                    if (manualToast) window.showToast("Kon AniList lijst niet ophalen.", "error");
+                    return;
+                }
+
+                const lists = listRes.data.MediaListCollection.lists;
+                const alStatusMap = {
+                    'CURRENT': 'Watching',
+                    'PLANNING': 'Plan to Watch',
+                    'COMPLETED': 'Watched',
+                    'DROPPED': 'Dropped',
+                    'PAUSED': 'Watching'
+                };
+
+                let updatedCount = 0;
+                let addedCount = 0;
+                let localLib = [...app.xmlLib];
+
+                lists.forEach(list => {
+                    if (!list.entries) return;
+                    list.entries.forEach(entry => {
+                        const media = entry.media;
+                        if (!media) return;
+
+                        const mediaIdStr = media.id.toString();
+                        const alStatus = entry.status;
+                        const localStatus = alStatusMap[alStatus] || 'Watching';
+                        const progress = entry.progress || 0;
+                        const episodes = media.episodes || 12;
+                        const coverImage = media.coverImage ? media.coverImage.large : '';
+                        const title = app.lang === 'english' ? (media.title.english || media.title.romaji) : (media.title.romaji || media.title.english);
+
+                        const existingIdx = localLib.findIndex(item => item && item.id.toString() === mediaIdStr);
+
+                        if (existingIdx !== -1) {
+                            localLib[existingIdx] = {
+                                ...localLib[existingIdx],
+                                status: localStatus,
+                                progress: progress,
+                                episodes: episodes,
+                                coverImage: coverImage || localLib[existingIdx].coverImage,
+                                title: title || localLib[existingIdx].title
+                            };
+                            updatedCount++;
+                        } else {
+                            localLib.push({
+                                id: mediaIdStr,
+                                title: title,
+                                status: localStatus,
+                                progress: progress,
+                                episodes: episodes,
+                                coverImage: coverImage
+                            });
+                            addedCount++;
+                        }
+                    });
+                });
+
+                app.xmlLib = localLib;
+                await saveCloudData();
+                render();
+
+                if (manualToast) {
+                    window.showToast(`Succesvol gesynchroniseerd! ${addedCount} toegevoegd, ${updatedCount} bijgewerkt.`, "success");
+                }
+            } catch (e) {
+                console.error("Fout tijdens AniList sync:", e);
+                if (manualToast) window.showToast("Fout bij synchroniseren met AniList.", "error");
+            }
+        };
 
         // =========================================================================
         // EPISODES & VIDEOPLAYERS IMPLEMENTATION
@@ -1198,6 +1346,32 @@
 
             // Sync Header Nav Styling to highlight the active menu items on desktop
             document.querySelectorAll('#app-header nav button').forEach(el => { el.classList.remove('text-[#cae962]'); el.classList.add('text-zinc-400'); });
+
+            // Sync Header Right Controls dynamically with AniList persistent indicator
+            const headerRight = document.getElementById('header-right-controls');
+            if (headerRight) {
+                let anilistPill = '';
+                if (app.anilistToken) {
+                    const prof = app.anilistProfile || { name: 'Gekoppeld', avatar: '' };
+                    anilistPill = `
+                        <div class="flex items-center gap-1.5 bg-indigo-950/40 border border-indigo-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase text-indigo-300 tracking-wider">
+                            ${prof.avatar ? `<img src="${prof.avatar}" class="w-3.5 h-3.5 rounded-full object-cover">` : '<i class="fa-solid fa-link text-[8px]"></i>'}
+                            <span class="max-w-[70px] truncate">${prof.name}</span>
+                        </div>
+                    `;
+                }
+                headerRight.innerHTML = `
+                    ${anilistPill}
+                    <button onclick="nav('search')" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-[#cae962] transition-all duration-300" title="Zoeken"><i class="fa-solid fa-search text-xs"></i></button>
+                    <button onclick="nav('profile')" id="prof-btn" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-all duration-300" title="Profiel & Instellingen">
+                        ${app.anilistToken && app.anilistProfile && app.anilistProfile.avatar ? 
+                            `<img src="${app.anilistProfile.avatar}" class="w-full h-full rounded-full object-cover border border-[#cae962]/20">` : 
+                            '<i class="fa-solid fa-user-astronaut"></i>'
+                        }
+                    </button>
+                    <button onclick="logout()" class="w-10 h-10 rounded-full bg-red-950/20 hover:bg-red-700 border border-red-500/10 hover:border-transparent flex items-center justify-center text-red-400 hover:text-white transition-all duration-300" title="Uitloggen"><i class="fa-solid fa-sign-out-alt text-xs"></i></button>
+                `;
+            }
             const headActive = document.getElementById('head-nav-' + app.view);
             if(headActive) { headActive.classList.add('text-[#cae962]'); headActive.classList.remove('text-zinc-400'); }
 
@@ -1500,7 +1674,8 @@
                                 <div class="border-t border-white/5 pt-4 space-y-3">
                                     <p class="text-[10px] font-black uppercase text-zinc-500">AniList Integratie</p>
                                     ${app.anilistToken ? 
-                                        `<button onclick="disconnectAniList()" class="w-full bg-red-950/30 border border-red-500/20 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-red-400 hover:bg-red-900/50 transition"><i class="fa-solid fa-unlink"></i> AniList Ontkoppelen</button>` : 
+                                        `<button onclick="syncAniListListToLocal(true)" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-white transition flex items-center justify-center gap-2 mb-2 font-bold"><i class="fa-solid fa-rotate"></i> Handmatig Synchroniseren</button>
+                                         <button onclick="disconnectAniList()" class="w-full bg-red-950/30 border border-red-500/20 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-red-400 hover:bg-red-900/50 transition"><i class="fa-solid fa-unlink"></i> AniList Ontkoppelen</button>` : 
                                         `<button onclick="loginAniListOAuth()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl text-xs font-black uppercase text-white transition flex items-center justify-center gap-2 mb-2 font-bold"><i class="fa-solid fa-link"></i> Koppel via AniList Login</button>
                                          <button onclick="loginAniListManualToken()" class="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl text-xs font-black uppercase text-zinc-300 transition flex items-center justify-center gap-2 font-bold"><i class="fa-solid fa-key"></i> Handmatig Token Invoeren</button>`
                                     }
@@ -1668,7 +1843,14 @@
                 main.innerHTML = `
                     <div class="space-y-6">
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/5">
-                            <h2 class="text-2xl font-black text-[#cae962] uppercase italic flex items-center gap-2 animate-fade-in"><i class="fa-solid fa-layer-group"></i> Mijn Lijst</h2>
+                            <div class="flex items-center gap-4 justify-between w-full md:w-auto">
+                                <h2 class="text-2xl font-black text-[#cae962] uppercase italic flex items-center gap-2 animate-fade-in"><i class="fa-solid fa-layer-group"></i> Mijn Lijst</h2>
+                                ${app.anilistToken ? `
+                                    <button onclick="syncAniListListToLocal(true)" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[9px] uppercase tracking-wider px-3 py-2 rounded-xl transition flex items-center gap-1.5" title="Synchroniseer handmatig met AniList">
+                                        <i class="fa-solid fa-rotate animate-spin-hover"></i> AniList Sync
+                                    </button>
+                                ` : ''}
+                            </div>
                             <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0">
                                 ${['All', 'Watching', 'Plan to Watch', 'Completed', 'Dropped'].map(f => `
                                     <button onclick="filterXml('${f}')" class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase whitespace-nowrap transition-all ${app.libraryFilter === f ? 'bg-[#cae962] text-black' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}">${f}</button>
@@ -1903,6 +2085,7 @@
     </script>
 </body>
 </html>
+
 
 
 
