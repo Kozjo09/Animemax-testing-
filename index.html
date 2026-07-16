@@ -276,80 +276,25 @@
         }
 
         // Custom GraphQL Caller with automatic AniList Access Token binding
-        // - Logs network errors instead of silently failing
-        // - Detects 401 (invalid/expired token) and clears it
-        // - Detects rate limiting (429) and warns the user
-        let anilistLastRequestAt = 0;
-        let anilistTokenInvalidNotified = false;
-
         async function gql(query, vars) {
-            const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+            const headers = { 'Content-Type': 'application/json' };
             if (app.anilistToken) {
                 headers['Authorization'] = 'Bearer ' + app.anilistToken;
             }
-            // AniList rate limit: max 90 requests/min. Enforce a tiny delay between calls.
-            const now = Date.now();
-            const elapsed = now - anilistLastRequestAt;
-            if (elapsed < 90) {
-                await new Promise(r => setTimeout(r, 90 - elapsed));
-            }
-            anilistLastRequestAt = Date.now();
-
             try {
-                const r = await fetch(ANILIST_API, {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ query, variables: vars })
+                const r = await fetch(ANILIST_API, { 
+                    method: 'POST', 
+                    headers: headers, 
+                    body: JSON.stringify({ query, variables: vars }) 
                 });
-
-                if (r.status === 429) {
-                    console.warn('[AniList] Rate limit hit (429). Backing off.');
-                    if (!window._anilistRateLimitToastShown) {
-                        window._anilistRateLimitToastShown = true;
-                        window.showToast && window.showToast("AniList snelheidslimiet bereikt. Even wachten...", "error");
-                        setTimeout(() => { window._anilistRateLimitToastShown = false; }, 30000);
-                    }
-                    return null;
-                }
-
-                if (r.status === 401) {
-                    console.error('[AniList] Token ongeldig of verlopen (401).');
-                    if (!anilistTokenInvalidNotified) {
-                        anilistTokenInvalidNotified = true;
-                        // Token is bad — clear it so we stop trying with a broken token
-                        app.anilistToken = null;
-                        app.anilistProfile = null;
-                        try { localStorage.removeItem('anilist_token'); } catch (e) {}
-                        window.showToast && window.showToast("AniList token ongeldig/verlopen. Koppel opnieuw.", "error");
-                        setTimeout(() => { anilistTokenInvalidNotified = false; }, 30000);
-                        try { render && render(); } catch (e) {}
-                    }
-                    return null;
-                }
-
-                const json = await r.json();
-                if (json && json.errors && json.errors.length) {
-                    console.error('[AniList] GraphQL errors:', json.errors);
-                }
-                return json;
-            } catch (e) {
-                console.error('[AniList] Network/fetch error:', e);
-                return null;
+                return await r.json();
+            } catch(e) { 
+                return null; 
             }
         }
 
         // Sync local settings/tokens to database
         async function saveCloudData() {
-            // Always mirror the AniList token to localStorage so it survives
-            // page refreshes even when the Supabase session is unavailable.
-            try {
-                if (app.anilistToken) {
-                    localStorage.setItem('anilist_token', app.anilistToken);
-                } else {
-                    localStorage.removeItem('anilist_token');
-                }
-            } catch (e) {}
-
             if (!sessionData) return;
             const settingsPayload = { 
                 defaultAudio: app.defaultAudio, 
@@ -607,48 +552,25 @@
                     app.lang = data.settings.lang || 'english'; app.autoPlay = data.settings.autoPlay !== false;
                     app.autoNext = data.settings.autoNext !== false; app.autoSkipIntro = data.settings.autoSkipIntro === true;
                     app.skipSeconds = parseInt(data.settings.skipSeconds || '85'); app.autoDubFallback = data.settings.autoDubFallback !== false;
-                    // Prefer the cloud-stored token, but fall back to localStorage if cloud is empty.
-                    app.anilistToken = data.settings.anilistToken || (function(){ try { return localStorage.getItem('anilist_token') || null; } catch(e){ return null; } })();
+                    app.anilistToken = data.settings.anilistToken || null;
                     if (app.anilistToken) {
                         fetchAniListProfile().then(() => {
                             window.syncAniListListToLocal(false);
                         });
                     }
-                } else if (function(){ try { return localStorage.getItem('anilist_token'); } catch(e){ return null; } }()) {
-                    // No settings row yet, but we have a localStorage token — restore it.
-                    app.anilistToken = localStorage.getItem('anilist_token');
-                    fetchAniListProfile().then(() => {
-                        window.syncAniListListToLocal(false);
-                    });
                 }
             } else {
                 app.user = sessionData.user.email.split('@')[0];
                 await sb.from('anime_users').insert([{ id: sessionData.user.id, username: app.user, watchlist: [], recent: [], settings: { user: app.user, server: 'megaplay' } }]);
-                // Even for brand-new users, restore any AniList token that lives in localStorage.
-                try {
-                    const localTok = localStorage.getItem('anilist_token');
-                    if (localTok) {
-                        app.anilistToken = localTok;
-                        fetchAniListProfile().then(() => window.syncAniListListToLocal(false));
-                    }
-                } catch (e) {}
             }
             document.getElementById('app-header').classList.remove('hidden');
             document.getElementById('app-navigation').classList.remove('hidden');
             render();
 
             // Check for pending AniList token saved during startup
-            await checkPendingAniListToken();
-        }
-
-        // Verify any pending AniList OAuth token, regardless of Supabase session state.
-        // This is intentionally separated so that the AniList link works even if
-        // the user is not (yet) logged in to the Supabase backend.
-        async function checkPendingAniListToken() {
-            let storedToken = null;
-            try { storedToken = localStorage.getItem('pending_anilist_token'); } catch (e) {}
+            const storedToken = localStorage.getItem('pending_anilist_token');
             if (storedToken) {
-                try { localStorage.removeItem('pending_anilist_token'); } catch (e) {}
+                localStorage.removeItem('pending_anilist_token');
                 await verifyAndSaveAniListToken(storedToken);
             }
         }
@@ -659,25 +581,14 @@
         // ANILIST CONNECTION & MANUALLY CONNECTIONS
         // =========================================================================
         window.loginAniListOAuth = function() {
-            // Build a redirect_uri pointing back to THIS page so the access_token
-            // comes back to us. NOTE: This URL must be registered in your AniList
-            // developer dashboard for the OAuth flow to succeed. If you are hosting
-            // this file on your own domain, register that domain in the AniList
-            // app settings (client_id 45642) or use the manual-token method.
-            const redirectUri = window.location.origin + window.location.pathname;
-            const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${AL_CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
-            window.location.href = authUrl;
+            // Door redirect_uri weg te laten, forceer je AniList om de standaard URL
+            // uit jouw dashboard instellingen (https://animemax-nu.vercel.app) te gebruiken.
+            // Dit lost de 'invalid_client' foutmelding direct op!
+            window.location.href = `https://anilist.co/api/v2/oauth/authorize?client_id=${AL_CLIENT_ID}&response_type=token`;
         };
 
         window.loginAniListManualToken = function() {
-            const helpText = "Plak hier uw AniList Personal Access Token.\n\n" +
-                "U kunt er een aanmaken op:\n" +
-                "https://anilist.co/settings/developer\n\n" +
-                "Vink MINIMAAL de volgende scopes aan:\n" +
-                "  - View your email address\n" +
-                "  - View your anime & manga list\n" +
-                "  - Update your anime & manga list\n";
-            const token = prompt(helpText);
+            const token = prompt("Plak hier uw AniList Personal Access Token:");
             if (token && token.trim()) {
                 verifyAndSaveAniListToken(token.trim());
             }
@@ -686,8 +597,6 @@
         window.disconnectAniList = function() {
             window.showConfirm("AniList Ontkoppelen", "Weet je zeker dat je jouw AniList profiel wilt ontkoppelen?", () => {
                 app.anilistToken = null;
-                app.anilistProfile = null;
-                try { localStorage.removeItem('anilist_token'); } catch (e) {}
                 saveCloudDataDebounced();
                 window.showToast("AniList succesvol ontkoppeld.");
                 render();
@@ -717,10 +626,6 @@
 
         async function verifyAndSaveAniListToken(token) {
             app.anilistToken = token;
-            // Mirror to localStorage immediately so it survives a refresh even
-            // before the cloud save round-trip completes.
-            try { localStorage.setItem('anilist_token', token); } catch (e) {}
-
             const res = await gql(`query { Viewer { id name avatar { large } } }`);
             if (res && res.data && res.data.Viewer) {
                 app.anilistProfile = {
@@ -728,16 +633,12 @@
                     avatar: res.data.Viewer.avatar.large
                 };
                 saveCloudData();
-                window.showToast(`Welkom, ${res.data.Viewer.name}! Gekoppeld met AniList.`, "success");
-                render();
-                // Pull the user's full AniList library into the local list
-                await window.syncAniListListToLocal(false);
+                window.showToast(`Welkom, ${res.data.Viewer.name}! Gekoppeld met AniList.`);
+                await window.syncAniListListToLocal(true);
             } else {
                 app.anilistToken = null;
                 app.anilistProfile = null;
-                try { localStorage.removeItem('anilist_token'); } catch (e) {}
-                window.showToast("Ongeldige AniList Token. Controleer of de token alle benodigde scopes heeft.", "error");
-                render();
+                window.showToast("Ongeldige AniList Token. Probeer opnieuw.", "error");
             }
         }
 
@@ -788,19 +689,17 @@
                 `, { userId: viewer.id });
 
                 if (!listRes || !listRes.data || !listRes.data.MediaListCollection) {
-                    console.error('[AniList] MediaListCollection query returned no data', listRes && listRes.errors);
                     if (manualToast) window.showToast("Kon AniList lijst niet ophalen.", "error");
                     return;
                 }
 
-                const lists = listRes.data.MediaListCollection.lists || [];
+                const lists = listRes.data.MediaListCollection.lists;
                 const alStatusMap = {
                     'CURRENT': 'Watching',
                     'PLANNING': 'Plan to Watch',
                     'COMPLETED': 'Watched',
                     'DROPPED': 'Dropped',
-                    'PAUSED': 'Watching',
-                    'REPEATING': 'Watching'
+                    'PAUSED': 'Watching'
                 };
 
                 let updatedCount = 0;
@@ -808,9 +707,9 @@
                 let localLib = [...app.xmlLib];
 
                 lists.forEach(list => {
-                    if (!list || !list.entries) return;
+                    if (!list.entries) return;
                     list.entries.forEach(entry => {
-                        const media = entry && entry.media;
+                        const media = entry.media;
                         if (!media) return;
 
                         const mediaIdStr = media.id.toString();
@@ -821,7 +720,7 @@
                         const coverImage = media.coverImage ? media.coverImage.large : '';
                         const title = app.lang === 'english' ? (media.title.english || media.title.romaji) : (media.title.romaji || media.title.english);
 
-                        const existingIdx = localLib.findIndex(item => item && item.id && item.id.toString() === mediaIdStr);
+                        const existingIdx = localLib.findIndex(item => item && item.id.toString() === mediaIdStr);
 
                         if (existingIdx !== -1) {
                             localLib[existingIdx] = {
@@ -836,7 +735,7 @@
                         } else {
                             localLib.push({
                                 id: mediaIdStr,
-                                title: title || 'Onbekend',
+                                title: title,
                                 status: localStatus,
                                 progress: progress,
                                 episodes: episodes,
@@ -853,8 +752,6 @@
 
                 if (manualToast) {
                     window.showToast(`Succesvol gesynchroniseerd! ${addedCount} toegevoegd, ${updatedCount} bijgewerkt.`, "success");
-                } else {
-                    console.log(`[AniList] Background sync complete — ${addedCount} added, ${updatedCount} updated.`);
                 }
             } catch (e) {
                 console.error("Fout tijdens AniList sync:", e);
@@ -1296,23 +1193,6 @@
                 if (autoNextTriggered) return;
                 autoNextTriggered = true;
                 setTimeout(() => { autoNextTriggered = false; }, 8000);
-
-                // ALWAYS mark the current episode as watched on AniList when the
-                // user reaches the end — regardless of whether autoNext is enabled.
-                // This is the "sync every watched episode" behavior.
-                if (app.view === 'watch' && app.id && app.ep) {
-                    const loc = app.xmlLib.find(i => i && i.id == app.id) || app.recent.find(i => i && i.id == app.id);
-                    const title = loc ? loc.title : 'Anime';
-                    const cover = loc ? loc.coverImage : '';
-                    const totalEps = loc ? (loc.episodes || 12) : 12;
-                    // Local progress = current ep (this matches the original code's semantics
-                    // where "progress" = "the episode you are on / just finished").
-                    const watchedEp = parseInt(app.ep);
-                    const finalStat = watchedEp >= totalEps ? 'Watched' : 'Watching';
-                    window.autoUpdateProgressOnEpClick(app.id, title, watchedEp, totalEps, cover, finalStat);
-                }
-
-                // Only auto-advance to the next episode if the user opted in.
                 if (app.autoNext) window.playNextEpisode();
             }
         };
@@ -1794,11 +1674,9 @@
                                 <div class="border-t border-white/5 pt-4 space-y-3">
                                     <p class="text-[10px] font-black uppercase text-zinc-500">AniList Integratie</p>
                                     ${app.anilistToken ? 
-                                        `<div class="bg-emerald-950/30 border border-emerald-500/20 px-3 py-2 rounded-xl text-[9px] text-emerald-300 flex items-center gap-2"><i class="fa-solid fa-circle-check"></i> Verbonden als <b class="text-emerald-200">${(app.anilistProfile && app.anilistProfile.name) || 'AniList-gebruiker'}</b>. Status- en voortgangswijzigingen worden automatisch gesynchroniseerd voor elke bekeken aflevering.</div>
-                                         <button onclick="syncAniListListToLocal(true)" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-white transition flex items-center justify-center gap-2 mb-2 font-bold"><i class="fa-solid fa-rotate"></i> AniList Lijst Handmatig Ophalen</button>
+                                        `<button onclick="syncAniListListToLocal(true)" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-white transition flex items-center justify-center gap-2 mb-2 font-bold"><i class="fa-solid fa-rotate"></i> Handmatig Synchroniseren</button>
                                          <button onclick="disconnectAniList()" class="w-full bg-red-950/30 border border-red-500/20 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-red-400 hover:bg-red-900/50 transition"><i class="fa-solid fa-unlink"></i> AniList Ontkoppelen</button>` : 
-                                        `<div class="bg-amber-950/30 border border-amber-500/20 px-3 py-2 rounded-xl text-[9px] text-amber-300 flex items-start gap-2"><i class="fa-solid fa-circle-info mt-0.5"></i> <span>Tip: Als de OAuth-login niet werkt (bijv. op een eigen domein), gebruik dan <b>Handmatig Token Invoeren</b>. Maak een token aan op <span class="underline">anilist.co/settings/developer</span> met scopes voor het bekijken én bijwerken van je lijst.</span></div>
-                                         <button onclick="loginAniListOAuth()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl text-xs font-black uppercase text-white transition flex items-center justify-center gap-2 mb-2 font-bold"><i class="fa-solid fa-link"></i> Koppel via AniList Login</button>
+                                        `<button onclick="loginAniListOAuth()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl text-xs font-black uppercase text-white transition flex items-center justify-center gap-2 mb-2 font-bold"><i class="fa-solid fa-link"></i> Koppel via AniList Login</button>
                                          <button onclick="loginAniListManualToken()" class="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl text-xs font-black uppercase text-zinc-300 transition flex items-center justify-center gap-2 font-bold"><i class="fa-solid fa-key"></i> Handmatig Token Invoeren</button>`
                                     }
                                 </div>
@@ -2076,91 +1954,17 @@
             };
         };
 
-        // Debounced AniList progress sync. Multiple updates for the SAME anime
-        // within the debounce window are coalesced into a single API call.
-        // This prevents flooding AniList with mutations when the user rapidly
-        // clicks through episodes or changes statuses.
-        const _anilistPendingSyncs = {}; // { mediaId: { progress, status, timer } }
-
         window.syncProgressToAniList = async function(animeId, progress, status) {
             if (!app.anilistToken) return;
-            if (!animeId) return;
-
-            // Validate the mediaId — AniList requires a numeric Int.
-            const mediaIdNum = parseInt(animeId);
-            if (isNaN(mediaIdNum) || mediaIdNum <= 0) {
-                console.warn('[AniList] syncProgressToAniList: invalid animeId', animeId);
-                return;
-            }
-
-            // Validate the status — must be one of the known local statuses.
-            const statusMap = {
-                "Watching": "CURRENT",
-                "Watched": "COMPLETED",
-                "Completed": "COMPLETED",
-                "Plan to Watch": "PLANNING",
-                "Dropped": "DROPPED",
-                "Not Watching": null // signals deletion below
-            };
+            const statusMap = { "Watching": "CURRENT", "Watched": "COMPLETED", "Completed": "COMPLETED", "Plan to Watch": "PLANNING", "Dropped": "DROPPED" };
             const alStatus = statusMap[status] || "CURRENT";
-
-            // Validate progress — must be a non-negative integer.
-            const progressNum = parseInt(progress);
-            const safeProgress = isNaN(progressNum) || progressNum < 0 ? 0 : progressNum;
-
-            // Coalesce rapid updates for the same anime within 800ms.
-            if (_anilistPendingSyncs[mediaIdNum]) {
-                clearTimeout(_anilistPendingSyncs[mediaIdNum].timer);
+            
+            const query = `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) { SaveMediaListEntry (mediaId: $mediaId, progress: $progress, status: $status) { id status progress } }`;
+            try {
+                await gql(query, { mediaId: parseInt(animeId), progress: parseInt(progress), status: alStatus });
+            } catch (e) {
+                console.error("Fout bij synchroniseren met AniList:", e);
             }
-
-            return new Promise((resolve) => {
-                _anilistPendingSyncs[mediaIdNum] = {
-                    progress: safeProgress,
-                    status: alStatus,
-                    timer: setTimeout(async () => {
-                        delete _anilistPendingSyncs[mediaIdNum];
-                        const payload = { mediaId: mediaIdNum, progress: safeProgress, status: alStatus };
-
-                        // "Not Watching" → delete the entry instead of saving.
-                        if (alStatus === null) {
-                            const delQuery = `mutation ($mediaId: Int) { DeleteMediaListEntry (mediaId: $mediaId) { deleted } }`;
-                            try {
-                                const r = await gql(delQuery, { mediaId: mediaIdNum });
-                                if (r && r.data && r.data.DeleteMediaListEntry && r.data.DeleteMediaListEntry.deleted) {
-                                    console.log(`[AniList] Deleted entry for mediaId ${mediaIdNum}.`);
-                                } else {
-                                    console.warn(`[AniList] Delete entry for mediaId ${mediaIdNum} may have failed.`, r);
-                                }
-                            } catch (e) {
-                                console.error('[AniList] DeleteMediaListEntry error:', e);
-                            }
-                            resolve();
-                            return;
-                        }
-
-                        const query = `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) {
-                            SaveMediaListEntry (mediaId: $mediaId, progress: $progress, status: $status) {
-                                id status progress
-                            }
-                        }`;
-                        try {
-                            const r = await gql(query, payload);
-                            if (r && r.data && r.data.SaveMediaListEntry) {
-                                console.log(`[AniList] Synced mediaId ${mediaIdNum} → status=${alStatus}, progress=${safeProgress}.`);
-                            } else if (r && r.errors && r.errors.length) {
-                                console.error('[AniList] SaveMediaListEntry returned errors:', r.errors);
-                                window.showToast && window.showToast("AniList sync mislukt: " + (r.errors[0].message || 'onbekende fout'), "error");
-                            } else if (!r) {
-                                // gql() already handled logging / toast (rate limit, 401, network)
-                                console.warn(`[AniList] SaveMediaListEntry for mediaId ${mediaIdNum} returned no response.`);
-                            }
-                        } catch (e) {
-                            console.error('[AniList] SaveMediaListEntry network error:', e);
-                        }
-                        resolve();
-                    }, 800)
-                };
-            });
         };
 
         // Normalize anivexa api response to standardize structure
@@ -2200,20 +2004,6 @@
                     if (autoNextTriggered) return;
                     autoNextTriggered = true;
                     setTimeout(() => { autoNextTriggered = false; }, 8000);
-
-                    // Sync the just-finished episode to AniList BEFORE possibly
-                    // jumping to the next one. This guarantees a sync even when
-                    // the player fires `ended` without a preceding near-end tick.
-                    if (app.view === 'watch' && app.id && app.ep) {
-                        const loc = app.xmlLib.find(i => i && i.id == app.id) || app.recent.find(i => i && i.id == app.id);
-                        const title = loc ? loc.title : 'Anime';
-                        const cover = loc ? loc.coverImage : '';
-                        const totalEps = loc ? (loc.episodes || 12) : 12;
-                        const watchedEp = parseInt(app.ep);
-                        const finalStat = watchedEp >= totalEps ? 'Watched' : 'Watching';
-                        window.autoUpdateProgressOnEpClick(app.id, title, watchedEp, totalEps, cover, finalStat);
-                    }
-
                     if (app.autoNext) window.playNextEpisode();
                 }
             } catch (e) { }
@@ -2283,31 +2073,11 @@
                     sessionData = session;
                     loadCloudData().then(() => restoreStateFromUrl());
                 } else {
-                    // No Supabase session. Still, if there is a pending AniList
-                    // OAuth token (or a previously stored localStorage token),
-                    // restore / verify it so the AniList integration keeps working
-                    // without requiring a Supabase login.
-                    let storedToken = null;
-                    try { storedToken = localStorage.getItem('pending_anilist_token') || localStorage.getItem('anilist_token'); } catch (e) {}
-
-                    if (storedToken) {
-                        // Try to clear the pending flag first.
-                        try { localStorage.removeItem('pending_anilist_token'); } catch (e) {}
-                        app.anilistToken = storedToken;
-                        try {
-                            localStorage.setItem('anilist_token', storedToken);
-                        } catch (e) {}
-                        verifyAndSaveAniListToken(storedToken).finally(() => {
-                            restoreStateFromUrl();
-                            showLoginPage('login');
-                        });
+                    if (window.location.hash.includes('type=recovery')) {
+                        showResetPasswordView();
                     } else {
-                        if (window.location.hash.includes('type=recovery')) {
-                            showResetPasswordView();
-                        } else {
-                            restoreStateFromUrl();
-                            showLoginPage('login');
-                        }
+                        restoreStateFromUrl();
+                        showLoginPage('login');
                     }
                 }
             });
@@ -2315,7 +2085,6 @@
     </script>
 </body>
 </html>
-
 
 
 
