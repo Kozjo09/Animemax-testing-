@@ -539,43 +539,59 @@
             }
         };
 
+        let cloudDataPromise = null;
         async function loadCloudData() {
             if (!sessionData) return;
-            const { data } = await sb.from('anime_users').select('*').eq('id', sessionData.user.id).maybeSingle();
-            if (data) {
-                app.xmlLib = data.watchlist || [];
-                app.recent = data.recent || [];
-                if (data.settings) {
-                    app.defaultAudio = data.settings.defaultAudio || 'sub'; app.mode = app.defaultAudio;
-                    app.server = data.settings.server || 'megaplay';
-                    app.user = data.settings.user || app.user; app.showContinue = data.settings.showContinue !== false;
-                    app.lang = data.settings.lang || 'english'; app.autoPlay = data.settings.autoPlay !== false;
-                    app.autoNext = data.settings.autoNext !== false; app.autoSkipIntro = data.settings.autoSkipIntro === true;
-                    app.skipSeconds = parseInt(data.settings.skipSeconds || '85'); app.autoDubFallback = data.settings.autoDubFallback !== false;
-                    app.anilistToken = data.settings.anilistToken || null;
-                    if (app.anilistToken) {
-                        fetchAniListProfile().then(() => {
-                            window.syncAniListListToLocal(false);
-                        });
-                    }
-                }
-            } else {
-                app.user = sessionData.user.email.split('@')[0];
-                await sb.from('anime_users').insert([{ id: sessionData.user.id, username: app.user, watchlist: [], recent: [], settings: { user: app.user, server: 'megaplay' } }]);
-            }
-            document.getElementById('app-header').classList.remove('hidden');
-            document.getElementById('app-navigation').classList.remove('hidden');
-            render();
+            if (cloudDataPromise) return cloudDataPromise;
 
-            // Check for pending AniList token saved during startup
-            const storedToken = localStorage.getItem('pending_anilist_token');
-            if (storedToken) {
-                localStorage.removeItem('pending_anilist_token');
-                await verifyAndSaveAniListToken(storedToken);
-            }
+            cloudDataPromise = (async () => {
+                try {
+                    const { data } = await sb.from('anime_users').select('*').eq('id', sessionData.user.id).maybeSingle();
+                    if (data) {
+                        app.xmlLib = data.watchlist || [];
+                        app.recent = data.recent || [];
+                        if (data.settings) {
+                            app.defaultAudio = data.settings.defaultAudio || 'sub'; app.mode = app.defaultAudio;
+                            app.server = data.settings.server || 'megaplay';
+                            app.user = data.settings.user || app.user; app.showContinue = data.settings.showContinue !== false;
+                            app.lang = data.settings.lang || 'english'; app.autoPlay = data.settings.autoPlay !== false;
+                            app.autoNext = data.settings.autoNext !== false; app.autoSkipIntro = data.settings.autoSkipIntro === true;
+                            app.skipSeconds = parseInt(data.settings.skipSeconds || '85'); app.autoDubFallback = data.settings.autoDubFallback !== false;
+                            app.anilistToken = data.settings.anilistToken || null;
+                            if (app.anilistToken) {
+                                await fetchAniListProfile();
+                                await window.syncAniListListToLocal(false);
+                            }
+                        }
+                    } else {
+                        app.user = sessionData.user.email.split('@')[0];
+                        await sb.from('anime_users').insert([{ id: sessionData.user.id, username: app.user, watchlist: [], recent: [], settings: { user: app.user, server: 'megaplay' } }]);
+                    }
+                    document.getElementById('app-header').classList.remove('hidden');
+                    document.getElementById('app-navigation').classList.remove('hidden');
+                    render();
+
+                    // Check for pending AniList token saved during startup
+                    const storedToken = localStorage.getItem('pending_anilist_token');
+                    if (storedToken) {
+                        localStorage.removeItem('pending_anilist_token');
+                        await verifyAndSaveAniListToken(storedToken);
+                    }
+                } catch (e) {
+                    console.error("Error loading cloud data:", e);
+                }
+            })();
+
+            return cloudDataPromise;
         }
 
-        window.logout = async function() { await sb.auth.signOut(); sessionData = null; window.location.hash = ''; showLoginPage('login'); };
+        window.logout = async function() {
+            await sb.auth.signOut();
+            sessionData = null;
+            cloudDataPromise = null;
+            window.location.hash = '';
+            showLoginPage('login');
+        };
 
         // =========================================================================
         // ANILIST CONNECTION & MANUALLY CONNECTIONS
@@ -597,6 +613,7 @@
         window.disconnectAniList = function() {
             window.showConfirm("AniList Ontkoppelen", "Weet je zeker dat je jouw AniList profiel wilt ontkoppelen?", () => {
                 app.anilistToken = null;
+                app.anilistProfile = null;
                 saveCloudDataDebounced();
                 window.showToast("AniList succesvol ontkoppeld.");
                 render();
@@ -632,7 +649,7 @@
                     name: res.data.Viewer.name,
                     avatar: res.data.Viewer.avatar.large
                 };
-                saveCloudData();
+                await saveCloudData();
                 window.showToast(`Welkom, ${res.data.Viewer.name}! Gekoppeld met AniList.`);
                 await window.syncAniListListToLocal(true);
             } else {
@@ -647,7 +664,7 @@
                 if (manualToast) window.showToast("Log eerst in met AniList!", "error");
                 return;
             }
-            if (manualToast) window.showToast("AniList lijst ophalen...");
+            if (manualToast) window.showToast("AniList bibliotheek synchroniseren...");
             
             try {
                 const viewerRes = await gql(`query { Viewer { id name avatar { large } } }`);
@@ -694,6 +711,17 @@
                 }
 
                 const lists = listRes.data.MediaListCollection.lists;
+                const aniListEntries = [];
+                lists.forEach(list => {
+                    if (list.entries) {
+                        list.entries.forEach(entry => {
+                            if (entry && entry.media) {
+                                aniListEntries.push(entry);
+                            }
+                        });
+                    }
+                });
+
                 const alStatusMap = {
                     'CURRENT': 'Watching',
                     'PLANNING': 'Plan to Watch',
@@ -702,56 +730,131 @@
                     'PAUSED': 'Watching'
                 };
 
-                let updatedCount = 0;
-                let addedCount = 0;
+                const localToAlStatusMap = {
+                    'Watching': 'CURRENT',
+                    'Plan to Watch': 'PLANNING',
+                    'Watched': 'COMPLETED',
+                    'Completed': 'COMPLETED',
+                    'Dropped': 'DROPPED'
+                };
+
                 let localLib = [...app.xmlLib];
-
-                lists.forEach(list => {
-                    if (!list.entries) return;
-                    list.entries.forEach(entry => {
-                        const media = entry.media;
-                        if (!media) return;
-
-                        const mediaIdStr = media.id.toString();
-                        const alStatus = entry.status;
-                        const localStatus = alStatusMap[alStatus] || 'Watching';
-                        const progress = entry.progress || 0;
-                        const episodes = media.episodes || 12;
-                        const coverImage = media.coverImage ? media.coverImage.large : '';
-                        const title = app.lang === 'english' ? (media.title.english || media.title.romaji) : (media.title.romaji || media.title.english);
-
-                        const existingIdx = localLib.findIndex(item => item && item.id.toString() === mediaIdStr);
-
-                        if (existingIdx !== -1) {
-                            localLib[existingIdx] = {
-                                ...localLib[existingIdx],
-                                status: localStatus,
-                                progress: progress,
-                                episodes: episodes,
-                                coverImage: coverImage || localLib[existingIdx].coverImage,
-                                title: title || localLib[existingIdx].title
-                            };
-                            updatedCount++;
-                        } else {
-                            localLib.push({
-                                id: mediaIdStr,
-                                title: title,
-                                status: localStatus,
-                                progress: progress,
-                                episodes: episodes,
-                                coverImage: coverImage
-                            });
-                            addedCount++;
-                        }
-                    });
+                const aniListMap = {};
+                aniListEntries.forEach(entry => {
+                    aniListMap[entry.media.id.toString()] = entry;
                 });
+
+                const toPushToAniList = [];
+                let pulledCount = 0;
+
+                // 1. Process existing local items against AniList
+                localLib = localLib.map(localItem => {
+                    if (!localItem || !localItem.id) return localItem;
+                    const mediaIdStr = localItem.id.toString();
+                    const aniItem = aniListMap[mediaIdStr];
+
+                    if (aniItem) {
+                        const aniProgress = aniItem.progress || 0;
+                        const localProgress = localItem.progress || 0;
+
+                        if (localProgress > aniProgress) {
+                            // Local is ahead. Push to AniList.
+                            toPushToAniList.push({
+                                id: mediaIdStr,
+                                progress: localProgress,
+                                status: localToAlStatusMap[localItem.status] || 'CURRENT'
+                            });
+                            return localItem;
+                        } else if (aniProgress > localProgress) {
+                            // AniList is ahead. Pull to local.
+                            pulledCount++;
+                            return {
+                                ...localItem,
+                                progress: aniProgress,
+                                status: alStatusMap[aniItem.status] || 'Watching'
+                            };
+                        } else {
+                            // Progress is equal. Align status.
+                            const mappedAniStatus = alStatusMap[aniItem.status] || 'Watching';
+                            if (localItem.status !== mappedAniStatus) {
+                                if (localItem.status === 'Watched' || localItem.status === 'Completed') {
+                                    toPushToAniList.push({
+                                        id: mediaIdStr,
+                                        progress: localProgress,
+                                        status: 'COMPLETED'
+                                    });
+                                    return localItem;
+                                } else if (mappedAniStatus === 'Watched' || mappedAniStatus === 'Completed') {
+                                    pulledCount++;
+                                    return {
+                                        ...localItem,
+                                        status: 'Watched'
+                                    };
+                                } else {
+                                    pulledCount++;
+                                    return {
+                                        ...localItem,
+                                        status: mappedAniStatus
+                                    };
+                                }
+                            }
+                            return localItem;
+                        }
+                    } else {
+                        // Local-only. Push to AniList.
+                        toPushToAniList.push({
+                            id: mediaIdStr,
+                            progress: localItem.progress || 0,
+                            status: localToAlStatusMap[localItem.status] || 'CURRENT'
+                        });
+                        return localItem;
+                    }
+                });
+
+                // 2. Add AniList-only items to local
+                aniListEntries.forEach(entry => {
+                    const mediaIdStr = entry.media.id.toString();
+                    const existsLocally = localLib.some(item => item && item.id.toString() === mediaIdStr);
+
+                    if (!existsLocally) {
+                        const media = entry.media;
+                        const title = app.lang === 'english' ? (media.title.english || media.title.romaji) : (media.title.romaji || media.title.english);
+                        localLib.push({
+                            id: mediaIdStr,
+                            title: title,
+                            status: alStatusMap[entry.status] || 'Watching',
+                            progress: entry.progress || 0,
+                            episodes: media.episodes || 12,
+                            coverImage: media.coverImage ? media.coverImage.large : ''
+                        });
+                        pulledCount++;
+                    }
+                });
+
+                // 3. Push local changes to AniList
+                let pushedCount = 0;
+                if (toPushToAniList.length > 0) {
+                    for (const item of toPushToAniList) {
+                        try {
+                            const mutation = `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) { SaveMediaListEntry (mediaId: $mediaId, progress: $progress, status: $status) { id status progress } }`;
+                            await gql(mutation, {
+                                mediaId: parseInt(item.id),
+                                progress: parseInt(item.progress),
+                                status: item.status
+                            });
+                            pushedCount++;
+                        } catch (err) {
+                            console.error(`Fout bij pushen van item ${item.id} naar AniList:`, err);
+                        }
+                    }
+                }
 
                 app.xmlLib = localLib;
                 await saveCloudData();
                 render();
 
                 if (manualToast) {
-                    window.showToast(`Succesvol gesynchroniseerd! ${addedCount} toegevoegd, ${updatedCount} bijgewerkt.`, "success");
+                    window.showToast(`Sync voltooid! ${pulledCount} binnengehaald, ${pushedCount} gepusht naar AniList.`, "success");
                 }
             } catch (e) {
                 console.error("Fout tijdens AniList sync:", e);
@@ -1152,17 +1255,6 @@
         // =========================================================================
         // VIDEO TRACKING, AUTO-NEXT, AND HISTORY
         // =========================================================================
-        window.onStatusDropdownChange = function(sel, id) {
-            const loc = app.xmlLib.find(i => i && i.id == id) || app.recent.find(i => i && i.id == id) || { title: "Anime", episodes: 12, coverImage: "" };
-            const ep = app.ep || 1;
-            window.autoUpdateProgressOnEpClick(id, loc.title, ep, loc.episodes || 12, loc.coverImage, sel.value);
-            
-            // Auto-sync status change to AniList immediately from watch view dropdown
-            if (app.anilistToken) {
-                window.syncProgressToAniList(id, ep, sel.value);
-            }
-        };
-
         window.saveRecent = function(id, title, img, ep) {
             let rec = app.recent.filter(i => i && i.id != id);
             rec.unshift({ id, title, img, ep, time: currentPlaybackTime || 0, duration: currentDuration || 0, ts: Date.now() });
@@ -1213,53 +1305,17 @@
         };
 
         window.playNextEpisode = function() {
-            const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
-            
-            if (isFullscreen) {
-                const exitPromise = document.exitFullscreen ? document.exitFullscreen() : 
-                                    (document.webkitExitFullscreen ? Promise.resolve(document.webkitExitFullscreen()) : Promise.resolve());
-                
-                exitPromise.then(() => {
-                    setTimeout(proceedToNext, 400); // 400ms transition delay to let DOM restore safely
-                }).catch(() => {
-                    setTimeout(proceedToNext, 400);
-                });
+            const loc = app.xmlLib.find(i => i && i.id == app.id) || app.recent.find(i => i && i.id == app.id);
+            const totalEps = loc ? (loc.episodes || 12) : 12;
+            const nextEp = parseInt(app.ep) + 1;
+
+            if (nextEp <= totalEps) {
+                window.showToast(`Start aflevering ${nextEp}...`);
+                window.autoUpdateProgressOnEpClick(app.id, loc ? loc.title : 'Anime', nextEp, totalEps, loc ? loc.coverImage : '');
+                if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); }
+                setTimeout(() => { nav('watch', { id: app.id, ep: nextEp }); }, 300);
             } else {
-                proceedToNext();
-            }
-
-            function proceedToNext() {
-                const loc = app.xmlLib.find(i => i && i.id == app.id) || app.recent.find(i => i && i.id == app.id);
-                const totalEps = loc ? (loc.episodes || 12) : 12;
-                const nextEp = parseInt(app.ep) + 1;
-
-                if (nextEp <= totalEps) {
-                    window.showToast(`Start aflevering ${nextEp}...`);
-                    window.autoUpdateProgressOnEpClick(app.id, loc ? loc.title : 'Anime', nextEp, totalEps, loc ? loc.coverImage : '');
-                    setTimeout(() => { nav('watch', { id: app.id, ep: nextEp }); }, 200);
-                } else {
-                    window.showToast("Zoeken naar volgend seizoen...");
-                    gql(`query($id:Int){Media(id:$id){relations{edges{relationType node{id type status episodes coverImage{large} title{romaji english}
-                    }}}}}}`, {id: parseInt(app.id)}).then(res => {
-                        if (!res || !res.data) return window.showToast("Laatste aflevering al bereikt!", "error");
-                        const edges = res.data.Media.relations.edges;
-                        const sequelEdge = edges.find(e => e.relationType === 'SEQUEL' && e.node.type === 'ANIME');
-                        
-                        if (sequelEdge) {
-                            const sequel = sequelEdge.node;
-                            const sequelTitle = app.lang === 'english' ? (sequel.title.english || sequel.title.romaji) : sequel.title.romaji;
-                            window.showConfirm("Wil je doorgaan naar het volgende seizoen?", sequelTitle, () => {
-                                window.autoUpdateProgressOnEpClick(app.id, loc ? loc.title : 'Anime', totalEps, totalEps, loc ? loc.coverImage : '', 'Watched');
-                                const newStatus = sequel.status === 'RELEASING' ? 'Dropped' : 'Watching';
-                                window.autoUpdateProgressOnEpClick(sequel.id, sequelTitle, 1, sequel.episodes || 12, sequel.coverImage.large, newStatus);
-                                nav('watch', { id: sequel.id, ep: 1 });
-                            });
-                        } else {
-                            window.showToast("Anime voltooid! Geen volgend seizoen gevonden.", "success");
-                            window.autoUpdateProgressOnEpClick(app.id, loc ? loc.title : 'Anime', totalEps, totalEps, loc ? loc.coverImage : '', 'Watched');
-                        }
-                    });
-                }
+                window.showToast("Laatste aflevering bereikt!", "success");
             }
         };
 
@@ -1346,32 +1402,6 @@
 
             // Sync Header Nav Styling to highlight the active menu items on desktop
             document.querySelectorAll('#app-header nav button').forEach(el => { el.classList.remove('text-[#cae962]'); el.classList.add('text-zinc-400'); });
-
-            // Sync Header Right Controls dynamically with AniList persistent indicator
-            const headerRight = document.getElementById('header-right-controls');
-            if (headerRight) {
-                let anilistPill = '';
-                if (app.anilistToken) {
-                    const prof = app.anilistProfile || { name: 'Gekoppeld', avatar: '' };
-                    anilistPill = `
-                        <div class="flex items-center gap-1.5 bg-indigo-950/40 border border-indigo-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase text-indigo-300 tracking-wider">
-                            ${prof.avatar ? `<img src="${prof.avatar}" class="w-3.5 h-3.5 rounded-full object-cover">` : '<i class="fa-solid fa-link text-[8px]"></i>'}
-                            <span class="max-w-[70px] truncate">${prof.name}</span>
-                        </div>
-                    `;
-                }
-                headerRight.innerHTML = `
-                    ${anilistPill}
-                    <button onclick="nav('search')" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-[#cae962] transition-all duration-300" title="Zoeken"><i class="fa-solid fa-search text-xs"></i></button>
-                    <button onclick="nav('profile')" id="prof-btn" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-all duration-300" title="Profiel & Instellingen">
-                        ${app.anilistToken && app.anilistProfile && app.anilistProfile.avatar ? 
-                            `<img src="${app.anilistProfile.avatar}" class="w-full h-full rounded-full object-cover border border-[#cae962]/20">` : 
-                            '<i class="fa-solid fa-user-astronaut"></i>'
-                        }
-                    </button>
-                    <button onclick="logout()" class="w-10 h-10 rounded-full bg-red-950/20 hover:bg-red-700 border border-red-500/10 hover:border-transparent flex items-center justify-center text-red-400 hover:text-white transition-all duration-300" title="Uitloggen"><i class="fa-solid fa-sign-out-alt text-xs"></i></button>
-                `;
-            }
             const headActive = document.getElementById('head-nav-' + app.view);
             if(headActive) { headActive.classList.add('text-[#cae962]'); headActive.classList.remove('text-zinc-400'); }
 
@@ -1381,53 +1411,11 @@
             if(activeNav) { activeNav.classList.add('text-[#cae962]'); activeNav.classList.remove('text-zinc-500'); }
 
             if (app.view === 'watch') {
-                const isAlreadyPlaying = document.getElementById('player-wrapper') && 
-                    window.currentPlayerAnimeId === app.id && 
-                    window.currentPlayerEp === app.ep && 
-                    window.currentPlayerMode === app.mode && 
-                    window.currentPlayerServer === app.server;
-
                 const loc = app.xmlLib.find(i => i && i.id == app.id) || app.recent.find(i => i && i.id == app.id);
                 const title = loc ? loc.title : "Laden...";
                 const eps = loc ? (loc.episodes || 12) : 12;
                 const prog = loc ? parseInt(loc.progress || 0) : 0;
                 const stat = loc ? loc.status : "Niet opgeslagen";
-
-                if (isAlreadyPlaying) {
-                    const wTitle = document.getElementById('w-title');
-                    if (wTitle) wTitle.innerText = title;
-
-                    const statusSpan = document.getElementById('local-status-span');
-                    const statusText = document.getElementById('local-status-text');
-                    if (statusSpan && statusText) {
-                        statusSpan.innerText = stat;
-                        statusText.innerHTML = `<span class="accent">${stat}</span> - Ep ${prog} / ${eps}`;
-                    }
-
-                    const statusDropdown = document.getElementById('local-status-dropdown');
-                    if (statusDropdown) statusDropdown.value = stat === 'Completed' ? 'Watched' : stat;
-
-                    const grid = document.getElementById('ep-grid');
-                    if (grid) {
-                        let tEps = eps;
-                        const epButtons = grid.getElementsByTagName('button');
-                        if (epButtons.length === tEps) {
-                            for (let i = 1; i <= tEps; i++) {
-                                const btn = epButtons[i - 1];
-                                if (btn) {
-                                    let activeClass = (i == app.ep) ? "bg-[#cae962] text-black font-bold" : (i <= prog ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700");
-                                    btn.className = btn.className.replace(/bg-.*?(?=\s|$)|text-.*?(?=\s|$)/g, '').trim() + " " + activeClass;
-                                }
-                            }
-                        }
-                    }
-                    return;
-                }
-
-                window.currentPlayerAnimeId = app.id;
-                window.currentPlayerEp = app.ep;
-                window.currentPlayerMode = app.mode;
-                window.currentPlayerServer = app.server;
 
                 main.innerHTML = `
                     <div class="max-w-4xl mx-auto space-y-6">
@@ -1473,25 +1461,21 @@
 
                         <div id="next-ep-timer-container"></div>
                         <h1 id="w-title" class="text-2xl md:text-3xl font-black text-[#cae962] uppercase italic">${title}</h1>
-                        
-                        <!-- Mijn Lijst status dropdown selectiekaart -->
-                        <div id="local-status-card" class="bg-[#111111] p-4 rounded-xl border border-white/5 mb-6 flex flex-wrap gap-4 items-center justify-between">
-                            <div>
-                                <p class="text-[9px] font-black text-zinc-500 uppercase">Mijn Lijst Status</p>
-                                <h3 id="local-status-text" class="text-xs font-bold mt-1 text-white"><span class="accent" id="local-status-span">${stat}</span> - Ep ${prog} / ${eps}</h3>
-                            </div>
-                            <select id="local-status-dropdown" onchange="onStatusDropdownChange(this, '${app.id}')" class="bg-black border border-white/10 p-2.5 rounded-xl text-xs font-bold text-white outline-none">
-                                <option value="Watching" ${stat==='Watching'?'selected':''}>Watching</option>
-                                <option value="Watched" ${stat==='Watched' || stat==='Completed'?'selected':''}>Completed</option>
-                                <option value="Dropped" ${stat==='Dropped'?'selected':''}>Dropped</option>
-                                <option value="Plan to Watch" ${stat==='Plan to Watch'?'selected':''}>Plan to Watch</option>
-                                <option value="Not Watching" ${stat==='Not Watching'?'selected':''}>Niet in lijst</option>
-                            </select>
-                        </div>
 
-                        <div id="ep-grid" class="grid grid-cols-5 sm:grid-cols-10 gap-2 mb-8"></div>
-                        <h2 class="text-[10px] font-black uppercase text-zinc-500 mb-4">Gerelateerd</h2>
-                        <div id="rel-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-8"></div>
+                        <div id="local-status-card" class="bg-[#111111] p-4 rounded-xl border border-white/5 mb-6 flex flex-wrap gap-4 items-center justify-between">
+                        <div>
+                            <p class="text-[9px] font-black text-zinc-500 uppercase">Jouw Status</p>
+                            <h3 id="local-status-text" class="text-xs font-bold mt-1 text-white"><span class="text-[#cae962]" id="local-status-span">Niet opgeslagen</span></h3>
+                        </div>
+                        <select id="local-status-dropdown" onchange="onStatusDropdownChange(this, '${app.id}')" class="bg-black border border-white/10 p-2.5 rounded-xl text-xs font-bold text-white outline-none">
+                            <option value="Watching">Watching</option>
+                            <option value="Watched">Completed</option>
+                            <option value="Dropped">Dropped</option>
+                        </select>
+                    </div>
+                        <div id="ep-grid" class="grid grid-cols-5 sm:grid-cols-10 gap-2 mb-6"></div>
+                    <h2 class="text-[10px] font-black uppercase text-zinc-500 mb-4">Gerelateerd</h2>
+                    <div id="rel-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-8"></div>
                     </div>`;
 
                 window.loadAnivexaAndRenderServers(app.id, app.ep, app.mode).then(validServers => {
@@ -1507,30 +1491,19 @@
                 saveInterval = setInterval(() => { if (currentPlaybackTime > 0) saveCurrentVideoTime(); }, 5000);
 
                 setTimeout(() => {
-                    gql(`query($id:Int){Media(id:$id){status nextAiringEpisode{episode airingAt}title{romaji english}episodes coverImage{large}relations{edges{relationType node{id type status episodes coverImage{large} title{romaji english}}}}}}`, {id: parseInt(app.id)}).then(res => {
+                    gql(`query($id:Int){Media(id:$id){status nextAiringEpisode{episode airingAt}title{romaji english}episodes coverImage{large} relations{edges{relationType node{id type status episodes coverImage{large} title{romaji english}}}}}}`, {id: parseInt(app.id)}).then(res => {
                         if (!res || !res.data) return;
                         const m = res.data.Media;
                         const t = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                         document.getElementById('w-title').innerText = t;
                         saveRecent(app.id, t, m.coverImage.large, app.ep);
-
-                        // Populate prequel and sequel relations in the watch view
-                        const wrGrid = document.getElementById('rel-grid');
-                        if (wrGrid) {
-                            wrGrid.innerHTML = '';
-                            if (m.relations && m.relations.edges) {
-                                m.relations.edges.filter(e => e.node.type === 'ANIME').forEach(e => {
-                                    const rTitle = app.lang === 'english' ? (e.node.title.english || e.node.title.romaji) : e.node.title.romaji;
-                                    wrGrid.innerHTML += `
-                                        <button onclick="nav('watch', {id:'${e.node.id}'})" class="card p-4 flex justify-between items-center text-[10px] font-black uppercase text-left w-full">
-                                            <div class="truncate pr-4">
-                                                <p class="text-white truncate">${rTitle}</p>
-                                                <p class="text-[7px] text-[#cae962] mt-0.5">${e.relationType.replace(/_/g, ' ')}</p>
-                                            </div>
-                                            <i class="fa-solid fa-chevron-right text-zinc-600"></i>
-                                        </button>`;
-                                });
-                            }
+                        const rGrid = document.getElementById('rel-grid');
+                        if (rGrid && m.relations && m.relations.edges) {
+                            rGrid.innerHTML = '';
+                            m.relations.edges.filter(e => e.node.type === 'ANIME').forEach(e => {
+                                const rt = app.lang === 'english' ? (e.node.title.english || e.node.title.romaji) : e.node.title.romaji;
+                                rGrid.innerHTML += '<button onclick="nav(\'watch\', {id:\'' + e.node.id + '\'})" class="card p-4 flex justify-between items-center text-[10px] font-black uppercase text-left"><div class="truncate pr-4"><p class="text-white">' + rt + '</p><p class="text-[7px] text-[#cae962] mt-0.5">' + e.relationType.replace(/_/g, ' ') + '</p></div><i class="fa-solid fa-chevron-right text-zinc-800"></i></button>';
+                            });
                         }
 
                         const timerContainer = document.getElementById('next-ep-timer-container');
@@ -1603,17 +1576,18 @@
                     }
 
                     grid.innerHTML += `
-                        <div onclick="openDetailsModal('${r.id}')" class="group text-left relative cursor-pointer card p-3 flex flex-col justify-between">
+                        <div onclick="nav('watch', {id:'${r.id}', ep:${r.ep}})" class="group text-left relative cursor-pointer card p-3 flex flex-col justify-between">
                             <div>
                                 <div class="aspect-video rounded-lg bg-zinc-900 border border-white/5 relative overflow-hidden mb-2">
                                     <img src="${r.img}" class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-all duration-500">
-                                    <div onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${r.ep}})" class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition cursor-pointer"></div>
                                     <span class="absolute top-2 left-2 bg-black/85 px-1.5 py-0.5 rounded text-[8px] font-black text-[#cae962]">EP ${r.ep}</span>
                                     ${p > 0 ? `<div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#cae962]" style="width: ${p}%"></div></div>` : ''}
                                 </div>
                                 <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${r.title}</p>
+                                <p class="text-[8px] text-zinc-500 mt-1 pl-1">${p > 0 ? p + '% bekeken' : 'Nog niet gestart'}</p>
                             </div>
                             <div class="mt-3 flex justify-between items-center w-full">
+                                <button onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${r.ep || 1}})" class="bg-[#cae962] text-black text-[8px] font-black px-3 py-1.5 rounded-lg flex items-center gap-1 uppercase hover:scale-105 active:scale-95 transition-all font-bold"><i class="fa-solid fa-play"></i> ${p > 0 ? 'Verder' : 'Start'}</button>
                                 ${actionBadge}
                                 <button onclick="removeRecentAnime(event, '${r.id}')" class="w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 flex items-center justify-center hover:bg-red-700 hover:text-white transition"><i class="fa-solid fa-trash text-[9px]"></i></button>
                             </div>
@@ -1909,6 +1883,15 @@
             window.showToast("Verwijderd uit geschiedenis.");
         };
 
+        window.onStatusDropdownChange = function(sel, id) {
+            const statusVal = sel.value;
+            let item = app.xmlLib.find(i => i && i.id == id);
+            if (item) { item.status = statusVal; }
+            saveCloudDataDebounced();
+            window.showToast("Status bijgewerkt!");
+            render();
+        };
+
         window.checkAudioAvailabilityAndPlay = async function(mode) {
             if (app.mode === mode) return;
             app.mode = mode;
@@ -1954,16 +1937,19 @@
             };
         };
 
-        window.syncProgressToAniList = async function(animeId, progress, status) {
+        window.syncProgressToAniList = async function(id, ep, status) {
             if (!app.anilistToken) return;
             const statusMap = { "Watching": "CURRENT", "Watched": "COMPLETED", "Completed": "COMPLETED", "Plan to Watch": "PLANNING", "Dropped": "DROPPED" };
-            const alStatus = statusMap[status] || "CURRENT";
-            
-            const query = `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) { SaveMediaListEntry (mediaId: $mediaId, progress: $progress, status: $status) { id status progress } }`;
+            const aniStatus = statusMap[status] || "CURRENT";
+            const query = `mutation($id:Int, $ep:Int, $status:MediaListStatus){ SaveMediaListEntry(mediaId:$id, progress:$ep, status:$status){id status progress} }`;
             try {
-                await gql(query, { mediaId: parseInt(animeId), progress: parseInt(progress), status: alStatus });
+                await fetch(ANILIST_API, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + app.anilistToken, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ query, variables: { id: parseInt(id), ep: parseInt(ep), status: aniStatus } })
+                });
             } catch (e) {
-                console.error("Fout bij synchroniseren met AniList:", e);
+                console.error("AniList sync failed", e);
             }
         };
 
@@ -2010,17 +1996,10 @@
         });
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Intercept AniList Token (Implicit Flow) before Supabase loads
             const hashStr = window.location.hash.substring(1);
-            let pendingAniListToken = null;
-
-            if (hashStr.includes('access_token=') && !hashStr.includes('refresh_token=')) {
-                const params = new URLSearchParams(hashStr);
-                pendingAniListToken = params.get('access_token');
-                if (pendingAniListToken) {
-                    localStorage.setItem('pending_anilist_token', pendingAniListToken);
-                }
-                // Clear hash immediately so Supabase and restoreStateFromUrl do not get confused
+            let pendingALToken = null;
+            if (hashStr.includes('access_token=') && hashStr.includes('token_type=Bearer')) {
+                pendingALToken = new URLSearchParams(hashStr).get('access_token');
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
 
@@ -2042,12 +2021,8 @@
             
             sb.auth.onAuthStateChange(async (event, session) => {
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                    const isNewUser = !sessionData || !session || !session.user || sessionData.user.id !== session.user.id;
                     sessionData = session;
-                    
-                    if (isNewUser) {
-                        await loadCloudData();
-                    }
+                    await loadCloudData();
                     
                     // Verwijder de lelijke access_token uit de URL nadat we succesvol zijn ingelogd.
                     if (window.location.hash.includes('access_token=')) {
@@ -2063,6 +2038,11 @@
                     showResetPasswordView();
                 }
             });
+
+            if (pendingALToken) {
+                const trySave = () => { if (sessionData) { verifyAndSaveAniListToken(pendingALToken); return true; } return false; };
+                if (!trySave()) { const si = setInterval(() => { if (trySave()) clearInterval(si); }, 100); }
+            }
 
             sb.auth.getSession().then(({ data: { session } }) => {
                 if (window.location.hash.includes('access_token=')) {
@@ -2085,7 +2065,3 @@
     </script>
 </body>
 </html>
-
-
-
-

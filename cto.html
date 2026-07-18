@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <!-- reCAPTCHA v3 voor de nieuwe API calls -->
     <script src="https://www.google.com/recaptcha/api.js?render=6LfzHX8sAAAAAN70WElpj4nM__wxhllZQNZCAFGb"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link class="animate-toast" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap');
         body { 
@@ -165,7 +165,7 @@
                         <span id="detail-badge" class="px-2.5 py-1 rounded bg-[#cae962]/20 text-[#cae962] text-[9px] font-black uppercase tracking-wider">SHOW</span>
                         <h2 id="detail-title" class="text-2xl md:text-5xl font-black italic uppercase tracking-tighter text-white leading-none"></h2>
                         <div class="flex items-center gap-3 text-[10px] md:text-xs font-bold text-zinc-400">
-                            <span id="detail-score" class="text-accent bg-lime-500/10 px-2 py-0.5 rounded font-black"><i class="fa-solid fa-star text-[9px] mr-1"></i></span>
+                            <span id="detail-score" class="text-accent bg-lime-500/10 px-2 py-0.5 rounded font-black"><i class="fa-solid fa-star text-[9px] mr-1 text-[#cae962]"></i></span>
                             <span id="detail-year" class="bg-zinc-800 px-2 py-0.5 rounded"></span>
                             <span id="detail-episodes" class="bg-zinc-800 px-2 py-0.5 rounded"></span>
                             <span id="detail-status" class="bg-zinc-800 px-2 py-0.5 rounded"></span>
@@ -253,7 +253,7 @@
         let app = {
             view: 'home', id: null, ep: 1, mode: 'sub', server: 'megaplay', searchQuery: '', libraryFilter: 'All',
             user: 'Gebruiker', showContinue: true, lang: 'english', autoPlay: true, autoNext: true, autoSkipIntro: false, skipSeconds: 85, 
-            defaultAudio: 'sub', recent: [], xmlLib: [], autoDubFallback: true, anilistToken: null
+            defaultAudio: 'sub', recent: [], xmlLib: [], autoDubFallback: true, anilistToken: null, anilistProfile: null
         };
 
         let currentPlaybackTime = 0;
@@ -317,7 +317,6 @@
         // =========================================================================
         // VIEW MANAGEMENT / ROUTING
         // =========================================================================
-        document.addEventListener('visibilitychange', () => { if (document.hidden && app.view === 'watch' && currentPlaybackTime > 0) saveCurrentVideoTime(); });
         window.nav = function(view, params = {}) {
             if (!sessionData) return showLoginPage('login');
             if (app.view === 'watch' && app.id) saveCurrentVideoTime();
@@ -330,6 +329,12 @@
 
             app.view = view; app.id = params.id || null; app.ep = params.ep || 1;
             if (view === 'watch') { app.mode = app.defaultAudio; currentPlaybackTime = 0; currentDuration = 0; }
+            else {
+                window.currentPlayerAnimeId = null;
+                window.currentPlayerEp = null;
+                window.currentPlayerMode = null;
+                window.currentPlayerServer = null;
+            }
             
             syncStateToUrl(); render(); window.scrollTo(0,0);
         };
@@ -531,31 +536,59 @@
             }
         };
 
+        let cloudDataPromise = null;
         async function loadCloudData() {
             if (!sessionData) return;
-            const { data } = await sb.from('anime_users').select('*').eq('id', sessionData.user.id).maybeSingle();
-            if (data) {
-                app.xmlLib = data.watchlist || [];
-                app.recent = data.recent || [];
-                if (data.settings) {
-                    app.defaultAudio = data.settings.defaultAudio || 'sub'; app.mode = app.defaultAudio;
-                    app.server = data.settings.server || 'megaplay';
-                    app.user = data.settings.user || app.user; app.showContinue = data.settings.showContinue !== false;
-                    app.lang = data.settings.lang || 'english'; app.autoPlay = data.settings.autoPlay !== false;
-                    app.autoNext = data.settings.autoNext !== false; app.autoSkipIntro = data.settings.autoSkipIntro === true;
-                    app.skipSeconds = parseInt(data.settings.skipSeconds || '85'); app.autoDubFallback = data.settings.autoDubFallback !== false;
-                    app.anilistToken = data.settings.anilistToken || null;
+            if (cloudDataPromise) return cloudDataPromise;
+
+            cloudDataPromise = (async () => {
+                try {
+                    const { data } = await sb.from('anime_users').select('*').eq('id', sessionData.user.id).maybeSingle();
+                    if (data) {
+                        app.xmlLib = data.watchlist || [];
+                        app.recent = data.recent || [];
+                        if (data.settings) {
+                            app.defaultAudio = data.settings.defaultAudio || 'sub'; app.mode = app.defaultAudio;
+                            app.server = data.settings.server || 'megaplay';
+                            app.user = data.settings.user || app.user; app.showContinue = data.settings.showContinue !== false;
+                            app.lang = data.settings.lang || 'english'; app.autoPlay = data.settings.autoPlay !== false;
+                            app.autoNext = data.settings.autoNext !== false; app.autoSkipIntro = data.settings.autoSkipIntro === true;
+                            app.skipSeconds = parseInt(data.settings.skipSeconds || '85'); app.autoDubFallback = data.settings.autoDubFallback !== false;
+                            app.anilistToken = data.settings.anilistToken || null;
+                            if (app.anilistToken) {
+                                await fetchAniListProfile();
+                                await window.syncAniListListToLocal(false);
+                            }
+                        }
+                    } else {
+                        app.user = sessionData.user.email.split('@')[0];
+                        await sb.from('anime_users').insert([{ id: sessionData.user.id, username: app.user, watchlist: [], recent: [], settings: { user: app.user, server: 'megaplay' } }]);
+                    }
+                    document.getElementById('app-header').classList.remove('hidden');
+                    document.getElementById('app-navigation').classList.remove('hidden');
+                    render();
+
+                    // Check for pending AniList token saved during startup
+                    const storedToken = localStorage.getItem('pending_anilist_token');
+                    if (storedToken) {
+                        localStorage.removeItem('pending_anilist_token');
+                        await verifyAndSaveAniListToken(storedToken);
+                    }
+                } catch (e) {
+                    console.error("Error loading cloud data:", e);
                 }
-            } else {
-                app.user = sessionData.user.email.split('@')[0];
-                await sb.from('anime_users').insert([{ id: sessionData.user.id, username: app.user, watchlist: [], recent: [], settings: { user: app.user, server: 'megaplay' } }]);
-            }
-            document.getElementById('app-header').classList.remove('hidden');
-            document.getElementById('app-navigation').classList.remove('hidden');
-            render();
+            })();
+
+            return cloudDataPromise;
         }
 
-        window.logout = async function() { await sb.auth.signOut(); sessionData = null; window.location.hash = ''; showLoginPage('login'); };
+        window.logout = async function() {
+            await sb.auth.signOut();
+            sessionData = null;
+            cloudDataPromise = null;
+            window.location.hash = '';
+            showLoginPage('login');
+        };
 
         // =========================================================================
         // ANILIST CONNECTION & MANUALLY CONNECTIONS
@@ -564,7 +597,7 @@
             // Door redirect_uri weg te laten, forceer je AniList om de standaard URL
             // uit jouw dashboard instellingen (https://animemax-nu.vercel.app) te gebruiken.
             // Dit lost de 'invalid_client' foutmelding direct op!
-            window.location.href = `https://anilist.co/api/v2/oauth/authorize?client_id=${AL_CLIENT_ID}&redirect_uri=${encodeURIComponent(window.location.origin + window.location.pathname)}&response_type=token`;
+            window.location.href = `https://anilist.co/api/v2/oauth/authorize?client_id=${AL_CLIENT_ID}&response_type=token`;
         };
 
         window.loginAniListManualToken = function() {
@@ -577,24 +610,254 @@
         window.disconnectAniList = function() {
             window.showConfirm("AniList Ontkoppelen", "Weet je zeker dat je jouw AniList profiel wilt ontkoppelen?", () => {
                 app.anilistToken = null;
+                app.anilistProfile = null;
                 saveCloudDataDebounced();
                 window.showToast("AniList succesvol ontkoppeld.");
                 render();
             });
         };
 
+        async function fetchAniListProfile() {
+            if (!app.anilistToken) {
+                app.anilistProfile = null;
+                return null;
+            }
+            if (app.anilistProfile) return app.anilistProfile;
+            try {
+                const res = await gql(`query { Viewer { id name avatar { large } } }`);
+                if (res && res.data && res.data.Viewer) {
+                    app.anilistProfile = {
+                        name: res.data.Viewer.name,
+                        avatar: res.data.Viewer.avatar.large
+                    };
+                    return app.anilistProfile;
+                }
+            } catch (e) {
+                console.error("Fout bij ophalen AniList profiel:", e);
+            }
+            return null;
+        }
+
         async function verifyAndSaveAniListToken(token) {
             app.anilistToken = token;
             const res = await gql(`query { Viewer { id name avatar { large } } }`);
             if (res && res.data && res.data.Viewer) {
-                saveCloudData();
+                app.anilistProfile = {
+                    name: res.data.Viewer.name,
+                    avatar: res.data.Viewer.avatar.large
+                };
+                await saveCloudData();
                 window.showToast(`Welkom, ${res.data.Viewer.name}! Gekoppeld met AniList.`);
-                render();
+                await window.syncAniListListToLocal(true);
             } else {
                 app.anilistToken = null;
+                app.anilistProfile = null;
                 window.showToast("Ongeldige AniList Token. Probeer opnieuw.", "error");
             }
         }
+
+        window.syncAniListListToLocal = async function(manualToast = true) {
+            if (!app.anilistToken) {
+                if (manualToast) window.showToast("Log eerst in met AniList!", "error");
+                return;
+            }
+            if (manualToast) window.showToast("AniList bibliotheek synchroniseren...");
+
+            try {
+                const viewerRes = await gql(`query { Viewer { id name avatar { large } } }`);
+                if (!viewerRes || !viewerRes.data || !viewerRes.data.Viewer) {
+                    if (manualToast) window.showToast("Kon AniList profiel niet ophalen.", "error");
+                    return;
+                }
+                const viewer = viewerRes.data.Viewer;
+                app.anilistProfile = {
+                    name: viewer.name,
+                    avatar: viewer.avatar.large
+                };
+
+                const listRes = await gql(`
+                    query ($userId: Int) {
+                        MediaListCollection(userId: $userId, type: ANIME) {
+                            lists {
+                                name
+                                status
+                                entries {
+                                    id
+                                    status
+                                    progress
+                                    media {
+                                        id
+                                        title {
+                                            romaji
+                                            english
+                                        }
+                                        episodes
+                                        coverImage {
+                                            large
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                `, { userId: viewer.id });
+
+                if (!listRes || !listRes.data || !listRes.data.MediaListCollection) {
+                    if (manualToast) window.showToast("Kon AniList lijst niet ophalen.", "error");
+                    return;
+                }
+
+                const lists = listRes.data.MediaListCollection.lists;
+                const aniListEntries = [];
+                lists.forEach(list => {
+                    if (list.entries) {
+                        list.entries.forEach(entry => {
+                            if (entry && entry.media) {
+                                aniListEntries.push(entry);
+                            }
+                        });
+                    }
+                });
+
+                const alStatusMap = {
+                    'CURRENT': 'Watching',
+                    'PLANNING': 'Plan to Watch',
+                    'COMPLETED': 'Watched',
+                    'DROPPED': 'Dropped',
+                    'PAUSED': 'Watching'
+                };
+
+                const localToAlStatusMap = {
+                    'Watching': 'CURRENT',
+                    'Plan to Watch': 'PLANNING',
+                    'Watched': 'COMPLETED',
+                    'Completed': 'COMPLETED',
+                    'Dropped': 'DROPPED'
+                };
+
+                let localLib = [...app.xmlLib];
+                const aniListMap = {};
+                aniListEntries.forEach(entry => {
+                    aniListMap[entry.media.id.toString()] = entry;
+                });
+
+                const toPushToAniList = [];
+                let pulledCount = 0;
+
+                // 1. Process existing local items against AniList
+                localLib = localLib.map(localItem => {
+                    if (!localItem || !localItem.id) return localItem;
+                    const mediaIdStr = localItem.id.toString();
+                    const aniItem = aniListMap[mediaIdStr];
+
+                    if (aniItem) {
+                        const aniProgress = aniItem.progress || 0;
+                        const localProgress = localItem.progress || 0;
+
+                        if (localProgress > aniProgress) {
+                            // Local is ahead. Push to AniList.
+                            toPushToAniList.push({
+                                id: mediaIdStr,
+                                progress: localProgress,
+                                status: localToAlStatusMap[localItem.status] || 'CURRENT'
+                            });
+                            return localItem;
+                        } else if (aniProgress > localProgress) {
+                            // AniList is ahead. Pull to local.
+                            pulledCount++;
+                            return {
+                                ...localItem,
+                                progress: aniProgress,
+                                status: alStatusMap[aniItem.status] || 'Watching'
+                            };
+                        } else {
+                            // Progress is equal. Align status.
+                            const mappedAniStatus = alStatusMap[aniItem.status] || 'Watching';
+                            if (localItem.status !== mappedAniStatus) {
+                                if (localItem.status === 'Watched' || localItem.status === 'Completed') {
+                                    toPushToAniList.push({
+                                        id: mediaIdStr,
+                                        progress: localProgress,
+                                        status: 'COMPLETED'
+                                    });
+                                    return localItem;
+                                } else if (mappedAniStatus === 'Watched' || mappedAniStatus === 'Completed') {
+                                    pulledCount++;
+                                    return {
+                                        ...localItem,
+                                        status: 'Watched'
+                                    };
+                                } else {
+                                    pulledCount++;
+                                    return {
+                                        ...localItem,
+                                        status: mappedAniStatus
+                                    };
+                                }
+                            }
+                            return localItem;
+                        }
+                    } else {
+                        // Local-only. Push to AniList.
+                        toPushToAniList.push({
+                            id: mediaIdStr,
+                            progress: localItem.progress || 0,
+                            status: localToAlStatusMap[localItem.status] || 'CURRENT'
+                        });
+                        return localItem;
+                    }
+                });
+
+                // 2. Add AniList-only items to local
+                aniListEntries.forEach(entry => {
+                    const mediaIdStr = entry.media.id.toString();
+                    const existsLocally = localLib.some(item => item && item.id.toString() === mediaIdStr);
+
+                    if (!existsLocally) {
+                        const media = entry.media;
+                        const title = app.lang === 'english' ? (media.title.english || media.title.romaji) : (media.title.romaji || media.title.english);
+                        localLib.push({
+                            id: mediaIdStr,
+                            title: title,
+                            status: alStatusMap[entry.status] || 'Watching',
+                            progress: entry.progress || 0,
+                            episodes: media.episodes || 12,
+                            coverImage: media.coverImage ? media.coverImage.large : ''
+                        });
+                        pulledCount++;
+                    }
+                });
+
+                // 3. Push local changes to AniList
+                let pushedCount = 0;
+                if (toPushToAniList.length > 0) {
+                    for (const item of toPushToAniList) {
+                        try {
+                            const mutation = `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) { SaveMediaListEntry (mediaId: $mediaId, progress: $progress, status: $status) { id status progress } }`;
+                            await gql(mutation, {
+                                mediaId: parseInt(item.id),
+                                progress: parseInt(item.progress),
+                                status: item.status
+                            });
+                            pushedCount++;
+                        } catch (err) {
+                            console.error(`Fout bij pushen van item ${item.id} naar AniList:`, err);
+                        }
+                    }
+                }
+
+                app.xmlLib = localLib;
+                await saveCloudData();
+                render();
+
+                if (manualToast) {
+                    window.showToast(`Sync voltooid! ${pulledCount} binnengehaald, ${pushedCount} gepusht naar AniList.`, "success");
+                }
+            } catch (e) {
+                console.error("Fout tijdens AniList sync:", e);
+                if (manualToast) window.showToast("Fout bij synchroniseren met AniList.", "error");
+            }
+        };
 
         // =========================================================================
         // EPISODES & VIDEOPLAYERS IMPLEMENTATION
@@ -874,6 +1137,7 @@
             gql(`query($id:Int){Media(id:$id,type:ANIME){id title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
                 if (!res || !res.data || !res.data.Media) return;
                 const m = res.data.Media;
+                const eps = m.episodes || 12;
                 const titleStr = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                 
                 document.getElementById('detail-title').innerText = titleStr;
@@ -889,6 +1153,25 @@
                 const statStr = loc ? loc.status : "Not Watching";
                 document.getElementById('detail-action-text').innerHTML = loc ? `<span class="text-[#cae962] font-black">${loc.status}</span> - Progress: ${loc.progress}/${m.episodes||'?'}` : 'Niet in bibliotheek';
                 document.getElementById('detail-status-dropdown').value = statStr;
+
+                // Calculate progress to set the target episode for the Play button
+                let targetEp = 1;
+                const rec = app.recent.find(r => r && r.id == id);
+                if (loc && loc.progress) {
+                    targetEp = parseInt(loc.progress) || 1;
+                } else if (rec && rec.ep) {
+                    targetEp = parseInt(rec.ep) || 1;
+                }
+
+                const playBtn = document.getElementById('detail-play-btn');
+                if (playBtn) {
+                    playBtn.innerHTML = `<i class="fa-solid fa-play"></i> Kijk Ep ${targetEp}`;
+                    playBtn.onclick = () => {
+                        closeDetailsModal();
+                        autoUpdateProgressOnEpClick(id, titleStr, targetEp, eps, m.coverImage.large || m.coverImage.extraLarge);
+                        nav('watch', { id: id, ep: targetEp });
+                    };
+                }
 
                 const genContainer = document.getElementById('detail-genres');
                 genContainer.innerHTML = '';
@@ -913,9 +1196,7 @@
 
                 const epGrid = document.getElementById('detail-episodes-grid');
                 epGrid.innerHTML = '';
-                const eps = m.episodes || 12;
                 const prog = loc ? parseInt(loc.progress || 0) : 0;
-                const stat = loc ? loc.status : "Niet opgeslagen";
                 for (let i = 1; i <= eps; i++) {
                     let c = (i <= prog) ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700";
                     epGrid.innerHTML += `<button onclick="closeDetailsModal(); autoUpdateProgressOnEpClick('${id}', '${titleStr.replace(/'/g, "\\'")}', ${i}, ${eps}, '${m.coverImage.large}'); nav('watch', {id:'${id}', ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
@@ -1132,7 +1413,6 @@
                 const eps = loc ? (loc.episodes || 12) : 12;
                 const prog = loc ? parseInt(loc.progress || 0) : 0;
                 const stat = loc ? loc.status : "Niet opgeslagen";
-                const stat = loc ? loc.status : "Niet opgeslagen";
 
                 main.innerHTML = `
                     <div class="max-w-4xl mx-auto space-y-6">
@@ -1184,10 +1464,11 @@
                             <p class="text-[9px] font-black text-zinc-500 uppercase">Jouw Status</p>
                             <h3 id="local-status-text" class="text-xs font-bold mt-1 text-white"><span class="text-[#cae962]" id="local-status-span">Niet opgeslagen</span></h3>
                         </div>
-                        <select id="local-status-dropdown" onchange="onStatusDropdownChange(this)" class="bg-black border border-white/10 p-2.5 rounded-xl text-xs font-bold text-white outline-none">
-                            <option value="Watching">Watching</option>
-                            <option value="Watched">Completed</option>
-                            <option value="Dropped">Dropped</option>
+                        <select id="local-status-dropdown" onchange="onStatusDropdownChange(this, '${app.id}')" class="bg-black border border-white/10 p-2.5 rounded-xl text-xs font-bold text-white outline-none">
+                            <option value="Watching" ${stat==='Watching'?'selected':''}>Watching</option>
+                            <option value="Watched" ${stat==='Watched'||stat==='Completed'?'selected':''}>Completed</option>
+                            <option value="Dropped" ${stat==='Dropped'?'selected':''}>Dropped</option>
+                            <option value="Plan to Watch" ${stat==='Plan to Watch'?'selected':''}>Plan to Watch</option>
                         </select>
                     </div>
                         <div id="ep-grid" class="grid grid-cols-5 sm:grid-cols-10 gap-2 mb-6"></div>
@@ -1219,7 +1500,7 @@
                             rGrid.innerHTML = '';
                             m.relations.edges.filter(e => e.node.type === 'ANIME').forEach(e => {
                                 const rt = app.lang === 'english' ? (e.node.title.english || e.node.title.romaji) : e.node.title.romaji;
-                                rGrid.innerHTML += '<button onclick="nav(\'watch\', {id:\'' + e.node.id + '\'})" class="card p-4 flex justify-between items-center text-[10px] font-black uppercase text-left"><div class="truncate pr-4"><p class="text-white">' + rt + '</p><p class="text-[7px] text-zinc-600 mt-0.5">' + e.relationType.replace(/_/g, ' ') + '</p></div><i class="fa-solid fa-chevron-right text-zinc-800"></i></button>';
+                                rGrid.innerHTML += '<button onclick="nav(\'watch\', {id:\'' + e.node.id + '\'})" class="card p-4 flex justify-between items-center text-[10px] font-black uppercase text-left"><div class="truncate pr-4"><p class="text-white">' + rt + '</p><p class="text-[7px] text-[#cae962] mt-0.5">' + e.relationType.replace(/_/g, ' ') + '</p></div><i class="fa-solid fa-chevron-right text-zinc-800"></i></button>';
                             });
                         }
 
@@ -1363,13 +1644,14 @@
                                 <div class="border-t border-white/5 pt-4 space-y-3">
                                     <p class="text-[10px] font-black uppercase text-zinc-500">AniList Integratie</p>
                                     ${app.anilistToken ? 
-                                        `<button onclick="disconnectAniList()" class="w-full bg-red-950/30 border border-red-500/20 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-red-400 hover:bg-red-900/50 transition"><i class="fa-solid fa-unlink"></i> AniList Ontkoppelen</button>` : 
+                                        `<button onclick="syncAniListListToLocal(true)" class="w-full bg-[#111111] border border-white/5 hover:border-[#cae962]/40 text-[#cae962] py-3 rounded-xl text-xs font-black uppercase tracking-widest transition flex items-center justify-center gap-2 mb-2 font-bold"><i class="fa-solid fa-rotate animate-spin-hover"></i> Handmatig Synchroniseren</button>
+                                         <button onclick="disconnectAniList()" class="w-full bg-red-950/30 border border-red-500/20 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-red-400 hover:bg-red-900/50 transition"><i class="fa-solid fa-unlink"></i> AniList Ontkoppelen</button>` :
                                         `<button onclick="loginAniListOAuth()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl text-xs font-black uppercase text-white transition flex items-center justify-center gap-2 mb-2 font-bold"><i class="fa-solid fa-link"></i> Koppel via AniList Login</button>
                                          <button onclick="loginAniListManualToken()" class="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl text-xs font-black uppercase text-zinc-300 transition flex items-center justify-center gap-2 font-bold"><i class="fa-solid fa-key"></i> Handmatig Token Invoeren</button>`
                                     }
                                 </div>
                                 <div class="border-t border-white/5 pt-4">
-                                    <button onclick="logout()" class="w-full bg-red-950/20 hover:bg-red-700 border border-red-500/10 hover:border-transparent py-4 rounded-xl text-[10px] font-black uppercase text-red-400 hover:text-white transition flex items-center justify-center gap-2"><i class="fa-solid fa-sign-out-alt"></i> Uitloggen</button>
+                                    <button onclick="logout()" class="w-full bg-red-950/20 hover:bg-red-700 border border-red-500/10 hover:border-transparent py-4 rounded-xl text-[10px] font-black uppercase text-red-400 hover:text-white transition flex items-center justify-center gap-2"><i class="fa-solid fa-sign-out-alt"></i> Outloggen</button>
                                 </div>
                             </div>
                         </div>
@@ -1493,20 +1775,18 @@
                         }
 
                         recentShelf.innerHTML += `
-                            <div onclick="nav('watch', {id:'${r.id}', ep:${r.ep}})" class="flex-shrink-0 w-56 group cursor-pointer relative card p-3 flex flex-col justify-between">
+                            <div onclick="openDetailsModal('${r.id}')" class="flex-shrink-0 w-48 group cursor-pointer relative card p-3 flex flex-col justify-between">
                                 <div>
                                     <div class="aspect-video rounded-xl bg-zinc-900 border border-white/5 relative overflow-hidden mb-2">
                                         <img src="${r.img}" class="w-full h-full object-cover group-hover:scale-105 transition-duration-500 opacity-80 group-hover:opacity-100">
-                                        <div class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition"></div>
-                                        <i class="fa-solid fa-play absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/50 group-hover:text-[#cae962] text-2xl transition-all scale-75 group-hover:scale-100"></i>
+                                        <div onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${r.ep}})" class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition"></div>
+                                        <i onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${r.ep}})" class="fa-solid fa-play absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/50 group-hover:text-[#cae962] text-2xl transition-all scale-75 group-hover:scale-100"></i>
                                         <span class="absolute top-2 left-2 bg-black/90 px-1.5 py-0.5 rounded text-[8px] font-black text-[#cae962]">EP ${r.ep}</span>
                                         ${p > 0 ? `<div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#cae962]" style="width: ${p}%"></div></div>` : ''}
                                     </div>
                                     <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${r.title}</p>
-                                    <p class="text-[8px] text-zinc-500 mt-1 pl-1">${p > 0 ? p + '% bekeken' : 'Nog niet gestart'}</p>
                                 </div>
                                 <div class="mt-3 flex justify-between items-center w-full">
-                                    <button onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${r.ep || 1}})" class="bg-[#cae962] text-black text-[8px] font-black px-3 py-1.5 rounded-lg flex items-center gap-1 uppercase hover:scale-105 active:scale-95 transition-all font-bold"><i class="fa-solid fa-play"></i> ${p > 0 ? 'Verder' : 'Start'}</button>
                                     ${actionBadge}
                                     <button onclick="removeRecentAnime(event, '${r.id}')" class="w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 flex items-center justify-center hover:bg-red-700 hover:text-white transition"><i class="fa-solid fa-trash text-[9px]"></i></button>
                                 </div>
@@ -1533,7 +1813,14 @@
                 main.innerHTML = `
                     <div class="space-y-6">
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/5">
-                            <h2 class="text-2xl font-black text-[#cae962] uppercase italic flex items-center gap-2 animate-fade-in"><i class="fa-solid fa-layer-group"></i> Mijn Lijst</h2>
+                            <div class="flex items-center gap-4 justify-between w-full md:w-auto">
+                                <h2 class="text-2xl font-black text-[#cae962] uppercase italic flex items-center gap-2 animate-fade-in"><i class="fa-solid fa-layer-group"></i> Mijn Lijst</h2>
+                                ${app.anilistToken ? `
+                                    <button onclick="syncAniListListToLocal(true)" class="bg-[#111111] border border-white/5 hover:border-[#cae962]/40 text-[#cae962] font-black text-[9px] uppercase tracking-wider px-3 py-2 rounded-xl transition flex items-center gap-1.5" title="Synchroniseer handmatig met AniList">
+                                        <i class="fa-solid fa-rotate animate-spin-hover"></i> AniList Sync
+                                    </button>
+                                ` : ''}
+                            </div>
                             <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0">
                                 ${['All', 'Watching', 'Plan to Watch', 'Completed', 'Dropped'].map(f => `
                                     <button onclick="filterXml('${f}')" class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase whitespace-nowrap transition-all ${app.libraryFilter === f ? 'bg-[#cae962] text-black' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}">${f}</button>
@@ -1600,6 +1887,7 @@
             window.showToast("Status bijgewerkt!");
             render();
         };
+
         window.checkAudioAvailabilityAndPlay = async function(mode) {
             if (app.mode === mode) return;
             app.mode = mode;
@@ -1701,14 +1989,21 @@
         });
 
         document.addEventListener('DOMContentLoaded', () => {
-            
+            // Intercept AniList Token (Implicit Flow) before Supabase loads
             const hashStr = window.location.hash.substring(1);
-            let pendingALToken = null;
-            if (hashStr.includes('access_token=') && hashStr.includes('token_type=Bearer')) {
-                pendingALToken = new URLSearchParams(hashStr).get('access_token');
+            let pendingAniListToken = null;
+
+            if (hashStr.includes('access_token=') && !hashStr.includes('refresh_token=')) {
+                const params = new URLSearchParams(hashStr);
+                pendingAniListToken = params.get('access_token');
+                if (pendingAniListToken) {
+                    localStorage.setItem('pending_anilist_token', pendingAniListToken);
+                }
+                // Clear hash immediately so Supabase and restoreStateFromUrl do not get confused
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
-sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+            sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
             // Startup test parameter bypass ('test=true' in query parameters) to mock test session
             const urlParams = new URLSearchParams(window.location.search);
@@ -1726,8 +2021,12 @@ sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             
             sb.auth.onAuthStateChange(async (event, session) => {
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                    const isNewUser = !sessionData || !session || !session.user || sessionData.user.id !== session.user.id;
                     sessionData = session;
-                    await loadCloudData();
+
+                    if (isNewUser) {
+                        await loadCloudData();
+                    }
                     
                     // Verwijder de lelijke access_token uit de URL nadat we succesvol zijn ingelogd.
                     if (window.location.hash.includes('access_token=')) {
@@ -1743,10 +2042,6 @@ sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
                     showResetPasswordView();
                 }
             });
-            if (pendingALToken) {
-                const trySave = () => { if (sessionData) { verifyAndSaveAniListToken(pendingALToken); return true; } return false; };
-                if (!trySave()) { const si = setInterval(() => { if (trySave()) clearInterval(si); }, 100); }
-            }
 
             sb.auth.getSession().then(({ data: { session } }) => {
                 if (window.location.hash.includes('access_token=')) {
@@ -1769,5 +2064,3 @@ sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     </script>
 </body>
 </html>
-
-
