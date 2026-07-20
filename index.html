@@ -251,6 +251,7 @@
         let countdownInterval = null;
         let hlsInstance = null;
         let anivexaEpisodesCache = {}; 
+        let detailsCache = {};
         let autoNextTriggered = false;
 
         let app = {
@@ -1137,9 +1138,10 @@
             document.getElementById('detail-episodes-grid').innerHTML = "";
             document.getElementById('detail-relations-grid').innerHTML = "";
 
-            gql(`query($id:Int){Media(id:$id,type:ANIME){id title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
-                if (!res || !res.data || !res.data.Media) return;
-                const m = res.data.Media;
+            // Helper to populate modal UI from the GraphQL Media object.
+            // This is clean, safe, and allows us to reuse the exact rendering logic
+            // whether the data is retrieved freshly or from our fast in-memory cache.
+            const renderDetails = (m) => {
                 const eps = m.episodes || 12;
                 const titleStr = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                 
@@ -1218,6 +1220,19 @@
                             <i class="fa-solid fa-chevron-right text-zinc-600"></i>
                         </button>`;
                 });
+            };
+
+            // Use in-memory details cache to bypass redundant AniList GraphQL queries
+            if (detailsCache[id]) {
+                renderDetails(detailsCache[id]);
+                return;
+            }
+
+            gql(`query($id:Int){Media(id:$id,type:ANIME){id title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
+                if (!res || !res.data || !res.data.Media) return;
+                const m = res.data.Media;
+                detailsCache[id] = m; // Store fetched details in cache
+                renderDetails(m);
             });
         };
 
@@ -2188,4 +2203,5 @@
     </script>
 </body>
 </html>
+
 
