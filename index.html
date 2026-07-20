@@ -232,6 +232,20 @@
 
     <!-- ONE COHESIVE JAVASCRIPT BLOCK -->
     <script>
+        // Safe HTML Escaping to prevent Cross-Site Scripting (XSS) in dynamic user inputs
+        function escapeHTML(str) {
+            if (typeof str !== 'string') return str;
+            return str.replace(/[&<>'"]/g,
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
         // Global State Variables
         const ANILIST_ENDPOINT = 'https://graphql.anilist.co';
         const ANIVEXA_BASE = 'https://anivexa-three.vercel.app'; 
@@ -1743,7 +1757,7 @@
                     <div class="max-w-md mx-auto space-y-6">
                         <!-- Profile Card -->
                         <div class="card p-8 border border-[#cae962]/20 space-y-6">
-                            <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${app.user}</span></h2>
+                            <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${escapeHTML(app.user)}</span></h2>
                             
                             <div class="space-y-4">
                                 <label class="flex justify-between items-center cursor-pointer p-1"><span class="text-xs font-black uppercase text-zinc-400">Toon 'Verder Kijken'</span>
@@ -1785,7 +1799,7 @@
                             
                             <div class="space-y-4">
                                 <div class="flex gap-2">
-                                    <input type="text" id="set-user" value="${app.user}" class="flex-1 bg-black border border-white/10 p-3 rounded-lg text-xs font-bold text-white outline-none focus:border-[#cae962]">
+                                    <input type="text" id="set-user" value="${escapeHTML(app.user)}" class="flex-1 bg-black border border-white/10 p-3 rounded-lg text-xs font-bold text-white outline-none focus:border-[#cae962]">
                                     <button onclick="changeUsername()" class="bg-[#cae962] text-black px-4 rounded-lg text-xs font-black uppercase tracking-widest hover:scale-105 transition font-bold">Wijzig</button>
                                 </div>
                                 
