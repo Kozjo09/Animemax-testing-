@@ -266,6 +266,7 @@
         let hlsInstance = null;
         let anivexaEpisodesCache = {}; 
         let detailsCache = {};
+        let homeFeedCache = null; // Client-side cache for trending and popular homepage data
         let autoNextTriggered = false;
 
         let app = {
@@ -1847,14 +1848,9 @@
                         <div id="home-popular" class="space-y-4"></div>
                     </div>`;
                     
-                // Ophalen van Trending en Popular via AniList GraphQL
-                gql(`query{
-                    trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
-                    popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
-                }`).then(res => {
-                    if(!res || !res.data) return;
-                    
-                    const tData = res.data.trending.media;
+                // Render trending and popular sections
+                const renderHomeFeed = (feedData) => {
+                    const tData = feedData.trending.media;
                     if(tData.length > 0) {
                         const hero = tData[0];
                         const ht = app.lang === 'english' ? (hero.title.english || hero.title.romaji) : hero.title.romaji;
@@ -1883,7 +1879,7 @@
                     const popShelf = document.getElementById('home-popular');
                     popShelf.innerHTML = '';
                     let popHtml = `<h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-heart text-[#cae962]"></i> All-Time Populair</h2><div class="shelf-container no-scrollbar">`;
-                    res.data.popular.media.forEach(m => {
+                    feedData.popular.media.forEach(m => {
                         const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                         popHtml += `
                             <div onclick="openDetailsModal('${m.id}')" class="flex-none w-32 md:w-40 text-left group cursor-pointer relative">
@@ -1895,7 +1891,21 @@
                             </div>`;
                     });
                     popShelf.innerHTML = popHtml + `</div>`;
-                });
+                };
+
+                // Use in-memory client-side cache for homepage trending and popular feeds to bypass redundant network requests
+                if (homeFeedCache) {
+                    renderHomeFeed(homeFeedCache);
+                } else {
+                    gql(`query{
+                        trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
+                        popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                    }`).then(res => {
+                        if(!res || !res.data) return;
+                        homeFeedCache = res.data;
+                        renderHomeFeed(homeFeedCache);
+                    });
+                }
 
                 // Populate Continue Watching (Verder Kijken) Shelf with badges
                 if (app.showContinue && app.recent.length > 0) {
