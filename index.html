@@ -1487,8 +1487,8 @@
                     const prof = app.anilistProfile || { name: 'Gekoppeld', avatar: '' };
                     anilistPill = `
                         <button onclick="syncAniListListToLocal(true)" class="flex items-center gap-1.5 bg-indigo-950/40 border border-indigo-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase text-indigo-300 tracking-wider hover:bg-indigo-900/50 transition">
-                            ${prof.avatar ? `<img src="${prof.avatar}" class="w-3.5 h-3.5 rounded-full object-cover">` : '<i class="fa-solid fa-link text-[8px]"></i>'}
-                            <span class="max-w-[70px] truncate">${prof.name}</span>
+                            ${prof.avatar ? `<img src="${escapeHTML(prof.avatar)}" class="w-3.5 h-3.5 rounded-full object-cover">` : '<i class="fa-solid fa-link text-[8px]"></i>'}
+                            <span class="max-w-[70px] truncate">${escapeHTML(prof.name)}</span>
                         </button>
                     `;
                 }
@@ -1497,7 +1497,7 @@
                     <button onclick="nav('search')" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-[#cae962] transition-all duration-300" title="Zoeken"><i class="fa-solid fa-search text-xs"></i></button>
                     <button onclick="nav('profile')" id="prof-btn" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-all duration-300" title="Profiel & Instellingen">
                         ${app.anilistToken && app.anilistProfile && app.anilistProfile.avatar ? 
-                            `<img src="${app.anilistProfile.avatar}" class="w-full h-full rounded-full object-cover border border-[#cae962]/20">` : 
+                            `<img src="${escapeHTML(app.anilistProfile.avatar)}" class="w-full h-full rounded-full object-cover border border-[#cae962]/20">` :
                             '<i class="fa-solid fa-user-astronaut"></i>'
                         }
                     </button>
@@ -2059,7 +2059,8 @@
             const container = document.getElementById('toast-container');
             const el = document.createElement('div');
             el.className = `animate-toast p-4 rounded-xl flex items-center gap-3 text-xs font-black uppercase tracking-widest shadow-2xl border ${type === 'error' ? 'bg-red-950 text-red-200 border-red-500/30' : (type === 'success' ? 'bg-emerald-950 text-emerald-200 border-emerald-500/30' : 'bg-[#cae962] text-black border-lime-400')}`;
-            el.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : (type === 'success' ? 'fa-check' : 'fa-info-circle')}"></i> ${msg}`;
+            el.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : (type === 'success' ? 'fa-check' : 'fa-info-circle')}"></i> <span></span>`;
+            el.querySelector('span').textContent = msg;
             container.appendChild(el);
             setTimeout(() => {
                 el.style.animation = 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards';
