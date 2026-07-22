@@ -266,6 +266,7 @@
         let hlsInstance = null;
         let anivexaEpisodesCache = {}; 
         let detailsCache = {};
+        let searchCache = {}; // Client-side cache for dynamic search query results
         let homeFeedCache = null; // Client-side cache for trending and popular homepage data
         let autoNextTriggered = false;
 
@@ -1428,26 +1429,40 @@
             if (q.length < 3) {
                 grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ 3 of meer letters...</p>'; return;
             }
-            grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
-            
-            searchTimeout = setTimeout(async () => {
-                const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
+
+            // Inline helper to render search results instantly and dryly
+            const renderResults = (mediaList) => {
                 grid.innerHTML = '';
-                if (res && res.data && res.data.Page.media.length) {
-                    res.data.Page.media.forEach(m => {
+                if (mediaList && mediaList.length) {
+                    mediaList.forEach(m => {
                         const t = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                         grid.innerHTML += `
                             <div onclick="openDetailsModal('${m.id}')" class="text-left group cursor-pointer animate-fade-in relative">
                                 <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
-                                    <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                    <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
                                     ${m.averageScore ? `<span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore/10}</span>` : ''}
                                 </div>
-                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${t}</p>
+                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${escapeHTML(t)}</p>
                             </div>`;
                     });
                 } else {
                     grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Niets gevonden.</p>';
                 }
+            };
+
+            // Return cached result immediately if present (sub-millisecond instant load)
+            if (searchCache[q]) {
+                renderResults(searchCache[q]);
+                return;
+            }
+
+            grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
+
+            searchTimeout = setTimeout(async () => {
+                const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
+                const mediaList = (res && res.data && res.data.Page && res.data.Page.media) ? res.data.Page.media : [];
+                searchCache[q] = mediaList; // Cache search results in client memory
+                renderResults(mediaList);
             }, 500);
         };
 
