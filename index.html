@@ -232,6 +232,56 @@
 
     <!-- ONE COHESIVE JAVASCRIPT BLOCK -->
     <script>
+        // Safe HTML Escaping to prevent Cross-Site Scripting (XSS) in dynamic user inputs
+        function escapeHTML(str) {
+            if (typeof str !== 'string') return str;
+            return str.replace(/[&<>'"]/g,
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        window.getEpisodesOut = function(m, providers, currentProgress = 0) {
+            let maxProviderEp = 0;
+            if (providers && Array.isArray(providers)) {
+                providers.forEach(p => {
+                    const subList = p.sub || [];
+                    subList.forEach(e => {
+                        const num = parseInt(e.number || e.episode);
+                        if (!isNaN(num) && num > maxProviderEp) maxProviderEp = num;
+                    });
+                    const dubList = p.dub || [];
+                    dubList.forEach(e => {
+                        const num = parseInt(e.number || e.episode);
+                        if (!isNaN(num) && num > maxProviderEp) maxProviderEp = num;
+                    });
+                });
+            }
+
+            let episodesOut = m.episodes || 12;
+            if (m.status === 'RELEASING') {
+                if (m.nextAiringEpisode && m.nextAiringEpisode.episode) {
+                    episodesOut = m.nextAiringEpisode.episode - 1;
+                } else if (maxProviderEp > 0) {
+                    episodesOut = maxProviderEp;
+                } else {
+                    episodesOut = m.episodes || 12;
+                }
+            } else {
+                episodesOut = m.episodes || maxProviderEp || 12;
+            }
+
+            const currentEp = parseInt(app.ep) || 1;
+            const prog = parseInt(currentProgress) || 0;
+            episodesOut = Math.max(episodesOut, prog, currentEp, 1);
+            return episodesOut;
+        };
+
         // Global State Variables
         const ANILIST_ENDPOINT = 'https://graphql.anilist.co';
         const ANIVEXA_BASE = 'https://anivexa-three.vercel.app'; 
@@ -252,6 +302,8 @@
         let hlsInstance = null;
         let anivexaEpisodesCache = {}; 
         let detailsCache = {};
+        let searchCache = {}; // Client-side cache for dynamic search query results
+        let homeFeedCache = null; // Client-side cache for trending and popular homepage data
         let autoNextTriggered = false;
 
         let app = {
@@ -1122,7 +1174,7 @@
         // =========================================================================
         // DETAILS MODAL / DRAWER
         // =========================================================================
-        window.openDetailsModal = function(id) {
+        window.openDetailsModal = async function(id) {
             activeModalId = id;
             const modal = document.getElementById('details-modal');
             modal.classList.remove('hidden');
@@ -1141,8 +1193,9 @@
             // Helper to populate modal UI from the GraphQL Media object.
             // This is clean, safe, and allows us to reuse the exact rendering logic
             // whether the data is retrieved freshly or from our fast in-memory cache.
-            const renderDetails = (m) => {
-                const eps = m.episodes || 12;
+            const renderDetails = (m, providers) => {
+                const loc = app.xmlLib.find(i => i && i.id == id);
+                const episodesOut = window.getEpisodesOut(m, providers, loc ? parseInt(loc.progress || 0) : 0);
                 const titleStr = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                 
                 document.getElementById('detail-title').innerText = titleStr;
@@ -1151,10 +1204,15 @@
                 document.getElementById('detail-desc').innerHTML = m.description || "Geen synopsis beschikbaar.";
                 document.getElementById('detail-score').innerHTML = `<i class="fa-solid fa-star text-[9px] mr-1 text-[#cae962]"></i> ${m.averageScore ? (m.averageScore/10) : '?'}`;
                 document.getElementById('detail-year').innerText = m.seasonYear || "?";
-                document.getElementById('detail-episodes').innerText = (m.episodes || "?") + " Eps";
+                
+                if (m.status === 'RELEASING') {
+                    document.getElementById('detail-episodes').innerText = episodesOut + " / " + (m.episodes || "?") + " Eps";
+                } else {
+                    document.getElementById('detail-episodes').innerText = (m.episodes || episodesOut) + " Eps";
+                }
+                
                 document.getElementById('detail-status').innerText = m.status;
 
-                const loc = app.xmlLib.find(i => i && i.id == id);
                 const statStr = loc ? loc.status : "Not Watching";
                 document.getElementById('detail-action-text').innerHTML = loc ? `<span class="text-[#cae962] font-black">${loc.status}</span> - Progress: ${loc.progress}/${m.episodes||'?'}` : 'Niet in bibliotheek';
                 document.getElementById('detail-status-dropdown').value = statStr;
@@ -1167,13 +1225,14 @@
                 } else if (rec && rec.ep) {
                     targetEp = parseInt(rec.ep) || 1;
                 }
+                if (targetEp > episodesOut) targetEp = episodesOut;
                 
                 const playBtn = document.getElementById('detail-play-btn');
                 if (playBtn) {
                     playBtn.innerHTML = `<i class="fa-solid fa-play"></i> Kijk Ep ${targetEp}`;
                     playBtn.onclick = () => {
                         closeDetailsModal();
-                        autoUpdateProgressOnEpClick(id, titleStr, targetEp, eps, m.coverImage.large || m.coverImage.extraLarge);
+                        autoUpdateProgressOnEpClick(id, titleStr, targetEp, m.episodes || episodesOut, m.coverImage.large || m.coverImage.extraLarge);
                         nav('watch', { id: id, ep: targetEp });
                     };
                 }
@@ -1202,9 +1261,9 @@
                 const epGrid = document.getElementById('detail-episodes-grid');
                 epGrid.innerHTML = '';
                 const prog = loc ? parseInt(loc.progress || 0) : 0;
-                for (let i = 1; i <= eps; i++) {
+                for (let i = 1; i <= episodesOut; i++) {
                     let c = (i <= prog) ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700";
-                    epGrid.innerHTML += `<button onclick="closeDetailsModal(); autoUpdateProgressOnEpClick('${id}', '${titleStr.replace(/'/g, "\\'")}', ${i}, ${eps}, '${m.coverImage.large}'); nav('watch', {id:'${id}', ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
+                    epGrid.innerHTML += `<button onclick="closeDetailsModal(); autoUpdateProgressOnEpClick('${id}', '${titleStr.replace(/'/g, "\\'")}', ${i}, ${m.episodes || episodesOut}, '${m.coverImage.large}'); nav('watch', {id:'${id}', ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
                 }
 
                 const relGrid = document.getElementById('detail-relations-grid');
@@ -1222,21 +1281,23 @@
                 });
             };
 
+            const providers = await loadAllProviders(id);
+
             // Use in-memory details cache to bypass redundant AniList GraphQL queries
             if (detailsCache[id]) {
-                renderDetails(detailsCache[id]);
+                renderDetails(detailsCache[id], providers);
                 return;
             }
 
-            gql(`query($id:Int){Media(id:$id,type:ANIME){id title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
+            gql(`query($id:Int){Media(id:$id,type:ANIME){id title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}} nextAiringEpisode { episode } }}`, {id: parseInt(id)}).then(res => {
                 if (!res || !res.data || !res.data.Media) return;
                 const m = res.data.Media;
                 detailsCache[id] = m; // Store fetched details in cache
-                renderDetails(m);
+                renderDetails(m, providers);
             });
         };
 
-        window.closeDetailsModal = function() {
+window.closeDetailsModal = function() {
             document.getElementById('details-modal').classList.add('hidden');
             document.getElementById('details-modal').classList.remove('flex');
             document.body.style.overflow = 'auto';
@@ -1413,26 +1474,40 @@
             if (q.length < 3) {
                 grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ 3 of meer letters...</p>'; return;
             }
-            grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
-            
-            searchTimeout = setTimeout(async () => {
-                const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
+
+            // Inline helper to render search results instantly and dryly
+            const renderResults = (mediaList) => {
                 grid.innerHTML = '';
-                if (res && res.data && res.data.Page.media.length) {
-                    res.data.Page.media.forEach(m => {
+                if (mediaList && mediaList.length) {
+                    mediaList.forEach(m => {
                         const t = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                         grid.innerHTML += `
                             <div onclick="openDetailsModal('${m.id}')" class="text-left group cursor-pointer animate-fade-in relative">
                                 <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
-                                    <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                    <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
                                     ${m.averageScore ? `<span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore/10}</span>` : ''}
                                 </div>
-                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${t}</p>
+                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${escapeHTML(t)}</p>
                             </div>`;
                     });
                 } else {
                     grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Niets gevonden.</p>';
                 }
+            };
+
+            // Return cached result immediately if present (sub-millisecond instant load)
+            if (searchCache[q]) {
+                renderResults(searchCache[q]);
+                return;
+            }
+
+            grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
+
+            searchTimeout = setTimeout(async () => {
+                const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
+                const mediaList = (res && res.data && res.data.Page && res.data.Page.media) ? res.data.Page.media : [];
+                searchCache[q] = mediaList; // Cache search results in client memory
+                renderResults(mediaList);
             }, 500);
         };
 
@@ -1473,8 +1548,8 @@
                     const prof = app.anilistProfile || { name: 'Gekoppeld', avatar: '' };
                     anilistPill = `
                         <button onclick="syncAniListListToLocal(true)" class="flex items-center gap-1.5 bg-indigo-950/40 border border-indigo-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase text-indigo-300 tracking-wider hover:bg-indigo-900/50 transition">
-                            ${prof.avatar ? `<img src="${prof.avatar}" class="w-3.5 h-3.5 rounded-full object-cover">` : '<i class="fa-solid fa-link text-[8px]"></i>'}
-                            <span class="max-w-[70px] truncate">${prof.name}</span>
+                            ${prof.avatar ? `<img src="${escapeHTML(prof.avatar)}" class="w-3.5 h-3.5 rounded-full object-cover">` : '<i class="fa-solid fa-link text-[8px]"></i>'}
+                            <span class="max-w-[70px] truncate">${escapeHTML(prof.name)}</span>
                         </button>
                     `;
                 }
@@ -1483,7 +1558,7 @@
                     <button onclick="nav('search')" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-[#cae962] transition-all duration-300" title="Zoeken"><i class="fa-solid fa-search text-xs"></i></button>
                     <button onclick="nav('profile')" id="prof-btn" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-all duration-300" title="Profiel & Instellingen">
                         ${app.anilistToken && app.anilistProfile && app.anilistProfile.avatar ? 
-                            `<img src="${app.anilistProfile.avatar}" class="w-full h-full rounded-full object-cover border border-[#cae962]/20">` : 
+                            `<img src="${escapeHTML(app.anilistProfile.avatar)}" class="w-full h-full rounded-full object-cover border border-[#cae962]/20">` :
                             '<i class="fa-solid fa-user-astronaut"></i>'
                         }
                     </button>
@@ -1625,12 +1700,37 @@
                 saveInterval = setInterval(() => { if (currentPlaybackTime > 0) saveCurrentVideoTime(); }, 5000);
 
                 setTimeout(() => {
-                    gql(`query($id:Int){Media(id:$id){status nextAiringEpisode{episode airingAt}title{romaji english}episodes coverImage{large}relations{edges{relationType node{id type status episodes coverImage{large} title{romaji english}}}}}}`, {id: parseInt(app.id)}).then(res => {
+                    gql(`query($id:Int){Media(id:$id){status nextAiringEpisode{episode airingAt}title{romaji english}episodes coverImage{large}relations{edges{relationType node{id type status episodes coverImage{large} title{romaji english}}}}}}`, {id: parseInt(app.id)}).then(async (res) => {
                         if (!res || !res.data) return;
                         const m = res.data.Media;
                         const t = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                         document.getElementById('w-title').innerText = t;
                         saveRecent(app.id, t, m.coverImage.large, app.ep);
+
+                        // Dynamically update episode grid and status text based on episodes that are out
+                        const providers = await loadAllProviders(app.id);
+                        const episodesOut = window.getEpisodesOut(m, providers, prog);
+
+                        const epGrid = document.getElementById('ep-grid');
+                        if (epGrid) {
+                            epGrid.innerHTML = '';
+                            for (let i = 1; i <= episodesOut; i++) {
+                                let c = (i == app.ep) ? "bg-[#cae962] text-black font-bold" : (i <= prog ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700");
+                                epGrid.innerHTML += `<button onclick="autoUpdateProgressOnEpClick('${app.id}', '${t.replace(/'/g, "\\'")}', ${i}, ${m.episodes || episodesOut}, ''); nav('watch', {id:${app.id}, ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
+                            }
+                        }
+
+                        const statusText = document.getElementById('local-status-text');
+                        if (statusText) {
+                            if (m.status === 'RELEASING') {
+                                statusText.innerHTML = `<span class="accent" id="local-status-span">${stat}</span> - Ep ${prog} / ${m.episodes || '?'} (Out: ${episodesOut})`;
+                            } else {
+                                statusText.innerHTML = `<span class="accent" id="local-status-span">${stat}</span> - Ep ${prog} / ${m.episodes || episodesOut}`;
+                            }
+                        }
+
+                        // Auto sync progress with precise maximum episode total
+                        window.autoUpdateProgressOnEpClick(app.id, t, app.ep, m.episodes || episodesOut, m.coverImage.large);
 
                         // Populate prequel and sequel relations in the watch view
                         const wrGrid = document.getElementById('rel-grid');
@@ -1743,7 +1843,7 @@
                     <div class="max-w-md mx-auto space-y-6">
                         <!-- Profile Card -->
                         <div class="card p-8 border border-[#cae962]/20 space-y-6">
-                            <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${app.user}</span></h2>
+                            <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${escapeHTML(app.user)}</span></h2>
                             
                             <div class="space-y-4">
                                 <label class="flex justify-between items-center cursor-pointer p-1"><span class="text-xs font-black uppercase text-zinc-400">Toon 'Verder Kijken'</span>
@@ -1785,7 +1885,7 @@
                             
                             <div class="space-y-4">
                                 <div class="flex gap-2">
-                                    <input type="text" id="set-user" value="${app.user}" class="flex-1 bg-black border border-white/10 p-3 rounded-lg text-xs font-bold text-white outline-none focus:border-[#cae962]">
+                                    <input type="text" id="set-user" value="${escapeHTML(app.user)}" class="flex-1 bg-black border border-white/10 p-3 rounded-lg text-xs font-bold text-white outline-none focus:border-[#cae962]">
                                     <button onclick="changeUsername()" class="bg-[#cae962] text-black px-4 rounded-lg text-xs font-black uppercase tracking-widest hover:scale-105 transition font-bold">Wijzig</button>
                                 </div>
                                 
@@ -1833,14 +1933,9 @@
                         <div id="home-popular" class="space-y-4"></div>
                     </div>`;
                     
-                // Ophalen van Trending en Popular via AniList GraphQL
-                gql(`query{
-                    trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
-                    popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
-                }`).then(res => {
-                    if(!res || !res.data) return;
-                    
-                    const tData = res.data.trending.media;
+                // Render trending and popular sections
+                const renderHomeFeed = (feedData) => {
+                    const tData = feedData.trending.media;
                     if(tData.length > 0) {
                         const hero = tData[0];
                         const ht = app.lang === 'english' ? (hero.title.english || hero.title.romaji) : hero.title.romaji;
@@ -1869,7 +1964,7 @@
                     const popShelf = document.getElementById('home-popular');
                     popShelf.innerHTML = '';
                     let popHtml = `<h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-heart text-[#cae962]"></i> All-Time Populair</h2><div class="shelf-container no-scrollbar">`;
-                    res.data.popular.media.forEach(m => {
+                    feedData.popular.media.forEach(m => {
                         const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                         popHtml += `
                             <div onclick="openDetailsModal('${m.id}')" class="flex-none w-32 md:w-40 text-left group cursor-pointer relative">
@@ -1881,7 +1976,21 @@
                             </div>`;
                     });
                     popShelf.innerHTML = popHtml + `</div>`;
-                });
+                };
+
+                // Use in-memory client-side cache for homepage trending and popular feeds to bypass redundant network requests
+                if (homeFeedCache) {
+                    renderHomeFeed(homeFeedCache);
+                } else {
+                    gql(`query{
+                        trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
+                        popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                    }`).then(res => {
+                        if(!res || !res.data) return;
+                        homeFeedCache = res.data;
+                        renderHomeFeed(homeFeedCache);
+                    });
+                }
 
                 // Populate Continue Watching (Verder Kijken) Shelf with badges
                 if (app.showContinue && app.recent.length > 0) {
@@ -2011,7 +2120,7 @@
                         <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
                             <img src="${m.coverImage}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100">
                             <span class="absolute top-2 left-2 ${statColor} text-[8px] font-black px-1.5 py-0.5 rounded shadow uppercase">${m.status}</span>
-                            <div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#cae962]" style="width: ${(m.progress/m.episodes)*100}%"></div></div>
+                            <div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#cae962]" style="width: ${m.episodes ? Math.min((m.progress / m.episodes) * 100, 100) : 0}%"></div></div>
                         </div>
                         <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${m.title}</p>
                         <p class="text-[8px] font-bold text-zinc-500 pl-1 uppercase mt-0.5">${m.progress} / ${m.episodes || '?'} EPS</p>
@@ -2045,7 +2154,8 @@
             const container = document.getElementById('toast-container');
             const el = document.createElement('div');
             el.className = `animate-toast p-4 rounded-xl flex items-center gap-3 text-xs font-black uppercase tracking-widest shadow-2xl border ${type === 'error' ? 'bg-red-950 text-red-200 border-red-500/30' : (type === 'success' ? 'bg-emerald-950 text-emerald-200 border-emerald-500/30' : 'bg-[#cae962] text-black border-lime-400')}`;
-            el.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : (type === 'success' ? 'fa-check' : 'fa-info-circle')}"></i> ${msg}`;
+            el.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : (type === 'success' ? 'fa-check' : 'fa-info-circle')}"></i> <span></span>`;
+            el.querySelector('span').textContent = msg;
             container.appendChild(el);
             setTimeout(() => {
                 el.style.animation = 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards';
@@ -2203,5 +2313,6 @@
     </script>
 </body>
 </html>
+
 
 
