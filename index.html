@@ -232,20 +232,6 @@
 
     <!-- ONE COHESIVE JAVASCRIPT BLOCK -->
     <script>
-        // Safe HTML Escaping to prevent Cross-Site Scripting (XSS) in dynamic user inputs
-        function escapeHTML(str) {
-            if (typeof str !== 'string') return str;
-            return str.replace(/[&<>'"]/g,
-                tag => ({
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    "'": '&#39;',
-                    '"': '&quot;'
-                }[tag] || tag)
-            );
-        }
-
         // Global State Variables
         const ANILIST_ENDPOINT = 'https://graphql.anilist.co';
         const ANIVEXA_BASE = 'https://anivexa-three.vercel.app'; 
@@ -266,8 +252,6 @@
         let hlsInstance = null;
         let anivexaEpisodesCache = {}; 
         let detailsCache = {};
-        let searchCache = {}; // Client-side cache for dynamic search query results
-        let homeFeedCache = null; // Client-side cache for trending and popular homepage data
         let autoNextTriggered = false;
 
         let app = {
@@ -1429,40 +1413,26 @@
             if (q.length < 3) {
                 grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ 3 of meer letters...</p>'; return;
             }
-
-            // Inline helper to render search results instantly and dryly
-            const renderResults = (mediaList) => {
+            grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
+            
+            searchTimeout = setTimeout(async () => {
+                const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
                 grid.innerHTML = '';
-                if (mediaList && mediaList.length) {
-                    mediaList.forEach(m => {
+                if (res && res.data && res.data.Page.media.length) {
+                    res.data.Page.media.forEach(m => {
                         const t = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                         grid.innerHTML += `
                             <div onclick="openDetailsModal('${m.id}')" class="text-left group cursor-pointer animate-fade-in relative">
                                 <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
-                                    <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
+                                    <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                                     ${m.averageScore ? `<span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore/10}</span>` : ''}
                                 </div>
-                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${escapeHTML(t)}</p>
+                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${t}</p>
                             </div>`;
                     });
                 } else {
                     grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Niets gevonden.</p>';
                 }
-            };
-
-            // Return cached result immediately if present (sub-millisecond instant load)
-            if (searchCache[q]) {
-                renderResults(searchCache[q]);
-                return;
-            }
-
-            grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
-
-            searchTimeout = setTimeout(async () => {
-                const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
-                const mediaList = (res && res.data && res.data.Page && res.data.Page.media) ? res.data.Page.media : [];
-                searchCache[q] = mediaList; // Cache search results in client memory
-                renderResults(mediaList);
             }, 500);
         };
 
@@ -1503,8 +1473,8 @@
                     const prof = app.anilistProfile || { name: 'Gekoppeld', avatar: '' };
                     anilistPill = `
                         <button onclick="syncAniListListToLocal(true)" class="flex items-center gap-1.5 bg-indigo-950/40 border border-indigo-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase text-indigo-300 tracking-wider hover:bg-indigo-900/50 transition">
-                            ${prof.avatar ? `<img src="${escapeHTML(prof.avatar)}" class="w-3.5 h-3.5 rounded-full object-cover">` : '<i class="fa-solid fa-link text-[8px]"></i>'}
-                            <span class="max-w-[70px] truncate">${escapeHTML(prof.name)}</span>
+                            ${prof.avatar ? `<img src="${prof.avatar}" class="w-3.5 h-3.5 rounded-full object-cover">` : '<i class="fa-solid fa-link text-[8px]"></i>'}
+                            <span class="max-w-[70px] truncate">${prof.name}</span>
                         </button>
                     `;
                 }
@@ -1513,7 +1483,7 @@
                     <button onclick="nav('search')" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-[#cae962] transition-all duration-300" title="Zoeken"><i class="fa-solid fa-search text-xs"></i></button>
                     <button onclick="nav('profile')" id="prof-btn" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-all duration-300" title="Profiel & Instellingen">
                         ${app.anilistToken && app.anilistProfile && app.anilistProfile.avatar ? 
-                            `<img src="${escapeHTML(app.anilistProfile.avatar)}" class="w-full h-full rounded-full object-cover border border-[#cae962]/20">` :
+                            `<img src="${app.anilistProfile.avatar}" class="w-full h-full rounded-full object-cover border border-[#cae962]/20">` : 
                             '<i class="fa-solid fa-user-astronaut"></i>'
                         }
                     </button>
@@ -1773,7 +1743,7 @@
                     <div class="max-w-md mx-auto space-y-6">
                         <!-- Profile Card -->
                         <div class="card p-8 border border-[#cae962]/20 space-y-6">
-                            <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${escapeHTML(app.user)}</span></h2>
+                            <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${app.user}</span></h2>
                             
                             <div class="space-y-4">
                                 <label class="flex justify-between items-center cursor-pointer p-1"><span class="text-xs font-black uppercase text-zinc-400">Toon 'Verder Kijken'</span>
@@ -1815,7 +1785,7 @@
                             
                             <div class="space-y-4">
                                 <div class="flex gap-2">
-                                    <input type="text" id="set-user" value="${escapeHTML(app.user)}" class="flex-1 bg-black border border-white/10 p-3 rounded-lg text-xs font-bold text-white outline-none focus:border-[#cae962]">
+                                    <input type="text" id="set-user" value="${app.user}" class="flex-1 bg-black border border-white/10 p-3 rounded-lg text-xs font-bold text-white outline-none focus:border-[#cae962]">
                                     <button onclick="changeUsername()" class="bg-[#cae962] text-black px-4 rounded-lg text-xs font-black uppercase tracking-widest hover:scale-105 transition font-bold">Wijzig</button>
                                 </div>
                                 
@@ -1863,9 +1833,14 @@
                         <div id="home-popular" class="space-y-4"></div>
                     </div>`;
                     
-                // Render trending and popular sections
-                const renderHomeFeed = (feedData) => {
-                    const tData = feedData.trending.media;
+                // Ophalen van Trending en Popular via AniList GraphQL
+                gql(`query{
+                    trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
+                    popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                }`).then(res => {
+                    if(!res || !res.data) return;
+                    
+                    const tData = res.data.trending.media;
                     if(tData.length > 0) {
                         const hero = tData[0];
                         const ht = app.lang === 'english' ? (hero.title.english || hero.title.romaji) : hero.title.romaji;
@@ -1894,7 +1869,7 @@
                     const popShelf = document.getElementById('home-popular');
                     popShelf.innerHTML = '';
                     let popHtml = `<h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-heart text-[#cae962]"></i> All-Time Populair</h2><div class="shelf-container no-scrollbar">`;
-                    feedData.popular.media.forEach(m => {
+                    res.data.popular.media.forEach(m => {
                         const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                         popHtml += `
                             <div onclick="openDetailsModal('${m.id}')" class="flex-none w-32 md:w-40 text-left group cursor-pointer relative">
@@ -1906,21 +1881,7 @@
                             </div>`;
                     });
                     popShelf.innerHTML = popHtml + `</div>`;
-                };
-
-                // Use in-memory client-side cache for homepage trending and popular feeds to bypass redundant network requests
-                if (homeFeedCache) {
-                    renderHomeFeed(homeFeedCache);
-                } else {
-                    gql(`query{
-                        trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
-                        popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
-                    }`).then(res => {
-                        if(!res || !res.data) return;
-                        homeFeedCache = res.data;
-                        renderHomeFeed(homeFeedCache);
-                    });
-                }
+                });
 
                 // Populate Continue Watching (Verder Kijken) Shelf with badges
                 if (app.showContinue && app.recent.length > 0) {
@@ -2084,8 +2045,7 @@
             const container = document.getElementById('toast-container');
             const el = document.createElement('div');
             el.className = `animate-toast p-4 rounded-xl flex items-center gap-3 text-xs font-black uppercase tracking-widest shadow-2xl border ${type === 'error' ? 'bg-red-950 text-red-200 border-red-500/30' : (type === 'success' ? 'bg-emerald-950 text-emerald-200 border-emerald-500/30' : 'bg-[#cae962] text-black border-lime-400')}`;
-            el.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : (type === 'success' ? 'fa-check' : 'fa-info-circle')}"></i> <span></span>`;
-            el.querySelector('span').textContent = msg;
+            el.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : (type === 'success' ? 'fa-check' : 'fa-info-circle')}"></i> ${msg}`;
             container.appendChild(el);
             setTimeout(() => {
                 el.style.animation = 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards';
