@@ -253,6 +253,11 @@
         let anivexaEpisodesCache = {}; 
         let autoNextTriggered = false;
 
+        // BOLT: Performance optimizations - client-side cache objects to prevent redundant network requests and maximize speed
+        let homeFeedCache = null; // Stores home feed (trending and popular media) to enable instant page transitions
+        let searchCache = {};     // Stores search results by search query string for sub-millisecond repeated searches
+        let detailsCache = {};    // Stores detail modal data by anime ID to avoid redundant API hits when viewing anime details
+
         let app = {
             view: 'home', id: null, ep: 1, mode: 'sub', server: 'megaplay', searchQuery: '', libraryFilter: 'All',
             user: 'Gebruiker', showContinue: true, lang: 'english', autoPlay: true, autoNext: true, autoSkipIntro: false, skipSeconds: 85, 
@@ -1137,7 +1142,8 @@
             document.getElementById('detail-episodes-grid').innerHTML = "";
             document.getElementById('detail-relations-grid').innerHTML = "";
 
-            gql(`query($id:Int){Media(id:$id,type:ANIME){id title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
+            // BOLT: Optimize details modal render with client-side caching
+            const renderDetails = (res) => {
                 if (!res || !res.data || !res.data.Media) return;
                 const m = res.data.Media;
                 const eps = m.episodes || 12;
@@ -1218,7 +1224,18 @@
                             <i class="fa-solid fa-chevron-right text-zinc-600"></i>
                         </button>`;
                 });
-            });
+            };
+
+            if (detailsCache[id]) {
+                renderDetails(detailsCache[id]);
+            } else {
+                gql(`query($id:Int){Media(id:$id,type:ANIME){id title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
+                    if (res && res.data && res.data.Media) {
+                        detailsCache[id] = res;
+                        renderDetails(res);
+                    }
+                });
+            }
         };
 
         window.closeDetailsModal = function() {
@@ -1398,10 +1415,10 @@
             if (q.length < 3) {
                 grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ 3 of meer letters...</p>'; return;
             }
-            grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
-            
-            searchTimeout = setTimeout(async () => {
-                const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
+
+            const cacheKey = q.toLowerCase();
+            // BOLT: Reusable search result renderer
+            const renderSearchResults = (res) => {
                 grid.innerHTML = '';
                 if (res && res.data && res.data.Page.media.length) {
                     res.data.Page.media.forEach(m => {
@@ -1417,6 +1434,23 @@
                     });
                 } else {
                     grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Niets gevonden.</p>';
+                }
+            };
+
+            // BOLT: Bypass debounce and network request if results are cached
+            if (searchCache[cacheKey]) {
+                renderSearchResults(searchCache[cacheKey]);
+                return;
+            }
+
+            grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
+
+            searchTimeout = setTimeout(async () => {
+                const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
+                searchCache[cacheKey] = res;
+                // Only render if the user's active search query matches the key we just fetched (prevent race conditions)
+                if (app.searchQuery.trim().toLowerCase() === cacheKey) {
+                    renderSearchResults(res);
                 }
             }, 500);
         };
@@ -1818,11 +1852,8 @@
                         <div id="home-popular" class="space-y-4"></div>
                     </div>`;
                     
-                // Ophalen van Trending en Popular via AniList GraphQL
-                gql(`query{
-                    trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
-                    popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
-                }`).then(res => {
+                // BOLT: Optimize home feed loading using client-side cache
+                const renderHomeFeed = (res) => {
                     if(!res || !res.data) return;
                     
                     const tData = res.data.trending.media;
@@ -1866,7 +1897,21 @@
                             </div>`;
                     });
                     popShelf.innerHTML = popHtml + `</div>`;
-                });
+                };
+
+                if (homeFeedCache) {
+                    renderHomeFeed(homeFeedCache);
+                } else {
+                    gql(`query{
+                        trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
+                        popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                    }`).then(res => {
+                        if (res && res.data) {
+                            homeFeedCache = res;
+                            renderHomeFeed(res);
+                        }
+                    });
+                }
 
                 // Populate Continue Watching (Verder Kijken) Shelf with badges
                 if (app.showContinue && app.recent.length > 0) {
