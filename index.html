@@ -263,6 +263,71 @@
         let currentDuration = 0;
         let activeModalId = null;
 
+        // HTML Escaping to prevent Stored and DOM-based XSS
+        function escapeHTML(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, function(m) {
+                switch (m) {
+                    case '&': return '&amp;';
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '"': return '&quot;';
+                    case "'": return '&#039;';
+                    default: return m;
+                }
+            });
+        }
+
+        // DOMParser-based HTML Sanitizer for dynamic rich text descriptions (whitelisting structural tags & safe protocols)
+        function sanitizeHTML(htmlString) {
+            if (!htmlString) return '';
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlString, 'text/html');
+                const allowedTags = ['b', 'i', 'strong', 'em', 'p', 'br', 'ul', 'ol', 'li', 'span', 'a', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+                const allowedAttributes = {
+                    'a': ['href', 'target', 'rel', 'class'],
+                    'span': ['class'],
+                    'p': ['class'],
+                    'div': ['class']
+                };
+
+                function cleanNode(node) {
+                    const childNodes = Array.from(node.childNodes);
+                    for (let child of childNodes) {
+                        if (child.nodeType === Node.ELEMENT_NODE) {
+                            const tagName = child.tagName.toLowerCase();
+                            if (!allowedTags.includes(tagName)) {
+                                const textNode = doc.createTextNode(child.textContent);
+                                child.parentNode.replaceChild(textNode, child);
+                            } else {
+                                const attrs = Array.from(child.attributes);
+                                for (let attr of attrs) {
+                                    const attrName = attr.name.toLowerCase();
+                                    const allowedAttrsForTag = allowedAttributes[tagName] || [];
+                                    if (!allowedAttrsForTag.includes(attrName)) {
+                                        child.removeAttribute(attr.name);
+                                    } else if (attrName === 'href') {
+                                        const val = attr.value.trim();
+                                        const safeProtocol = /^(https?:\/\/|\/|#)/i;
+                                        if (!safeProtocol.test(val)) {
+                                            child.removeAttribute(attr.name);
+                                        }
+                                    }
+                                }
+                                cleanNode(child);
+                            }
+                        }
+                    }
+                }
+                cleanNode(doc.body);
+                return doc.body.innerHTML;
+            } catch (e) {
+                console.error("Fout bij sanitizen van HTML:", e);
+                return '';
+            }
+        }
+
         // Custom Anivexa dedicated HLS proxy utilizing proxy.corsfix.com for flawless direct streaming
         function proxyM3u8(url) {
             if (!url) return "";
@@ -1146,7 +1211,7 @@
                 document.getElementById('detail-title').innerText = titleStr;
                 document.getElementById('detail-banner').src = m.bannerImage || m.coverImage.extraLarge || m.coverImage.large;
                 document.getElementById('detail-poster').src = m.coverImage.large || m.coverImage.extraLarge;
-                document.getElementById('detail-desc').innerHTML = m.description || "Geen synopsis beschikbaar.";
+                document.getElementById('detail-desc').innerHTML = sanitizeHTML(m.description) || "Geen synopsis beschikbaar.";
                 document.getElementById('detail-score').innerHTML = `<i class="fa-solid fa-star text-[9px] mr-1 text-[#cae962]"></i> ${m.averageScore ? (m.averageScore/10) : '?'}`;
                 document.getElementById('detail-year').innerText = m.seasonYear || "?";
                 document.getElementById('detail-episodes').innerText = (m.episodes || "?") + " Eps";
@@ -1458,8 +1523,8 @@
                     const prof = app.anilistProfile || { name: 'Gekoppeld', avatar: '' };
                     anilistPill = `
                         <button onclick="syncAniListListToLocal(true)" class="flex items-center gap-1.5 bg-indigo-950/40 border border-indigo-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase text-indigo-300 tracking-wider hover:bg-indigo-900/50 transition">
-                            ${prof.avatar ? `<img src="${prof.avatar}" class="w-3.5 h-3.5 rounded-full object-cover">` : '<i class="fa-solid fa-link text-[8px]"></i>'}
-                            <span class="max-w-[70px] truncate">${prof.name}</span>
+                            ${prof.avatar ? `<img src="${escapeHTML(prof.avatar)}" class="w-3.5 h-3.5 rounded-full object-cover">` : '<i class="fa-solid fa-link text-[8px]"></i>'}
+                            <span class="max-w-[70px] truncate">${escapeHTML(prof.name)}</span>
                         </button>
                     `;
                 }
@@ -1468,7 +1533,7 @@
                     <button onclick="nav('search')" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-[#cae962] transition-all duration-300" title="Zoeken"><i class="fa-solid fa-search text-xs"></i></button>
                     <button onclick="nav('profile')" id="prof-btn" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-all duration-300" title="Profiel & Instellingen">
                         ${app.anilistToken && app.anilistProfile && app.anilistProfile.avatar ? 
-                            `<img src="${app.anilistProfile.avatar}" class="w-full h-full rounded-full object-cover border border-[#cae962]/20">` : 
+                            `<img src="${escapeHTML(app.anilistProfile.avatar)}" class="w-full h-full rounded-full object-cover border border-[#cae962]/20">` :
                             '<i class="fa-solid fa-user-astronaut"></i>'
                         }
                     </button>
@@ -1728,7 +1793,7 @@
                     <div class="max-w-md mx-auto space-y-6">
                         <!-- Profile Card -->
                         <div class="card p-8 border border-[#cae962]/20 space-y-6">
-                            <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${app.user}</span></h2>
+                            <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${escapeHTML(app.user)}</span></h2>
                             
                             <div class="space-y-4">
                                 <label class="flex justify-between items-center cursor-pointer p-1"><span class="text-xs font-black uppercase text-zinc-400">Toon 'Verder Kijken'</span>
@@ -1770,7 +1835,7 @@
                             
                             <div class="space-y-4">
                                 <div class="flex gap-2">
-                                    <input type="text" id="set-user" value="${app.user}" class="flex-1 bg-black border border-white/10 p-3 rounded-lg text-xs font-bold text-white outline-none focus:border-[#cae962]">
+                                    <input type="text" id="set-user" value="${escapeHTML(app.user)}" class="flex-1 bg-black border border-white/10 p-3 rounded-lg text-xs font-bold text-white outline-none focus:border-[#cae962]">
                                     <button onclick="changeUsername()" class="bg-[#cae962] text-black px-4 rounded-lg text-xs font-black uppercase tracking-widest hover:scale-105 transition font-bold">Wijzig</button>
                                 </div>
                                 
@@ -1830,7 +1895,7 @@
                         const hero = tData[0];
                         const ht = app.lang === 'english' ? (hero.title.english || hero.title.romaji) : hero.title.romaji;
                         document.getElementById('hero-title').innerText = ht;
-                        document.getElementById('hero-desc').innerHTML = hero.description || '';
+                        document.getElementById('hero-desc').innerHTML = sanitizeHTML(hero.description) || '';
                         document.getElementById('hero-img').src = hero.bannerImage || hero.coverImage.extraLarge;
                         document.getElementById('hero-play').onclick = () => nav('watch', {id: hero.id, ep: 1});
                         document.getElementById('hero-info').onclick = () => openDetailsModal(hero.id);
@@ -2030,7 +2095,10 @@
             const container = document.getElementById('toast-container');
             const el = document.createElement('div');
             el.className = `animate-toast p-4 rounded-xl flex items-center gap-3 text-xs font-black uppercase tracking-widest shadow-2xl border ${type === 'error' ? 'bg-red-950 text-red-200 border-red-500/30' : (type === 'success' ? 'bg-emerald-950 text-emerald-200 border-emerald-500/30' : 'bg-[#cae962] text-black border-lime-400')}`;
-            el.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : (type === 'success' ? 'fa-check' : 'fa-info-circle')}"></i> ${msg}`;
+            el.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : (type === 'success' ? 'fa-check' : 'fa-info-circle')}"></i> `;
+            const textSpan = document.createElement('span');
+            textSpan.textContent = msg;
+            el.appendChild(textSpan);
             container.appendChild(el);
             setTimeout(() => {
                 el.style.animation = 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards';
