@@ -1,0 +1,3 @@
+## 2026-07-24 - [Client-Side Dynamic Re-rendering Accessibility Sync]
+**Learning:** In single-file client-side SPA architectures where HTML chunks are generated dynamically via template literals, static page markup changes (e.g. adding `aria-label` or `title` to static HTML) do not persist when components/elements (such as headers and interactive navigation) are rebuilt or re-rendered dynamically during runtime state transitions.
+**Action:** Always verify that both static HTML templates and their dynamic client-side Javascript string counterpart/state-rebuilding functions are updated in lockstep to keep standard accessibility and UX treatments persistent across view/tab re-hydration.
