@@ -2030,7 +2030,17 @@
             const container = document.getElementById('toast-container');
             const el = document.createElement('div');
             el.className = `animate-toast p-4 rounded-xl flex items-center gap-3 text-xs font-black uppercase tracking-widest shadow-2xl border ${type === 'error' ? 'bg-red-950 text-red-200 border-red-500/30' : (type === 'success' ? 'bg-emerald-950 text-emerald-200 border-emerald-500/30' : 'bg-[#cae962] text-black border-lime-400')}`;
-            el.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : (type === 'success' ? 'fa-check' : 'fa-info-circle')}"></i> ${msg}`;
+
+            // Build icon element safely
+            const icon = document.createElement('i');
+            icon.className = `fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : (type === 'success' ? 'fa-check' : 'fa-info-circle')}`;
+            el.appendChild(icon);
+
+            // Mitigate DOM-based XSS by writing the dynamic message payload safely via textContent
+            const textSpan = document.createElement('span');
+            textSpan.textContent = msg;
+            el.appendChild(textSpan);
+
             container.appendChild(el);
             setTimeout(() => {
                 el.style.animation = 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards';
