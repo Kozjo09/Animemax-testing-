@@ -1,0 +1,5 @@
+# Palette's Journal - Critical Learnings
+
+## 2026-07-25 - [Standard Keyboard Accessibility for Hand-Rolled Overlay Modals]
+**Learning:** In highly customized, single-file static HTML application setups (like AnimeMax) that construct modal drawers and overlays manually using standard hidden/flex template states (such as `details-modal` and `confirm-modal`) instead of native `<dialog>` elements, keyboard accessibility is completely absent by default. Users navigating with a keyboard or screen reader cannot dismiss overlays easily via standard keys (like `Escape`), which degrades UX and breaks core interactive patterns.
+**Action:** Always implement a dedicated global top-level `keydown` listener at the script's root (bypassing test query wrappers) to intercept the standard `Escape` key, and sequentially trigger dismissal of active modals. Additionally, ensure manual close buttons feature descriptive Dutch-localized `aria-label` and `title` attributes matching hover tooltips to satisfy screen reader navigation.
