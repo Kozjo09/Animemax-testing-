@@ -251,6 +251,9 @@
         let countdownInterval = null;
         let hlsInstance = null;
         let anivexaEpisodesCache = {}; 
+        let homeFeedCache = null;
+        let detailsCache = {};
+        let searchCache = {};
         let autoNextTriggered = false;
 
         let app = {
@@ -1137,9 +1140,7 @@
             document.getElementById('detail-episodes-grid').innerHTML = "";
             document.getElementById('detail-relations-grid').innerHTML = "";
 
-            gql(`query($id:Int){Media(id:$id,type:ANIME){id title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
-                if (!res || !res.data || !res.data.Media) return;
-                const m = res.data.Media;
+            const renderDetails = (m) => {
                 const eps = m.episodes || 12;
                 const titleStr = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                 
@@ -1218,7 +1219,17 @@
                             <i class="fa-solid fa-chevron-right text-zinc-600"></i>
                         </button>`;
                 });
-            });
+            };
+
+            if (detailsCache[id]) {
+                renderDetails(detailsCache[id]);
+            } else {
+                gql(`query($id:Int){Media(id:$id,type:ANIME){id title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
+                    if (!res || !res.data || !res.data.Media) return;
+                    detailsCache[id] = res.data.Media;
+                    renderDetails(detailsCache[id]);
+                });
+            }
         };
 
         window.closeDetailsModal = function() {
@@ -1398,13 +1409,11 @@
             if (q.length < 3) {
                 grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ 3 of meer letters...</p>'; return;
             }
-            grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
-            
-            searchTimeout = setTimeout(async () => {
-                const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
+
+            const renderSearchResults = (mediaList) => {
                 grid.innerHTML = '';
-                if (res && res.data && res.data.Page.media.length) {
-                    res.data.Page.media.forEach(m => {
+                if (mediaList && mediaList.length) {
+                    mediaList.forEach(m => {
                         const t = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                         grid.innerHTML += `
                             <div onclick="openDetailsModal('${m.id}')" class="text-left group cursor-pointer animate-fade-in relative">
@@ -1417,6 +1426,26 @@
                     });
                 } else {
                     grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Niets gevonden.</p>';
+                }
+            };
+
+            if (searchCache[q]) {
+                renderSearchResults(searchCache[q]);
+                return;
+            }
+
+            grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
+
+            searchTimeout = setTimeout(async () => {
+                const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
+                if (res && res.data && res.data.Page && res.data.Page.media) {
+                    searchCache[q] = res.data.Page.media;
+                } else {
+                    searchCache[q] = [];
+                }
+                // Only render if the search query hasn't changed since the request was sent
+                if (app.searchQuery === q) {
+                    renderSearchResults(searchCache[q]);
                 }
             }, 500);
         };
@@ -1818,14 +1847,9 @@
                         <div id="home-popular" class="space-y-4"></div>
                     </div>`;
                     
-                // Ophalen van Trending en Popular via AniList GraphQL
-                gql(`query{
-                    trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
-                    popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
-                }`).then(res => {
-                    if(!res || !res.data) return;
-                    
-                    const tData = res.data.trending.media;
+                // Helper function to render Trending and Popular lists
+                const renderFeedData = (data) => {
+                    const tData = data.trending.media;
                     if(tData.length > 0) {
                         const hero = tData[0];
                         const ht = app.lang === 'english' ? (hero.title.english || hero.title.romaji) : hero.title.romaji;
@@ -1854,7 +1878,7 @@
                     const popShelf = document.getElementById('home-popular');
                     popShelf.innerHTML = '';
                     let popHtml = `<h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-heart text-[#cae962]"></i> All-Time Populair</h2><div class="shelf-container no-scrollbar">`;
-                    res.data.popular.media.forEach(m => {
+                    data.popular.media.forEach(m => {
                         const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                         popHtml += `
                             <div onclick="openDetailsModal('${m.id}')" class="flex-none w-32 md:w-40 text-left group cursor-pointer relative">
@@ -1866,7 +1890,21 @@
                             </div>`;
                     });
                     popShelf.innerHTML = popHtml + `</div>`;
-                });
+                };
+
+                // Retrieve Trending and Popular from cache or AniList GraphQL
+                if (homeFeedCache) {
+                    renderFeedData(homeFeedCache);
+                } else {
+                    gql(`query{
+                        trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
+                        popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                    }`).then(res => {
+                        if(!res || !res.data) return;
+                        homeFeedCache = res.data;
+                        renderFeedData(homeFeedCache);
+                    });
+                }
 
                 // Populate Continue Watching (Verder Kijken) Shelf with badges
                 if (app.showContinue && app.recent.length > 0) {
