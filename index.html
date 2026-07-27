@@ -1052,6 +1052,41 @@
             mBtn.onclick = () => window.setServer('megaplay');
             embedContainer.appendChild(mBtn);
 
+            // FILM U
+            const fBtn = document.createElement('button');
+            fBtn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${app.server === 'filmu' ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
+            fBtn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> FILM U`;
+            fBtn.onclick = () => window.setServer('filmu');
+            embedContainer.appendChild(fBtn);
+
+            // VIDLINK
+            const vlBtn = document.createElement('button');
+            vlBtn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${app.server === 'vidlink' ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
+            vlBtn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> VIDLINK`;
+            vlBtn.onclick = () => window.setServer('vidlink');
+            embedContainer.appendChild(vlBtn);
+
+            // VIDNEST
+            const vnBtn = document.createElement('button');
+            vnBtn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${app.server === 'vidnest' ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
+            vnBtn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> VIDNEST`;
+            vnBtn.onclick = () => window.setServer('vidnest');
+            embedContainer.appendChild(vnBtn);
+
+            // ANIMEPAHE
+            const apBtn = document.createElement('button');
+            apBtn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${app.server === 'animepahe' ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
+            apBtn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> ANIMEPAHE`;
+            apBtn.onclick = () => window.setServer('animepahe');
+            embedContainer.appendChild(apBtn);
+
+            // SUPAPLAY
+            const spBtn = document.createElement('button');
+            spBtn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${app.server === 'supaplay' ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
+            spBtn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> SUPAPLAY`;
+            spBtn.onclick = () => window.setServer('supaplay');
+            embedContainer.appendChild(spBtn);
+
             validServers.forEach(p => {
                 const btn = document.createElement('button');
                 const srvName = p.id;
@@ -1075,6 +1110,70 @@
 
             if (serverId === 'megaplay') {
                 iframeEl.src = `https://megaplay.buzz/stream/ani/${anilistId}/${targetEp}/${mode}`;
+                iframeEl.classList.remove('hidden'); iframeEl.classList.add('block');
+                nativeEl.classList.add('hidden'); nativeEl.classList.remove('block');
+                if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+                return;
+            }
+
+            if (serverId === 'filmu') {
+                iframeEl.src = `https://embed.filmu.in/anime/${anilistId}/1/${targetEp}`;
+                iframeEl.classList.remove('hidden'); iframeEl.classList.add('block');
+                nativeEl.classList.add('hidden'); nativeEl.classList.remove('block');
+                if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+                return;
+            }
+
+            if (serverId === 'vidlink') {
+                let malId = null;
+                if (detailsCache[anilistId] && detailsCache[anilistId].data && detailsCache[anilistId].data.Media) {
+                    malId = detailsCache[anilistId].data.Media.idMal;
+                }
+                if (!malId) {
+                    const res = await gql(`query($id:Int){Media(id:$id){idMal}}`, {id: parseInt(anilistId)});
+                    if (res && res.data && res.data.Media) {
+                        malId = res.data.Media.idMal;
+                    }
+                }
+                if (!malId) malId = anilistId;
+                iframeEl.src = `https://vidlink.pro/anime/${malId}/${targetEp}/${mode}?fallback=true`;
+                iframeEl.classList.remove('hidden'); iframeEl.classList.add('block');
+                nativeEl.classList.add('hidden'); nativeEl.classList.remove('block');
+                if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+                return;
+            }
+
+            if (serverId === 'vidnest') {
+                iframeEl.src = `https://vidnest.fun/anime/${anilistId}/${targetEp}/${mode}`;
+                iframeEl.classList.remove('hidden'); iframeEl.classList.add('block');
+                nativeEl.classList.add('hidden'); nativeEl.classList.remove('block');
+                if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+                return;
+            }
+
+            if (serverId === 'animepahe') {
+                iframeEl.src = `https://vidnest.fun/animepahe/${anilistId}/${targetEp}/${mode}`;
+                iframeEl.classList.remove('hidden'); iframeEl.classList.add('block');
+                nativeEl.classList.add('hidden'); nativeEl.classList.remove('block');
+                if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+                return;
+            }
+
+            if (serverId === 'supaplay') {
+                const providers = await loadAllProviders(anilistId);
+                const anikotoProvider = providers.find(p => p.provider === 'anikoto');
+                let anikotoEpId = null;
+                if (anikotoProvider) {
+                    const epList = anikotoProvider[mode] || [];
+                    const epObj = epList.find(e => e.number == targetEp || e.episode == targetEp);
+                    if (epObj) {
+                        anikotoEpId = epObj.episode_embed_id || epObj.id;
+                    }
+                }
+                if (!anikotoEpId) {
+                    anikotoEpId = targetEp;
+                }
+                iframeEl.src = `https://supaplay.fun/stream/s-2/${anikotoEpId}/${mode}`;
                 iframeEl.classList.remove('hidden'); iframeEl.classList.add('block');
                 nativeEl.classList.add('hidden'); nativeEl.classList.remove('block');
                 if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
@@ -1133,8 +1232,13 @@
             const allServerButtons = document.querySelectorAll('#anivexa-embeds-container button, #anivexa-rest-container button');
             allServerButtons.forEach(btn => {
                 const isMegaPlayBtn = srv === 'megaplay' && btn.innerText.includes('MEGAPLAY');
+                const isFilmUBtn = srv === 'filmu' && btn.innerText.includes('FILM U');
+                const isVidLinkBtn = srv === 'vidlink' && btn.innerText.includes('VIDLINK');
+                const isVidNestBtn = srv === 'vidnest' && btn.innerText.includes('VIDNEST');
+                const isAnimePaheBtn = srv === 'animepahe' && btn.innerText.includes('ANIMEPAHE');
+                const isSupaPlayBtn = srv === 'supaplay' && btn.innerText.includes('SUPAPLAY');
                 const isMatchingSrv = btn.innerText.includes(srv.toUpperCase().replace('ANIVEXA-', ''));
-                if (isMegaPlayBtn || isMatchingSrv) {
+                if (isMegaPlayBtn || isFilmUBtn || isVidLinkBtn || isVidNestBtn || isAnimePaheBtn || isSupaPlayBtn || isMatchingSrv) {
                     btn.className = 'px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap bg-[#cae962] text-black font-bold';
                 } else {
                     btn.className = 'px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap bg-zinc-800 text-zinc-400 hover:bg-zinc-700';
@@ -1143,6 +1247,10 @@
 
             window.showToast(`Overschakelen naar server ${srv.replace('anivexa-', '').toUpperCase()}...`);
             window.loadStreamAndPlay(app.id, app.ep, app.mode, srv);
+        };
+
+        window.initializePlayerStream = function() {
+            window.loadStreamAndPlay(app.id, app.ep, app.mode, app.server);
         };
 
         // =========================================================================
@@ -1295,7 +1403,7 @@
             if (detailsCache[id]) {
                 handleDetailsResponse(detailsCache[id]);
             } else {
-                gql(`query($id:Int){Media(id:$id,type:ANIME){id title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status nextAiringEpisode{episode} description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
+                gql(`query($id:Int){Media(id:$id,type:ANIME){id idMal title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status nextAiringEpisode{episode} description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
                     if (!res || !res.data || !res.data.Media) return;
                     detailsCache[id] = res;
                     handleDetailsResponse(res);
@@ -1736,7 +1844,7 @@
                     </div>`;
 
                 window.loadAnivexaAndRenderServers(app.id, app.ep, app.mode).then(validServers => {
-                    if (window.bypassPlayerPlaceholder) {
+                    if (window.bypassPlayerPlaceholder || app.server !== 'megaplay') {
                         window.bypassPlayerPlaceholder = false;
                         window.initializePlayerStream();
                     }
@@ -1747,7 +1855,7 @@
                 saveInterval = setInterval(() => { if (currentPlaybackTime > 0) saveCurrentVideoTime(); }, 5000);
 
                 setTimeout(() => {
-                    gql(`query($id:Int){Media(id:$id){status nextAiringEpisode{episode airingAt}title{romaji english}episodes coverImage{large}relations{edges{relationType node{id type status episodes coverImage{large} title{romaji english}}}}}}`, {id: parseInt(app.id)}).then(res => {
+                    gql(`query($id:Int){Media(id:$id){idMal status nextAiringEpisode{episode airingAt}title{romaji english}episodes coverImage{large}relations{edges{relationType node{id type status episodes coverImage{large} title{romaji english}}}}}}`, {id: parseInt(app.id)}).then(res => {
                         if (!res || !res.data) return;
                         const m = res.data.Media;
                         const t = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
@@ -2343,6 +2451,7 @@
     </script>
 </body>
 </html>
+
 
 
 
