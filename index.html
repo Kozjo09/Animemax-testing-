@@ -5,12 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="k-session" content="">
     <title>AnimeMax Pro</title>
+    <!-- DNS Prefetch and Preconnect Hints for performance optimization -->
+    <link rel="dns-prefetch" href="https://graphql.anilist.co">
+    <link rel="dns-prefetch" href="https://proxy.corsfix.com">
+    <link rel="dns-prefetch" href="https://megaplay.buzz">
+    <link rel="dns-prefetch" href="https://anivexa-three.vercel.app">
+    <link rel="dns-prefetch" href="https://zieuivzmzzxbraefeovl.supabase.co">
+    <link rel="preconnect" href="https://graphql.anilist.co" crossorigin>
+    <link rel="preconnect" href="https://proxy.corsfix.com" crossorigin>
+    <link rel="preconnect" href="https://megaplay.buzz" crossorigin>
+    <link rel="preconnect" href="https://anivexa-three.vercel.app" crossorigin>
+    <link rel="preconnect" href="https://zieuivzmzzxbraefeovl.supabase.co" crossorigin>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- HLS.js for native m3u8 streaming -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <!-- reCAPTCHA v3 voor de nieuwe API calls -->
-    <script src="https://www.google.com/recaptcha/api.js?render=6LfzHX8sAAAAAN70WElpj4nM__wxhllZQNZCAFGb"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap');
@@ -252,6 +262,9 @@
         let hlsInstance = null;
         let anivexaEpisodesCache = {}; 
         let autoNextTriggered = false;
+        let homeFeedCache = null;
+        let detailsCache = {};
+        let searchCache = {};
 
         let app = {
             view: 'home', id: null, ep: 1, mode: 'sub', server: 'megaplay', searchQuery: '', libraryFilter: 'All',
@@ -504,7 +517,7 @@
                     window.showToast(data ? data.message : "Gebruikersnaam al in gebruik.", "error");
                 }
             } catch(e) {
-                console.error(e);
+                console.warn("Profiel updaten mislukt.");
                 window.showToast("Er is een fout opgetreden.", "error");
             }
         };
@@ -578,7 +591,7 @@
                         await verifyAndSaveAniListToken(storedToken);
                     }
                 } catch (e) {
-                    console.error("Error loading cloud data:", e);
+                    console.warn("Cloud-gegevens laden mislukt.");
                 }
             })();
 
@@ -636,7 +649,7 @@
                     return app.anilistProfile;
                 }
             } catch (e) {
-                console.error("Fout bij ophalen AniList profiel:", e);
+                console.warn("AniList profiel ophalen mislukt.");
             }
             return null;
         }
@@ -844,7 +857,7 @@
                             });
                             pushedCount++;
                         } catch (err) {
-                            console.error(`Fout bij pushen van item ${item.id} naar AniList:`, err);
+                            console.warn("Synchroniseren van item naar AniList mislukt.");
                         }
                     }
                 }
@@ -857,7 +870,7 @@
                     window.showToast(`Sync voltooid! ${pulledCount} binnengehaald, ${pushedCount} gepusht naar AniList.`, "success");
                 }
             } catch (e) {
-                console.error("Fout tijdens AniList sync:", e);
+                console.warn("AniList synchronisatie mislukt.");
                 if (manualToast) window.showToast("Fout bij synchroniseren met AniList.", "error");
             }
         };
@@ -875,7 +888,7 @@
                     if (parsedAnivexa.length > 0) allProviders = allProviders.concat(parsedAnivexa);
                 }
             } catch (e) {
-                console.error("Anivexa API error:", e);
+                console.warn("Stream bronnen ophalen mislukt.");
             }
             if (allProviders.length === 0) {
                 const fallbackAnivexaProviders = ["animepahe", "allmanga", "reanime", "anikoto", "animegg", "anineko"];
@@ -1107,7 +1120,7 @@
                     window.showToast("Stream offline of onbeschikbaar.", "error");
                 }
             } catch (err) {
-                console.error(err);
+                console.warn("Afspelen mislukt.");
             }
         };
 
@@ -1115,7 +1128,21 @@
             if (app.server === srv) return;
             app.server = srv;
             saveCloudDataDebounced();
-            render(); 
+            
+            // Update the button highlights inside embeds and rest container dynamically without full render
+            const allServerButtons = document.querySelectorAll('#anivexa-embeds-container button, #anivexa-rest-container button');
+            allServerButtons.forEach(btn => {
+                const isMegaPlayBtn = srv === 'megaplay' && btn.innerText.includes('MEGAPLAY');
+                const isMatchingSrv = btn.innerText.includes(srv.toUpperCase().replace('ANIVEXA-', ''));
+                if (isMegaPlayBtn || isMatchingSrv) {
+                    btn.className = 'px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap bg-[#cae962] text-black font-bold';
+                } else {
+                    btn.className = 'px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap bg-zinc-800 text-zinc-400 hover:bg-zinc-700';
+                }
+            });
+
+            window.showToast(`Overschakelen naar server ${srv.replace('anivexa-', '').toUpperCase()}...`);
+            window.loadStreamAndPlay(app.id, app.ep, app.mode, srv);
         };
 
         // =========================================================================
@@ -1137,24 +1164,40 @@
             document.getElementById('detail-episodes-grid').innerHTML = "";
             document.getElementById('detail-relations-grid').innerHTML = "";
 
-            gql(`query($id:Int){Media(id:$id,type:ANIME){id title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
+            const handleDetailsResponse = res => {
                 if (!res || !res.data || !res.data.Media) return;
                 const m = res.data.Media;
                 const eps = m.episodes || 12;
                 const titleStr = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                 
+                const isAiring = m.status === 'RELEASING';
+                const anticipatedTotal = m.episodes || 0;
+                let releasedEps = m.episodes || 12;
+                if (isAiring && m.nextAiringEpisode) {
+                    releasedEps = m.nextAiringEpisode.episode - 1;
+                }
+
+                let statusLabel = m.status;
+                if (isAiring) {
+                    statusLabel = `Lopend (${releasedEps}/${anticipatedTotal || '?'})`;
+                } else if (m.status === 'FINISHED') {
+                    statusLabel = `Afgerond (${releasedEps} Eps)`;
+                }
+
                 document.getElementById('detail-title').innerText = titleStr;
                 document.getElementById('detail-banner').src = m.bannerImage || m.coverImage.extraLarge || m.coverImage.large;
                 document.getElementById('detail-poster').src = m.coverImage.large || m.coverImage.extraLarge;
                 document.getElementById('detail-desc').innerHTML = m.description || "Geen synopsis beschikbaar.";
                 document.getElementById('detail-score').innerHTML = `<i class="fa-solid fa-star text-[9px] mr-1 text-[#cae962]"></i> ${m.averageScore ? (m.averageScore/10) : '?'}`;
                 document.getElementById('detail-year').innerText = m.seasonYear || "?";
-                document.getElementById('detail-episodes').innerText = (m.episodes || "?") + " Eps";
-                document.getElementById('detail-status').innerText = m.status;
+                document.getElementById('detail-episodes').innerText = isAiring 
+                    ? `Aflevering ${releasedEps} van ${anticipatedTotal || '?'} Uit` 
+                    : `${releasedEps} Eps (Completed)`;
+                document.getElementById('detail-status').innerText = statusLabel;
 
                 const loc = app.xmlLib.find(i => i && i.id == id);
                 const statStr = loc ? loc.status : "Not Watching";
-                document.getElementById('detail-action-text').innerHTML = loc ? `<span class="text-[#cae962] font-black">${loc.status}</span> - Progress: ${loc.progress}/${m.episodes||'?'}` : 'Niet in bibliotheek';
+                document.getElementById('detail-action-text').innerHTML = loc ? `<span class="text-[#cae962] font-black">${loc.status}</span> - Progress: ${loc.progress}/${anticipatedTotal || '?'}` : 'Niet in bibliotheek';
                 document.getElementById('detail-status-dropdown').value = statStr;
 
                 // Calculate progress to set the target episode for the Play button
@@ -1198,11 +1241,40 @@
                 }
 
                 const epGrid = document.getElementById('detail-episodes-grid');
-                epGrid.innerHTML = '';
                 const prog = loc ? parseInt(loc.progress || 0) : 0;
-                for (let i = 1; i <= eps; i++) {
-                    let c = (i <= prog) ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700";
-                    epGrid.innerHTML += `<button onclick="closeDetailsModal(); autoUpdateProgressOnEpClick('${id}', '${titleStr.replace(/'/g, "\\'")}', ${i}, ${eps}, '${m.coverImage.large}'); nav('watch', {id:'${id}', ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
+                const chunkSize = 100;
+
+                if (releasedEps <= chunkSize) {
+                    epGrid.innerHTML = '';
+                    for (let i = 1; i <= releasedEps; i++) {
+                        let c = (i <= prog) ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700";
+                        epGrid.innerHTML += `<button onclick="closeDetailsModal(); autoUpdateProgressOnEpClick('${id}', '${titleStr.replace(/'/g, "\\'")}', ${i}, ${eps}, '${m.coverImage.large}'); nav('watch', {id:'${id}', ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
+                    }
+                } else {
+                    window.renderDetailsEpisodeChunk = function(chunkIdx) {
+                        const start = chunkIdx * chunkSize + 1;
+                        const end = Math.min(start + chunkSize - 1, releasedEps);
+                        
+                        let buttonsHtml = '';
+                        for (let i = start; i <= end; i++) {
+                            let c = (i <= prog) ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700";
+                            buttonsHtml += `<button onclick="closeDetailsModal(); autoUpdateProgressOnEpClick('${id}', '${titleStr.replace(/'/g, "\\'")}', ${i}, ${eps}, '${m.coverImage.large}'); nav('watch', {id:'${id}', ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
+                        }
+                        
+                        const buttonsContainer = document.getElementById('detail-ep-buttons-container');
+                        if (buttonsContainer) buttonsContainer.innerHTML = buttonsHtml;
+                    };
+                    
+                    let selectHtml = `<select onchange="window.renderDetailsEpisodeChunk(parseInt(this.value))" class="col-span-full bg-zinc-900 border border-white/10 p-3 rounded-xl text-xs font-black uppercase text-white outline-none mb-2">`;
+                    for (let c = 0; c < Math.ceil(releasedEps / chunkSize); c++) {
+                        const start = c * chunkSize + 1;
+                        const end = Math.min(start + chunkSize - 1, releasedEps);
+                        selectHtml += `<option value="${c}">Afleveringen ${start} - ${end}</option>`;
+                    }
+                    selectHtml += `</select>`;
+                    
+                    epGrid.innerHTML = selectHtml + `<div id="detail-ep-buttons-container" class="col-span-full grid grid-cols-5 sm:grid-cols-10 gap-2"></div>`;
+                    window.renderDetailsEpisodeChunk(0);
                 }
 
                 const relGrid = document.getElementById('detail-relations-grid');
@@ -1218,7 +1290,17 @@
                             <i class="fa-solid fa-chevron-right text-zinc-600"></i>
                         </button>`;
                 });
-            });
+            };
+
+            if (detailsCache[id]) {
+                handleDetailsResponse(detailsCache[id]);
+            } else {
+                gql(`query($id:Int){Media(id:$id,type:ANIME){id title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status nextAiringEpisode{episode} description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
+                    if (!res || !res.data || !res.data.Media) return;
+                    detailsCache[id] = res;
+                    handleDetailsResponse(res);
+                });
+            }
         };
 
         window.closeDetailsModal = function() {
@@ -1339,7 +1421,7 @@
                 if (nextEp <= totalEps) {
                     window.showToast(`Start aflevering ${nextEp}...`);
                     window.autoUpdateProgressOnEpClick(app.id, loc ? loc.title : 'Anime', nextEp, totalEps, loc ? loc.coverImage : '');
-                    setTimeout(() => { nav('watch', { id: app.id, ep: nextEp }); }, 200);
+                    setTimeout(() => { window.bypassPlayerPlaceholder = true; nav('watch', { id: app.id, ep: nextEp }); }, 200);
                 } else {
                     window.showToast("Zoeken naar volgend seizoen...");
                     gql(`query($id:Int){Media(id:$id){relations{edges{relationType node{id type status episodes coverImage{large} title{romaji english}
@@ -1355,7 +1437,7 @@
                                 window.autoUpdateProgressOnEpClick(app.id, loc ? loc.title : 'Anime', totalEps, totalEps, loc ? loc.coverImage : '', 'Watched');
                                 const newStatus = sequel.status === 'RELEASING' ? 'Dropped' : 'Watching';
                                 window.autoUpdateProgressOnEpClick(sequel.id, sequelTitle, 1, sequel.episodes || 12, sequel.coverImage.large, newStatus);
-                                nav('watch', { id: sequel.id, ep: 1 });
+                                window.bypassPlayerPlaceholder = true; nav('watch', { id: sequel.id, ep: 1 });
                             });
                         } else {
                             window.showToast("Anime voltooid! Geen volgend seizoen gevonden.", "success");
@@ -1398,10 +1480,8 @@
             if (q.length < 3) {
                 grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ 3 of meer letters...</p>'; return;
             }
-            grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
-            
-            searchTimeout = setTimeout(async () => {
-                const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
+
+            const renderSearchResults = (res) => {
                 grid.innerHTML = '';
                 if (res && res.data && res.data.Page.media.length) {
                     res.data.Page.media.forEach(m => {
@@ -1418,6 +1498,19 @@
                 } else {
                     grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Niets gevonden.</p>';
                 }
+            };
+
+            if (searchCache[q]) {
+                renderSearchResults(searchCache[q]);
+                return;
+            }
+
+            grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
+            
+            searchTimeout = setTimeout(async () => {
+                const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
+                searchCache[q] = res;
+                renderSearchResults(res);
             }, 500);
         };
 
@@ -1435,6 +1528,52 @@
             
             saveCloudData();
             window.showToast("Instellingen opgeslagen!");
+        };
+
+        window.renderWatchEpisodeButtons = function(totalEps, releasedEpsCount, currentProg, activeEp) {
+            const grid = document.getElementById('ep-grid');
+            if (!grid) return;
+            
+            const loc = app.xmlLib.find(i => i && i.id == app.id) || app.recent.find(i => i && i.id == app.id);
+            const title = loc ? loc.title : "Anime";
+            const img = loc ? loc.coverImage : "";
+            const chunkSize = 100;
+
+            if (releasedEpsCount <= chunkSize) {
+                grid.innerHTML = '';
+                for (let i = 1; i <= releasedEpsCount; i++) {
+                    let c = (i == activeEp) ? "bg-[#cae962] text-black font-bold font-black" : (i <= currentProg ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700");
+                    grid.innerHTML += `<button onclick="window.bypassPlayerPlaceholder = true; autoUpdateProgressOnEpClick('${app.id}', '${title.replace(/'/g, "\\'")}', ${i}, ${totalEps}, '${img}'); nav('watch', {id:${app.id}, ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
+                }
+            } else {
+                const activeChunkIndex = Math.floor((activeEp - 1) / chunkSize);
+                
+                window.renderWatchEpisodeChunk = function(chunkIdx) {
+                    const start = chunkIdx * chunkSize + 1;
+                    const end = Math.min(start + chunkSize - 1, releasedEpsCount);
+                    
+                    let buttonsHtml = '';
+                    for (let i = start; i <= end; i++) {
+                        let c = (i == activeEp) ? "bg-[#cae962] text-black font-bold font-black" : (i <= currentProg ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700");
+                        buttonsHtml += `<button onclick="window.bypassPlayerPlaceholder = true; autoUpdateProgressOnEpClick('${app.id}', '${title.replace(/'/g, "\\'")}', ${i}, ${totalEps}, '${img}'); nav('watch', {id:${app.id}, ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
+                    }
+                    
+                    const buttonsContainer = document.getElementById('ep-buttons-container');
+                    if (buttonsContainer) buttonsContainer.innerHTML = buttonsHtml;
+                };
+                
+                let selectHtml = `<select onchange="window.renderWatchEpisodeChunk(parseInt(this.value))" class="col-span-full bg-zinc-900 border border-white/10 p-3 rounded-xl text-xs font-black uppercase text-white outline-none mb-2">`;
+                for (let c = 0; c < Math.ceil(releasedEpsCount / chunkSize); c++) {
+                    const start = c * chunkSize + 1;
+                    const end = Math.min(start + chunkSize - 1, releasedEpsCount);
+                    const isSelected = (c === activeChunkIndex) ? 'selected' : '';
+                    selectHtml += `<option value="${c}" ${isSelected}>Afleveringen ${start} - ${end}</option>`;
+                }
+                selectHtml += `</select>`;
+                
+                grid.innerHTML = selectHtml + `<div id="ep-buttons-container" class="col-span-full grid grid-cols-5 sm:grid-cols-10 gap-2"></div>`;
+                window.renderWatchEpisodeChunk(activeChunkIndex);
+            }
         };
 
         // =========================================================================
@@ -1598,14 +1737,13 @@
                     </div>`;
 
                 window.loadAnivexaAndRenderServers(app.id, app.ep, app.mode).then(validServers => {
-                    window.loadStreamAndPlay(app.id, app.ep, app.mode, app.server);
+                    if (window.bypassPlayerPlaceholder) {
+                        window.bypassPlayerPlaceholder = false;
+                        window.initializePlayerStream();
+                    }
                 });
 
-                const grid = document.getElementById('ep-grid');
-                for (let i = 1; i <= eps; i++) {
-                    let c = (i == app.ep) ? "bg-[#cae962] text-black font-bold" : (i <= prog ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700");
-                    grid.innerHTML += `<button onclick="autoUpdateProgressOnEpClick('${app.id}', '${title.replace(/'/g, "\\'")}', ${i}, ${eps}, ''); nav('watch', {id:${app.id}, ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
-                }
+                window.renderWatchEpisodeButtons(eps, eps, prog, app.ep);
 
                 saveInterval = setInterval(() => { if (currentPlaybackTime > 0) saveCurrentVideoTime(); }, 5000);
 
@@ -1616,6 +1754,14 @@
                         const t = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                         document.getElementById('w-title').innerText = t;
                         saveRecent(app.id, t, m.coverImage.large, app.ep);
+                        const placeholderBg = document.getElementById('player-placeholder-bg');
+                        if (placeholderBg) placeholderBg.src = m.coverImage.large;
+
+                        let rEps = m.episodes || 12;
+                        if (m.status === 'RELEASING' && m.nextAiringEpisode) {
+                            rEps = m.nextAiringEpisode.episode - 1;
+                        }
+                        window.renderWatchEpisodeButtons(m.episodes || 12, rEps, prog, app.ep);
 
                         // Populate prequel and sequel relations in the watch view
                         const wrGrid = document.getElementById('rel-grid');
@@ -1688,7 +1834,7 @@
                             });
                         }
                     } catch (e) {
-                        console.error("Error fetching progress for up-to-date tags:", e);
+                        console.warn("Status tags ophalen mislukt.");
                     }
                 }
 
@@ -1818,11 +1964,8 @@
                         <div id="home-popular" class="space-y-4"></div>
                     </div>`;
                     
-                // Ophalen van Trending en Popular via AniList GraphQL
-                gql(`query{
-                    trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
-                    popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
-                }`).then(res => {
+                // Ophalen van Trending en Popular via AniList GraphQL with homeFeedCache
+                const renderHomeFeeds = (res) => {
                     if(!res || !res.data) return;
                     
                     const tData = res.data.trending.media;
@@ -1866,7 +2009,21 @@
                             </div>`;
                     });
                     popShelf.innerHTML = popHtml + `</div>`;
-                });
+                };
+
+                if (homeFeedCache) {
+                    renderHomeFeeds(homeFeedCache);
+                } else {
+                    gql(`query{
+                        trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
+                        popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                    }`).then(res => {
+                        if (res && res.data) {
+                            homeFeedCache = res;
+                            renderHomeFeeds(res);
+                        }
+                    });
+                }
 
                 // Populate Continue Watching (Verder Kijken) Shelf with badges
                 if (app.showContinue && app.recent.length > 0) {
@@ -2023,7 +2180,6 @@
             
             window.showToast(`Overschakelen naar ${mode.toUpperCase()}...`);
             window.loadStreamAndPlay(app.id, app.ep, mode, app.server);
-            render();
         };
 
         window.showToast = function(msg, type='info') {
@@ -2066,7 +2222,7 @@
             try {
                 await gql(query, { mediaId: parseInt(animeId), progress: parseInt(progress), status: alStatus });
             } catch (e) {
-                console.error("Fout bij synchroniseren met AniList:", e);
+                console.warn("AniList progressie opslaan mislukt.");
             }
         };
 
@@ -2188,4 +2344,5 @@
     </script>
 </body>
 </html>
+
 
