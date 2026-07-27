@@ -1424,8 +1424,7 @@
                     setTimeout(() => { window.bypassPlayerPlaceholder = true; nav('watch', { id: app.id, ep: nextEp }); }, 200);
                 } else {
                     window.showToast("Zoeken naar volgend seizoen...");
-                    gql(`query($id:Int){Media(id:$id){relations{edges{relationType node{id type status episodes coverImage{large} title{romaji english}
-                    }}}}}}`, {id: parseInt(app.id)}).then(res => {
+                    gql(`query($id:Int){Media(id:$id){relations{edges{relationType node{id type status episodes coverImage{large} title{romaji english}}}}}}`, {id: parseInt(app.id)}).then(res => {
                         if (!res || !res.data) return window.showToast("Laatste aflevering al bereikt!", "error");
                         const edges = res.data.Media.relations.edges;
                         const sequelEdge = edges.find(e => e.relationType === 'SEQUEL' && e.node.type === 'ANIME');
@@ -2344,5 +2343,6 @@
     </script>
 </body>
 </html>
+
 
 
