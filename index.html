@@ -284,8 +284,8 @@
         }
 
         // Direct fetch without proxy for maximum stability and speed
-        async function fetchWithCorsFallback(url) {
-            return await fetch(url);
+        async function fetchWithCorsFallback(url, options = {}) {
+            return await fetch(url, options);
         }
 
         // Persistent memory cache helper using sessionStorage with expiration
@@ -944,13 +944,16 @@
             if (anivexaEpisodesCache[anilistId]) return anivexaEpisodesCache[anilistId];
             let allProviders = [];
             try {
-                const resAnivexa = await fetchWithCorsFallback(`${ANIVEXA_BASE}/episodes/${anilistId}`);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 4000);
+                const resAnivexa = await fetchWithCorsFallback(`${ANIVEXA_BASE}/episodes/${anilistId}`, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (resAnivexa.ok) {
                     const parsedAnivexa = normalizeApiProviders(await resAnivexa.json(), 'anivexa');
                     if (parsedAnivexa.length > 0) allProviders = allProviders.concat(parsedAnivexa);
                 }
             } catch (e) {
-                console.warn("Stream bronnen ophalen mislukt.");
+                console.warn("Stream bronnen ophalen mislukt of getimeout.");
             }
             if (allProviders.length === 0) {
                 const fallbackAnivexaProviders = ["animepahe", "allmanga", "reanime", "anikoto", "animegg", "anineko"];
@@ -1088,82 +1091,60 @@
             if (app.autoPlay) video.play().catch(e => {});
         }
 
-        window.loadAnivexaAndRenderServers = async function(anilistId, targetEp, mode) {
+        window.loadAnivexaAndRenderServers = function(anilistId, targetEp, mode) {
             const embedContainer = document.getElementById('anivexa-embeds-container');
             const restContainer = document.getElementById('anivexa-rest-container');
             
-            if (!embedContainer || !restContainer) return;
-            embedContainer.innerHTML = '<span class="text-[9px] text-zinc-500"><i class="fa-solid fa-spinner animate-spin"></i> Bezig...</span>';
-            restContainer.innerHTML = '<span class="text-[9px] text-zinc-500"><i class="fa-solid fa-spinner animate-spin"></i> Bezig...</span>';
+            if (!embedContainer || !restContainer) return Promise.resolve([]);
+            embedContainer.innerHTML = ''; 
+            restContainer.innerHTML = '';
 
-            const providers = await loadAllProviders(anilistId);
-            embedContainer.innerHTML = ''; restContainer.innerHTML = '';
-            let validServers = [];
-            
-            providers.forEach(p => {
-                 const epList = p[mode] || [];
-                 const hasEp = epList.find(e => e.number == targetEp || e.episode == targetEp);
-                 if (hasEp || (p.api === 'anivexa' && epList.length === 0)) {
-                      validServers.push(p);
-                 }
-            });
+            const staticEmbeds = [
+                { id: 'megaplay', label: 'MEGAPLAY' },
+                { id: 'filmu', label: 'FILM U' },
+                { id: 'vidlink', label: 'VIDLINK' },
+                { id: 'vidnest', label: 'VIDNEST' },
+                { id: 'animepahe', label: 'ANIMEPAHE' },
+                { id: 'supaplay', label: 'SUPAPLAY' }
+            ];
 
-            const mBtn = document.createElement('button');
-            mBtn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${app.server === 'megaplay' ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
-            mBtn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> MEGAPLAY`;
-            mBtn.onclick = () => window.setServer('megaplay');
-            embedContainer.appendChild(mBtn);
-
-            // FILM U
-            const fBtn = document.createElement('button');
-            fBtn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${app.server === 'filmu' ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
-            fBtn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> FILM U`;
-            fBtn.onclick = () => window.setServer('filmu');
-            embedContainer.appendChild(fBtn);
-
-            // VIDLINK
-            const vlBtn = document.createElement('button');
-            vlBtn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${app.server === 'vidlink' ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
-            vlBtn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> VIDLINK`;
-            vlBtn.onclick = () => window.setServer('vidlink');
-            embedContainer.appendChild(vlBtn);
-
-            // VIDNEST
-            const vnBtn = document.createElement('button');
-            vnBtn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${app.server === 'vidnest' ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
-            vnBtn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> VIDNEST`;
-            vnBtn.onclick = () => window.setServer('vidnest');
-            embedContainer.appendChild(vnBtn);
-
-            // ANIMEPAHE
-            const apBtn = document.createElement('button');
-            apBtn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${app.server === 'animepahe' ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
-            apBtn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> ANIMEPAHE`;
-            apBtn.onclick = () => window.setServer('animepahe');
-            embedContainer.appendChild(apBtn);
-
-            // SUPAPLAY
-            const spBtn = document.createElement('button');
-            spBtn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${app.server === 'supaplay' ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
-            spBtn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> SUPAPLAY`;
-            spBtn.onclick = () => window.setServer('supaplay');
-            embedContainer.appendChild(spBtn);
-
-            validServers.forEach(p => {
+            staticEmbeds.forEach(srv => {
                 const btn = document.createElement('button');
-                const srvName = p.id;
-                const isActive = app.server === srvName;
-                btn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${isActive ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
-                btn.innerHTML = `<i class="fa-solid fa-server mr-1"></i> ${p.provider.toUpperCase()}`;
-                btn.onclick = () => window.setServer(srvName);
-
-                if (EMBED_PROVIDERS.includes(p.provider.toLowerCase())) {
-                    embedContainer.appendChild(btn);
-                } else {
-                    restContainer.appendChild(btn);
-                }
+                btn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${app.server === srv.id ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
+                btn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> ${srv.label}`;
+                btn.onclick = () => window.setServer(srv.id);
+                embedContainer.appendChild(btn);
             });
-            return validServers;
+
+            return window.loadAllProviders(anilistId).then(providers => {
+                let validServers = [];
+                providers.forEach(p => {
+                     const epList = p[mode] || [];
+                     const hasEp = epList.find(e => e.number == targetEp || e.episode == targetEp);
+                     if (hasEp || (p.api === 'anivexa' && epList.length === 0)) {
+                          validServers.push(p);
+                     }
+                });
+
+                validServers.forEach(p => {
+                    const btn = document.createElement('button');
+                    const srvName = p.id;
+                    const isActive = app.server === srvName;
+                    btn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${isActive ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
+                    btn.innerHTML = `<i class="fa-solid fa-server mr-1"></i> ${p.provider.toUpperCase()}`;
+                    btn.onclick = () => window.setServer(srvName);
+
+                    if (EMBED_PROVIDERS.includes(p.provider.toLowerCase())) {
+                        embedContainer.appendChild(btn);
+                    } else {
+                        restContainer.appendChild(btn);
+                    }
+                });
+                return validServers;
+            }).catch(err => {
+                console.warn("Server bronnen ophalen mislukt:", err);
+                return [];
+            });
         };
 
         window.loadStreamAndPlay = async function(anilistId, targetEp, mode, serverId) {
@@ -1248,7 +1229,10 @@
 
             let fetchUrl = `${ANIVEXA_BASE}/watch/${pObj.provider}/${anilistId}/${mode}/${pObj.provider}-${targetEp}`;
             try {
-                const res = await fetchWithCorsFallback(fetchUrl);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 6000);
+                const res = await fetchWithCorsFallback(fetchUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 const data = await res.json();
                 let streamData = data.streams ? data : (data.results || data);
                 
@@ -1907,12 +1891,8 @@
                         <div id="rel-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-8"></div>
                     </div>`;
 
-                window.loadAnivexaAndRenderServers(app.id, app.ep, app.mode).then(validServers => {
-                    if (window.bypassPlayerPlaceholder || app.server !== 'megaplay') {
-                        window.bypassPlayerPlaceholder = false;
-                        window.initializePlayerStream();
-                    }
-                });
+                window.loadAnivexaAndRenderServers(app.id, app.ep, app.mode);
+                window.initializePlayerStream();
 
                 window.renderWatchEpisodeButtons(eps, eps, prog, app.ep);
 
@@ -2516,6 +2496,7 @@
     </script>
 </body>
 </html>
+
 
 
 
