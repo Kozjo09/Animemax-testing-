@@ -63,10 +63,15 @@
         /* Horizontal Scroll Shelf */
         .shelf-container {
             display: flex;
-            gap: 16px;
+            gap: 14px;
             overflow-x: auto;
             scroll-behavior: smooth;
-            padding-bottom: 16px;
+            padding-bottom: 12px;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+        }
+        .shelf-container > * {
+            scroll-snap-align: start;
         }
 
         /* Toggle Switch */
@@ -150,16 +155,16 @@
     </main>
 
     <!-- Bottom Navigation for Mobile -->
-    <nav id="app-navigation" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-black/90 backdrop-blur-xl rounded-[2rem] p-2 flex justify-around items-center shadow-2xl z-[100] border border-white/10 md:hidden hidden">
-        <button onclick="nav('home')" class="p-3.5 nav-link hover:text-white transition-colors" id="nav-home" title="Home"><i class="fa-solid fa-house"></i></button>
-        <button onclick="nav('recent')" class="p-3.5 nav-link hover:text-white transition-colors" id="nav-recent" title="Verder Kijken"><i class="fa-solid fa-clock-rotate-left"></i></button>
-        <button onclick="nav('library')" class="p-3.5 nav-link hover:text-white transition-colors" id="nav-library" title="Bibliotheek"><i class="fa-solid fa-layer-group"></i></button>
-        <button onclick="nav('profile')" class="p-3.5 nav-link hover:text-white transition-colors" id="nav-profile" title="Profiel"><i class="fa-solid fa-user-astronaut"></i></button>
+    <nav id="app-navigation" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-black/85 backdrop-blur-2xl rounded-2xl px-3 py-2 flex justify-around items-center shadow-[0_10px_30px_rgba(0,0,0,0.8)] z-[100] border border-white/10 md:hidden hidden">
+        <button onclick="nav('home')" class="flex flex-col items-center justify-center min-w-[52px] min-h-[44px] py-1 px-2 nav-link text-zinc-400 hover:text-white transition-all duration-200" id="nav-home" title="Home" aria-label="Home"><i class="fa-solid fa-house text-base"></i><span class="text-[9px] font-black uppercase tracking-wider mt-1">Home</span></button>
+        <button onclick="nav('recent')" class="flex flex-col items-center justify-center min-w-[52px] min-h-[44px] py-1 px-2 nav-link text-zinc-400 hover:text-white transition-all duration-200" id="nav-recent" title="Verder Kijken" aria-label="Verder Kijken"><i class="fa-solid fa-clock-rotate-left text-base"></i><span class="text-[9px] font-black uppercase tracking-wider mt-1">Historie</span></button>
+        <button onclick="nav('library')" class="flex flex-col items-center justify-center min-w-[52px] min-h-[44px] py-1 px-2 nav-link text-zinc-400 hover:text-white transition-all duration-200" id="nav-library" title="Mijn Lijst" aria-label="Mijn Lijst"><i class="fa-solid fa-layer-group text-base"></i><span class="text-[9px] font-black uppercase tracking-wider mt-1">Mijn Lijst</span></button>
+        <button onclick="nav('profile')" class="flex flex-col items-center justify-center min-w-[52px] min-h-[44px] py-1 px-2 nav-link text-zinc-400 hover:text-white transition-all duration-200" id="nav-profile" title="Profiel" aria-label="Profiel"><i class="fa-solid fa-user-astronaut text-base"></i><span class="text-[9px] font-black uppercase tracking-wider mt-1">Profiel</span></button>
     </nav>
 
     <!-- Netflix-style Details Slide-up Modal Drawer -->
-    <div id="details-modal" class="fixed inset-0 bg-black/95 backdrop-blur-md z-[5000] hidden overflow-y-auto no-scrollbar justify-center items-start p-4 md:p-10">
-        <div class="bg-[#111111] border border-white/5 rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden relative mt-10 md:mt-16 mb-20">
+    <div id="details-modal" class="fixed inset-0 bg-black/95 backdrop-blur-md z-[5000] hidden overflow-y-auto no-scrollbar justify-center items-start p-2 sm:p-4 md:p-10">
+        <div class="bg-[#111111] border border-white/5 rounded-2xl md:rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden relative mt-6 md:mt-16 mb-20">
             <!-- Close Button -->
             <button onclick="closeDetailsModal()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center border border-white/5 hover:border-white/20 transition-all z-50">
                 <i class="fa-solid fa-times"></i>
@@ -1088,7 +1093,26 @@
             if (ar && ar.time > 0 && ar.time < (video.duration - 5)) {
                 video.currentTime = ar.time;
             }
-            if (app.autoPlay) video.play().catch(e => {});
+            if (app.autoPlay) {
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(e => {
+                        console.warn("Unmuted autoplay blocked, trying muted:", e);
+                        video.muted = true;
+                        video.play().catch(err => console.warn("Muted autoplay blocked:", err));
+                    });
+                }
+            }
+            if (window.shouldRestoreFullscreen) {
+                const wrapper = document.getElementById("player-wrapper");
+                if (wrapper) {
+                    const requestFs = wrapper.requestFullscreen || wrapper.webkitRequestFullscreen || wrapper.mozRequestFullscreen || wrapper.msRequestFullscreen;
+                    if (requestFs) {
+                        requestFs.call(wrapper).catch(err => console.warn("Fullscreen re-entry prevented:", err));
+                    }
+                }
+                window.shouldRestoreFullscreen = false;
+            }
         }
 
         window.loadAnivexaAndRenderServers = function(anilistId, targetEp, mode) {
@@ -1150,6 +1174,19 @@
         window.loadStreamAndPlay = async function(anilistId, targetEp, mode, serverId) {
             const iframeEl = document.getElementById('player');
             const nativeEl = document.getElementById('native-player-container');
+            const playerWrapper = document.getElementById('player-wrapper');
+
+            if (playerWrapper) {
+                playerWrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            if (window.shouldRestoreFullscreen && playerWrapper) {
+                const requestFs = playerWrapper.requestFullscreen || playerWrapper.webkitRequestFullscreen || playerWrapper.mozRequestFullscreen || playerWrapper.msRequestFullscreen;
+                if (requestFs) {
+                    requestFs.call(playerWrapper).catch(err => console.warn("Fullscreen re-entry prevented:", err));
+                }
+                window.shouldRestoreFullscreen = false;
+            }
 
             if (serverId === 'megaplay') {
                 iframeEl.src = `https://megaplay.buzz/stream/ani/${anilistId}/${targetEp}/${mode}`;
@@ -1554,19 +1591,10 @@
 
         window.playNextEpisode = function() {
             const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
-            
             if (isFullscreen) {
-                const exitPromise = document.exitFullscreen ? document.exitFullscreen() : 
-                                    (document.webkitExitFullscreen ? Promise.resolve(document.webkitExitFullscreen()) : Promise.resolve());
-                
-                exitPromise.then(() => {
-                    setTimeout(proceedToNext, 400); // 400ms transition delay to let DOM restore safely
-                }).catch(() => {
-                    setTimeout(proceedToNext, 400);
-                });
-            } else {
-                proceedToNext();
+                window.shouldRestoreFullscreen = true;
             }
+            proceedToNext();
 
             function proceedToNext() {
                 const loc = app.xmlLib.find(i => i && i.id == app.id) || app.recent.find(i => i && i.id == app.id);
@@ -1836,19 +1864,19 @@
                             ${app.autoSkipIntro ? `<button onclick="skipIntroTime()" class="absolute bottom-16 right-4 bg-black/90 border border-white/10 text-white text-[10px] font-black uppercase tracking-widest px-4 py-3 rounded-xl flex items-center gap-2 hover:scale-105 active:scale-95 shadow-2xl z-50"><i class="fa-solid fa-forward"></i> Skip Intro (+${app.skipSeconds}s)</button>` : ''}
                         </div>
 
-                        <div class="bg-[#111111] p-6 rounded-2xl border border-white/5 space-y-6">
-                            <div class="flex justify-between items-center flex-wrap gap-4 border-b border-white/5 pb-4">
-                                <div class="flex gap-2 flex-wrap">
-                                    <button onclick="checkAudioAvailabilityAndPlay('sub')" class="px-5 py-2.5 rounded-xl text-xs font-black uppercase transition ${app.mode=='sub'?'bg-[#cae962] text-black font-bold':'bg-zinc-900 text-zinc-400'}" id="sub-btn">Sub</button>
-                                    <button onclick="checkAudioAvailabilityAndPlay('dub')" class="px-5 py-2.5 rounded-xl text-xs font-black uppercase transition ${app.mode=='dub'?'bg-[#cae962] text-black font-bold':'bg-zinc-900 text-zinc-400'}" id="dub-btn">Dub</button>
-                                    <button onclick="openInVLC()" class="px-5 py-2.5 rounded-xl text-xs font-black uppercase bg-zinc-900 border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5" title="Speel deze aflevering af in de VLC Player app">
+                        <div class="bg-[#111111] p-4 md:p-6 rounded-2xl border border-white/5 space-y-5">
+                            <div class="flex justify-between items-center flex-wrap gap-3 border-b border-white/5 pb-4">
+                                <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1 max-w-full">
+                                    <button onclick="checkAudioAvailabilityAndPlay('sub')" class="px-4 py-2 rounded-xl text-xs font-black uppercase whitespace-nowrap transition ${app.mode=='sub'?'bg-[#cae962] text-black font-bold':'bg-zinc-900 text-zinc-400'}" id="sub-btn">Sub</button>
+                                    <button onclick="checkAudioAvailabilityAndPlay('dub')" class="px-4 py-2 rounded-xl text-xs font-black uppercase whitespace-nowrap transition ${app.mode=='dub'?'bg-[#cae962] text-black font-bold':'bg-zinc-900 text-zinc-400'}" id="dub-btn">Dub</button>
+                                    <button onclick="openInVLC()" class="px-4 py-2 rounded-xl text-xs font-black uppercase whitespace-nowrap bg-zinc-900 border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5" title="Speel deze aflevering af in de VLC Player app">
                                         <i class="fa-solid fa-play accent"></i> Open in VLC
                                     </button>
-                                    <button onclick="copyVideoLink()" class="px-5 py-2.5 rounded-xl text-xs font-black uppercase bg-zinc-900 border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5" title="Kopieer de directe stream-URL om handmatig in VLC te plakken">
+                                    <button onclick="copyVideoLink()" class="px-4 py-2 rounded-xl text-xs font-black uppercase whitespace-nowrap bg-zinc-900 border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5" title="Kopieer de directe stream-URL om handmatig in VLC te plakken">
                                         <i class="fa-solid fa-copy"></i> Kopieer Link
                                     </button>
                                 </div>
-                                <div class="flex items-center gap-4">
+                                <div class="flex items-center gap-3">
                                     <span class="text-xs text-zinc-500 font-bold uppercase"><i class="fa-regular fa-clock text-[#cae962] mr-1.5"></i> <span id="playback-time-text" class="text-white">0:00 / 0:00</span></span>
                                     <span id="playback-progress-percentage" class="text-xs font-black text-[#cae962]">0%</span>
                                 </div>
@@ -1856,13 +1884,13 @@
                             <div class="space-y-3">
                                 <p class="text-[10px] font-black uppercase tracking-widest text-zinc-500">Streaming Bronnen</p>
                                 <div class="space-y-2">
-                                    <div class="flex items-center gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
-                                        <span class="text-[10px] font-black text-[#cae962] w-24 uppercase">Embeds:</span>
-                                        <div id="anivexa-embeds-container" class="flex gap-2 flex-wrap"></div>
+                                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
+                                        <span class="text-[10px] font-black text-[#cae962] sm:w-24 uppercase">Embeds:</span>
+                                        <div id="anivexa-embeds-container" class="flex gap-2 overflow-x-auto no-scrollbar py-0.5 max-w-full"></div>
                                     </div>
-                                    <div class="flex items-center gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
-                                        <span class="text-[10px] font-black text-[#cae962] w-24 uppercase">Direct / HLS:</span>
-                                        <div id="anivexa-rest-container" class="flex gap-2 flex-wrap"></div>
+                                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
+                                        <span class="text-[10px] font-black text-[#cae962] sm:w-24 uppercase">Direct / HLS:</span>
+                                        <div id="anivexa-rest-container" class="flex gap-2 overflow-x-auto no-scrollbar py-0.5 max-w-full"></div>
                                     </div>
                                 </div>
                             </div>
@@ -2091,15 +2119,15 @@
                 main.innerHTML = `
                     <div class="space-y-10">
                         <!-- Netflix Hero Banner -->
-                        <div id="home-hero" class="w-full h-[40vh] bg-zinc-900 rounded-3xl overflow-hidden border border-white/5 relative flex items-end p-6 md:p-10 shadow-2xl">
-                            <div class="absolute inset-0 bg-gradient-to-t from-[#060606] via-[#060606]/80 to-transparent z-10"></div>
-                            <div class="relative z-20 space-y-4 max-w-2xl">
-                                <span class="bg-[#cae962] text-black text-[9px] font-black px-2 py-1 rounded uppercase tracking-wider font-bold">Populairste Nu</span>
-                                <h1 class="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white animate-fade-in" id="hero-title">Laden...</h1>
-                                <p class="text-xs text-zinc-400 line-clamp-2 md:line-clamp-3 animate-fade-in" id="hero-desc"></p>
-                                <div class="flex gap-3 pt-2">
-                                    <button id="hero-play" class="bg-[#cae962] text-black px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:scale-105 transition shadow-[0_0_20px_rgba(202,233,98,0.3)] font-bold"><i class="fa-solid fa-play mr-2"></i> Kijk Nu</button>
-                                    <button id="hero-info" class="bg-zinc-800/80 backdrop-blur text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-700 transition"><i class="fa-solid fa-info-circle mr-2"></i> Info</button>
+                        <div id="home-hero" class="w-full min-h-[300px] md:h-[45vh] bg-zinc-900 rounded-2xl md:rounded-3xl overflow-hidden border border-white/5 relative flex items-end p-5 md:p-10 shadow-2xl">
+                            <div class="absolute inset-0 bg-gradient-to-t from-[#060606] via-[#060606]/75 to-transparent z-10"></div>
+                            <div class="relative z-20 space-y-3 max-w-2xl">
+                                <span class="bg-[#cae962] text-black text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider font-bold">Populairste Nu</span>
+                                <h1 class="text-2xl sm:text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white animate-fade-in leading-tight" id="hero-title">Laden...</h1>
+                                <p class="text-[11px] md:text-xs text-zinc-400 line-clamp-2 md:line-clamp-3 animate-fade-in leading-relaxed" id="hero-desc"></p>
+                                <div class="flex gap-2.5 pt-1">
+                                    <button id="hero-play" class="bg-[#cae962] text-black px-5 py-2.5 md:px-6 md:py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:scale-105 transition shadow-[0_0_20px_rgba(202,233,98,0.3)] font-bold flex items-center"><i class="fa-solid fa-play mr-2"></i> Kijk Nu</button>
+                                    <button id="hero-info" class="bg-zinc-800/80 backdrop-blur text-white px-5 py-2.5 md:px-6 md:py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-700 transition flex items-center"><i class="fa-solid fa-info-circle mr-2"></i> Info</button>
                                 </div>
                             </div>
                             <img id="hero-img" class="absolute inset-0 w-full h-full object-cover opacity-50">
