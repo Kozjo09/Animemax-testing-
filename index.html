@@ -262,9 +262,9 @@
         let hlsInstance = null;
         let anivexaEpisodesCache = {}; 
         let autoNextTriggered = false;
-        let homeFeedCache = null;
-        let detailsCache = {};
-        let searchCache = {};
+        let homeFeedCache = getStorageCache("homeFeedCache", 15 * 60 * 1000);
+        let detailsCache = getStorageCache("detailsCache", 60 * 60 * 1000) || {};
+        let searchCache = getStorageCache("searchCache", 30 * 60 * 1000) || {};
 
         let app = {
             view: 'home', id: null, ep: 1, mode: 'sub', server: 'megaplay', searchQuery: '', libraryFilter: 'All',
@@ -288,10 +288,35 @@
             return await fetch(url);
         }
 
-        // Custom GraphQL Caller with automatic AniList Access Token binding
-        async function gql(query, vars) {
-            const headers = { 'Content-Type': 'application/json' };
-            if (app.anilistToken) {
+        // Persistent memory cache helper using sessionStorage with expiration
+        function getStorageCache(key, maxAgeMs = 15 * 60 * 1000) {
+            try {
+                const itemStr = sessionStorage.getItem(key);
+                if (!itemStr) return null;
+                const item = JSON.parse(itemStr);
+                if (Date.now() - item.timestamp > maxAgeMs) {
+                    sessionStorage.removeItem(key);
+                    return null;
+                }
+                return item.data;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function setStorageCache(key, data) {
+            try {
+                sessionStorage.setItem(key, JSON.stringify({
+                    timestamp: Date.now(),
+                    data: data
+                }));
+            } catch (e) {}
+        }
+
+        // Custom GraphQL Caller with rate limit handling & optional auth binding
+        async function gql(query, vars, requireAuth = false, retries = 3) {
+            const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+            if (requireAuth && app.anilistToken) {
                 headers['Authorization'] = 'Bearer ' + app.anilistToken;
             }
             try {
@@ -300,7 +325,29 @@
                     headers: headers, 
                     body: JSON.stringify({ query, variables: vars }) 
                 });
-                return await r.json();
+                
+                // Check HTTP level 429 Rate Limit
+                if (r.status === 429 && retries > 0) {
+                    const retryAfterHeader = r.headers.get('Retry-After');
+                    const retryAfter = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 2;
+                    console.warn(`AniList Rate Limited (HTTP 429). Waiting ${retryAfter}s before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, Math.max(retryAfter, 1) * 1000));
+                    return gql(query, vars, requireAuth, retries - 1);
+                }
+
+                const json = await r.json();
+
+                // Check GraphQL level 429 Rate Limit in errors array
+                if (json && json.errors && Array.isArray(json.errors)) {
+                    const isRateLimited = json.errors.some(err => err.status === 429 || (err.message && err.message.toLowerCase().includes('too many requests')));
+                    if (isRateLimited && retries > 0) {
+                        console.warn('AniList GraphQL Rate Limited. Waiting 2s before retry...');
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        return gql(query, vars, requireAuth, retries - 1);
+                    }
+                }
+
+                return json;
             } catch(e) { 
                 return null; 
             }
@@ -572,8 +619,15 @@
                             app.skipSeconds = parseInt(data.settings.skipSeconds || '85'); app.autoDubFallback = data.settings.autoDubFallback !== false;
                             app.anilistToken = data.settings.anilistToken || null;
                             if (app.anilistToken) {
-                                await fetchAniListProfile();
-                                await window.syncAniListListToLocal(false);
+                                fetchAniListProfile();
+                                // Throttle automatic background list sync (once per 10 minutes)
+                                const lastSync = parseInt(localStorage.getItem("last_anilist_auto_sync") || "0", 10);
+                                if (Date.now() - lastSync > 10 * 60 * 1000) {
+                                    localStorage.setItem("last_anilist_auto_sync", Date.now().toString());
+                                    setTimeout(() => {
+                                        window.syncAniListListToLocal(false);
+                                    }, 1000);
+                                }
                             }
                         }
                     } else {
@@ -639,13 +693,21 @@
                 return null;
             }
             if (app.anilistProfile) return app.anilistProfile;
+
+            const cachedProf = getStorageCache("anilistProfile", 24 * 60 * 60 * 1000);
+            if (cachedProf) {
+                app.anilistProfile = cachedProf;
+                return app.anilistProfile;
+            }
+
             try {
-                const res = await gql(`query { Viewer { id name avatar { large } } }`);
+                const res = await gql(`query { Viewer { id name avatar { large } } }`, {}, true);
                 if (res && res.data && res.data.Viewer) {
                     app.anilistProfile = {
                         name: res.data.Viewer.name,
                         avatar: res.data.Viewer.avatar.large
                     };
+                    setStorageCache("anilistProfile", app.anilistProfile);
                     return app.anilistProfile;
                 }
             } catch (e) {
@@ -656,7 +718,7 @@
 
         async function verifyAndSaveAniListToken(token) {
             app.anilistToken = token;
-            const res = await gql(`query { Viewer { id name avatar { large } } }`);
+            const res = await gql(`query { Viewer { id name avatar { large } } }`, {}, true);
             if (res && res.data && res.data.Viewer) {
                 app.anilistProfile = {
                     name: res.data.Viewer.name,
@@ -716,7 +778,7 @@
                             }
                         }
                     }
-                `, { userId: viewer.id });
+                `, { userId: viewer.id }, true);
 
                 if (!listRes || !listRes.data || !listRes.data.MediaListCollection) {
                     if (manualToast) window.showToast("Kon AniList lijst niet ophalen.", "error");
@@ -854,7 +916,7 @@
                                 mediaId: parseInt(item.id),
                                 progress: parseInt(item.progress),
                                 status: item.status
-                            });
+                            }, true);
                             pushedCount++;
                         } catch (err) {
                             console.warn("Synchroniseren van item naar AniList mislukt.");
@@ -1406,6 +1468,7 @@
                 gql(`query($id:Int){Media(id:$id,type:ANIME){id idMal title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status nextAiringEpisode{episode} description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
                     if (!res || !res.data || !res.data.Media) return;
                     detailsCache[id] = res;
+                    setStorageCache("detailsCache", detailsCache);
                     handleDetailsResponse(res);
                 });
             }
@@ -1617,6 +1680,7 @@
             searchTimeout = setTimeout(async () => {
                 const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
                 searchCache[q] = res;
+                setStorageCache("searchCache", searchCache);
                 renderSearchResults(res);
             }, 500);
         };
@@ -2127,6 +2191,7 @@
                     }`).then(res => {
                         if (res && res.data) {
                             homeFeedCache = res;
+                            setStorageCache("homeFeedCache", res);
                             renderHomeFeeds(res);
                         }
                     });
@@ -2327,7 +2392,7 @@
             
             const query = `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) { SaveMediaListEntry (mediaId: $mediaId, progress: $progress, status: $status) { id status progress } }`;
             try {
-                await gql(query, { mediaId: parseInt(animeId), progress: parseInt(progress), status: alStatus });
+                await gql(query, { mediaId: parseInt(animeId), progress: parseInt(progress), status: alStatus }, true);
             } catch (e) {
                 console.warn("AniList progressie opslaan mislukt.");
             }
@@ -2451,6 +2516,7 @@
     </script>
 </body>
 </html>
+
 
 
 
