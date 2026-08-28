@@ -1598,11 +1598,24 @@
             window.syncProgressToAniList(id, ep, finalStat);
         };
 
-        window.playNextEpisode = function() {
-            const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
-            if (isFullscreen) {
-                window.shouldRestoreFullscreen = true;
+        function exitFullscreenIfActive() {
+            window.shouldRestoreFullscreen = false;
+            const fsElement = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+            if (fsElement) {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(err => console.warn("Exit fullscreen failed:", err));
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
             }
+        }
+
+        window.playNextEpisode = function() {
+            exitFullscreenIfActive();
             proceedToNext();
 
             function proceedToNext() {
@@ -2547,10 +2560,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
