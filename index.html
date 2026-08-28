@@ -107,6 +107,15 @@
             font-size: 1.1rem;
             font-weight: 700;
         }
+    
+        /* Hide fixed overlays in fullscreen mode to prevent banners on top of player */
+        :fullscreen #app-header, :fullscreen #app-navigation,
+        :-webkit-full-screen #app-header, :-webkit-full-screen #app-navigation,
+        :-moz-full-screen #app-header, :-moz-full-screen #app-navigation,
+        :-ms-fullscreen #app-header, :-ms-fullscreen #app-navigation,
+        body.is-fullscreen #app-header, body.is-fullscreen #app-navigation {
+            display: none !important;
+        }
     </style>
 </head>
 <body class="pb-32 relative">
@@ -2426,6 +2435,20 @@
         // =========================================================================
         // INIT & BOOTSTRAP
         // =========================================================================
+        
+        // Hide fixed header and navigation overlays when entering fullscreen mode
+        function handleFullscreenChange() {
+            const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+            if (isFullscreen) {
+                document.body.classList.add('is-fullscreen');
+            } else {
+                document.body.classList.remove('is-fullscreen');
+            }
+        }
+        ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
+            document.addEventListener(evt, handleFullscreenChange);
+        });
+
         window.addEventListener('message', function(event) {
             try {
                 const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
@@ -2524,6 +2547,7 @@
     </script>
 </body>
 </html>
+
 
 
 
