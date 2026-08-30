@@ -116,6 +116,45 @@
         body.is-fullscreen #app-header, body.is-fullscreen #app-navigation {
             display: none !important;
         }
+
+        /* Clean 100vw x 100vh Fullscreen Player Layout without rounded corners or gaps */
+        #player-wrapper:fullscreen,
+        #player-wrapper:-webkit-full-screen,
+        #player-wrapper:-moz-full-screen,
+        #player-wrapper:-ms-fullscreen {
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: none !important;
+            max-height: none !important;
+            aspect-ratio: auto !important;
+            border-radius: 0 !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            background: #000000 !important;
+        }
+
+        #player-wrapper:fullscreen #player,
+        #player-wrapper:-webkit-full-screen #player,
+        #player-wrapper:-moz-full-screen #player,
+        #player-wrapper:-ms-fullscreen #player,
+        #player-wrapper:fullscreen #native-player-container,
+        #player-wrapper:-webkit-full-screen #native-player-container,
+        #player-wrapper:-moz-full-screen #native-player-container,
+        #player-wrapper:-ms-fullscreen #native-player-container,
+        #player-wrapper:fullscreen #native-player,
+        #player-wrapper:-webkit-full-screen #native-player,
+        #player-wrapper:-moz-full-screen #native-player,
+        #player-wrapper:-ms-fullscreen #native-player {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: none !important;
+            max-height: none !important;
+            border-radius: 0 !important;
+            border: none !important;
+            margin: 0 !important;
+        }
     </style>
 </head>
 <body class="pb-32 relative">
@@ -1059,6 +1098,12 @@
             }
 
             video.ontimeupdate = () => { window.updateProgressUI(video.currentTime, video.duration); };
+            video.onended = () => {
+                if (autoNextTriggered) return;
+                autoNextTriggered = true;
+                setTimeout(() => { autoNextTriggered = false; }, 8000);
+                if (app.autoNext) window.playNextEpisode();
+            };
         };
 
         window.openInVLC = function() {
@@ -1113,14 +1158,7 @@
                 }
             }
             if (window.shouldRestoreFullscreen) {
-                const wrapper = document.getElementById("player-wrapper");
-                if (wrapper) {
-                    const requestFs = wrapper.requestFullscreen || wrapper.webkitRequestFullscreen || wrapper.mozRequestFullscreen || wrapper.msRequestFullscreen;
-                    if (requestFs) {
-                        requestFs.call(wrapper).catch(err => console.warn("Fullscreen re-entry prevented:", err));
-                    }
-                }
-                window.shouldRestoreFullscreen = false;
+                window.enterPlayerFullscreen();
             }
         }
 
@@ -1189,12 +1227,12 @@
                 playerWrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
 
-            if (window.shouldRestoreFullscreen && playerWrapper) {
-                const requestFs = playerWrapper.requestFullscreen || playerWrapper.webkitRequestFullscreen || playerWrapper.mozRequestFullscreen || playerWrapper.msRequestFullscreen;
-                if (requestFs) {
-                    requestFs.call(playerWrapper).catch(err => console.warn("Fullscreen re-entry prevented:", err));
-                }
-                window.shouldRestoreFullscreen = false;
+            if (iframeEl) {
+                iframeEl.onload = function() {
+                    if (window.shouldRestoreFullscreen) {
+                        window.enterPlayerFullscreen();
+                    }
+                };
             }
 
             if (serverId === 'megaplay') {
@@ -1598,9 +1636,9 @@
             window.syncProgressToAniList(id, ep, finalStat);
         };
 
-        function exitFullscreenIfActive() {
-            window.shouldRestoreFullscreen = false;
+        function exitFullscreenIfActive(keepRestoreFlag = false) {
             const fsElement = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+            window.shouldRestoreFullscreen = fsElement ? !!keepRestoreFlag : false;
             if (fsElement) {
                 if (document.exitFullscreen) {
                     document.exitFullscreen().catch(err => console.warn("Exit fullscreen failed:", err));
@@ -1614,8 +1652,21 @@
             }
         }
 
+        window.enterPlayerFullscreen = function() {
+            const wrapper = document.getElementById("player-wrapper");
+            if (!wrapper) return;
+            const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+            if (!isFs) {
+                const requestFs = wrapper.requestFullscreen || wrapper.webkitRequestFullscreen || wrapper.mozRequestFullscreen || wrapper.msRequestFullscreen;
+                if (requestFs) {
+                    requestFs.call(wrapper).catch(err => console.warn("Fullscreen entry prevented:", err));
+                }
+            }
+            window.shouldRestoreFullscreen = false;
+        };
+
         window.playNextEpisode = function() {
-            exitFullscreenIfActive();
+            exitFullscreenIfActive(true);
             proceedToNext();
 
             function proceedToNext() {
