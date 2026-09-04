@@ -17,6 +17,24 @@
     <link rel="preconnect" href="https://anivexa-three.vercel.app" crossorigin>
     <link rel="preconnect" href="https://zieuivzmzzxbraefeovl.supabase.co" crossorigin>
 
+    <script>
+        tailwind = {
+            config: {
+                theme: {
+                    extend: {
+                        screens: {
+                            'xs': '360px',
+                            '2xl': '1536px',
+                            '3xl': '1920px',
+                            '4xl': '2560px',
+                            '5xl': '3840px',
+                        }
+                    }
+                }
+            }
+        };
+        tailwind.config = tailwind.config;
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- HLS.js for native m3u8 streaming -->
@@ -24,6 +42,20 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap');
+        /* Fluid Root Font-size Scaling for Ultra-wide / 2K / 4K / TV / Cinema Displays & Smartwatches */
+        @media (min-width: 1920px) {
+            html { font-size: 18px; }
+        }
+        @media (min-width: 2560px) {
+            html { font-size: 22px; }
+        }
+        @media (min-width: 3840px) {
+            html { font-size: 28px; }
+        }
+        @media (max-width: 320px) {
+            html { font-size: 13px; }
+        }
+
         body { 
             background: #060606; 
             color: #ffffff; 
@@ -89,6 +121,8 @@
             z-index: 10000;
             pointer-events: none;
         }
+        @media (min-width: 1536px) { #toast-container { max-width: 500px; } }
+        @media (min-width: 2560px) { #toast-container { max-width: 650px; } }
 
         @keyframes slideDown {
             from { transform: translateY(-100%); opacity: 0; }
@@ -163,7 +197,7 @@
 
     <!-- Confirm Modal -->
     <div id="confirm-modal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-[10000] hidden items-center justify-center p-4">
-        <div class="bg-[#121212] border border-white/5 p-6 rounded-2xl max-w-sm w-full shadow-2xl">
+        <div class="bg-[#121212] border border-white/5 p-4 sm:p-6 2xl:p-8 3xl:p-10 rounded-2xl max-w-xs sm:max-w-sm 2xl:max-w-md 3xl:max-w-lg w-full shadow-2xl">
             <h3 id="confirm-title" class="text-lg font-black uppercase tracking-wider mb-2">Bevestigen</h3>
             <p id="confirm-message" class="text-zinc-400 text-xs leading-relaxed mb-6"></p>
             <div class="flex gap-3">
@@ -174,11 +208,11 @@
     </div>
 
     <!-- Lime-Green Glass Header -->
-    <header id="app-header" class="fixed top-0 left-0 right-0 z-50 glass-header p-4 lg:px-10 hidden">
-        <div class="flex items-center justify-between max-w-7xl mx-auto">
+    <header id="app-header" class="fixed top-0 left-0 right-0 z-50 glass-header p-3 sm:p-4 lg:px-10 2xl:px-16 3xl:px-20 hidden">
+        <div class="flex items-center justify-between max-w-7xl 2xl:max-w-[1600px] 3xl:max-w-[2000px] 4xl:max-w-[2560px] 5xl:max-w-[92vw] mx-auto">
             <div class="flex items-center gap-6 lg:gap-12">
-                <button onclick="nav('home')" class="text-2xl lg:text-3xl font-black italic uppercase tracking-tighter text-[#cae962] transition-transform hover:scale-105">ANIME<span class="text-white">MAX</span></button>
-                <nav class="hidden md:flex items-center gap-6 text-[11px] font-black uppercase tracking-widest text-zinc-400">
+                <button onclick="nav('home')" class="text-2xl lg:text-3xl 2xl:text-4xl 3xl:text-5xl font-black italic uppercase tracking-tighter text-[#cae962] transition-transform hover:scale-105">ANIME<span class="text-white">MAX</span></button>
+                <nav class="hidden md:flex items-center gap-6 2xl:gap-10 text-[11px] 2xl:text-sm 3xl:text-base font-black uppercase tracking-widest text-zinc-400">
                     <button onclick="nav('home')" class="hover:text-white transition-colors animate-fade-in" id="head-nav-home">Home</button>
                     <button onclick="nav('library')" class="hover:text-white transition-colors animate-fade-in" id="head-nav-library">Mijn Lijst</button>
                     <button onclick="nav('recent')" class="hover:text-white transition-colors animate-fade-in" id="head-nav-recent">Verder Kijken</button>
@@ -195,7 +229,7 @@
     </header>
 
     <!-- Main Content Area -->
-    <main id="content" class="p-4 pt-24 max-w-7xl mx-auto min-h-[60vh]">
+    <main id="content" class="p-3 sm:p-4 pt-20 sm:pt-24 2xl:pt-32 max-w-7xl 2xl:max-w-[1600px] 3xl:max-w-[2000px] 4xl:max-w-[2560px] 5xl:max-w-[92vw] mx-auto min-h-[60vh]">
         <div class="text-center py-24" id="main-loader">
             <i class="fa-solid fa-circle-notch animate-spin text-4xl text-[#cae962] mb-4"></i>
             <p class="text-xs uppercase tracking-widest text-zinc-500 animate-pulse">Laden en cloud-database verbinden...</p>
@@ -212,21 +246,21 @@
 
     <!-- Netflix-style Details Slide-up Modal Drawer -->
     <div id="details-modal" class="fixed inset-0 bg-black/95 backdrop-blur-md z-[5000] hidden overflow-y-auto no-scrollbar justify-center items-start p-2 sm:p-4 md:p-10">
-        <div class="bg-[#111111] border border-white/5 rounded-2xl md:rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden relative mt-6 md:mt-16 mb-20">
+        <div class="bg-[#111111] border border-white/5 rounded-2xl md:rounded-3xl max-w-4xl lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl 3xl:max-w-[1800px] 4xl:max-w-[2200px] w-full shadow-2xl overflow-hidden relative mt-4 sm:mt-6 md:mt-16 mb-20">
             <!-- Close Button -->
             <button onclick="closeDetailsModal()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center border border-white/5 hover:border-white/20 transition-all z-50">
                 <i class="fa-solid fa-times"></i>
             </button>
 
             <!-- Backdrop Banner -->
-            <div class="relative w-full h-[25vh] md:h-[45vh] bg-zinc-950">
+            <div class="relative w-full h-[22vh] xs:h-[25vh] md:h-[40vh] 2xl:h-[45vh] 3xl:h-[50vh] bg-zinc-950">
                 <div class="absolute inset-0 bg-gradient-to-t from-[#111111] to-transparent z-10"></div>
                 <img id="detail-banner" class="w-full h-full object-cover">
                 <div class="absolute bottom-6 left-6 md:left-10 z-20 flex gap-6 items-end">
-                    <img id="detail-poster" class="hidden md:block w-28 h-40 rounded-xl object-cover shadow-2xl border border-white/10">
+                    <img id="detail-poster" class="hidden md:block w-28 h-40 lg:w-32 lg:h-48 2xl:w-40 2xl:h-60 rounded-xl object-cover shadow-2xl border border-white/10">
                     <div class="space-y-3">
                         <span id="detail-badge" class="px-2.5 py-1 rounded bg-[#cae962]/20 text-[#cae962] text-[9px] font-black uppercase tracking-wider">SHOW</span>
-                        <h2 id="detail-title" class="text-2xl md:text-5xl font-black italic uppercase tracking-tighter text-white leading-none"></h2>
+                        <h2 id="detail-title" class="text-xl sm:text-2xl md:text-5xl 2xl:text-6xl 3xl:text-7xl font-black italic uppercase tracking-tighter text-white leading-none"></h2>
                         <div class="flex items-center gap-3 text-[10px] md:text-xs font-bold text-zinc-400">
                             <span id="detail-score" class="text-accent bg-lime-500/10 px-2 py-0.5 rounded font-black"><i class="fa-solid fa-star text-[9px] mr-1 text-[#cae962]"></i></span>
                             <span id="detail-year" class="bg-zinc-800 px-2 py-0.5 rounded"></span>
@@ -242,8 +276,8 @@
 
             <div class="p-6 md:p-10 space-y-10">
                 <!-- Synopsis / Overview -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="md:col-span-2 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 2xl:grid-cols-4 gap-6 2xl:gap-8">
+                    <div class="md:col-span-2 2xl:col-span-3 space-y-4">
                         <h3 class="text-xs font-black uppercase tracking-wider text-zinc-500">Beschrijving</h3>
                         <p id="detail-desc" class="text-zinc-300 text-sm leading-relaxed"></p>
                         <div id="detail-genres" class="flex flex-wrap gap-2 pt-2"></div>
@@ -277,7 +311,7 @@
                 <!-- Interactive Episodes -->
                 <div class="space-y-4">
                     <h3 class="text-xs font-black uppercase tracking-wider text-zinc-500">Afleveringen</h3>
-                    <div id="detail-episodes-grid" class="grid grid-cols-5 sm:grid-cols-10 gap-2">
+                    <div id="detail-episodes-grid" class="grid grid-cols-4 xs:grid-cols-5 sm:grid-cols-10 md:grid-cols-12 2xl:grid-cols-15 3xl:grid-cols-20 gap-2">
                         <!-- Episode buttons -->
                     </div>
                 </div>
@@ -285,7 +319,7 @@
                 <!-- Relations -->
                 <div class="space-y-4">
                     <h3 class="text-xs font-black uppercase tracking-wider text-zinc-500">Gerelateerd</h3>
-                    <div id="detail-relations-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div id="detail-relations-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5 gap-3 2xl:gap-4">
                         <!-- Sequel, prequels -->
                     </div>
                 </div>
@@ -503,43 +537,43 @@
             
             if (mode === 'register') {
                 main.innerHTML = `
-                    <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
-                        <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Nieuw cloud-profiel aanmaken</p>
+                    <div class="w-full max-w-sm sm:max-w-md 2xl:max-w-lg 3xl:max-w-xl 4xl:max-w-2xl mx-auto mt-6 sm:mt-16 p-4 sm:p-8 2xl:p-12 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
+                        <h2 class="text-2xl sm:text-3xl 2xl:text-4xl 3xl:text-5xl 4xl:text-6xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
+                        <p class="text-[10px] sm:text-xs 2xl:text-sm 3xl:text-base text-zinc-500 uppercase tracking-widest text-center mb-6 sm:mb-8">Nieuw cloud-profiel aanmaken</p>
                         <div class="space-y-4">
-                            <input type="text" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres">
-                            <input type="text" id="auth-username" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Gebruikersnaam">
-                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Wachtwoord (min. 6)">
-                            <button onclick="handleAuth('reg')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Account Aanmaken</button>
-                            <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
-                            <p class="text-center text-xs text-zinc-500 mt-4">Al een account? <button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline">Inloggen</button></p>
+                            <input type="text" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="E-mailadres">
+                            <input type="text" id="auth-username" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Gebruikersnaam">
+                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Wachtwoord (min. 6)">
+                            <button onclick="handleAuth('reg')" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Account Aanmaken</button>
+                            <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
+                            <p class="text-center text-xs 2xl:text-sm 3xl:text-base text-zinc-500 mt-4">Al een account? <button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline">Inloggen</button></p>
                         </div>
                     </div>`;
             } else if (mode === 'forgot') {
                 main.innerHTML = `
-                    <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Wachtwoord Herstellen</h2>
-                        <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Ontvang een herstellink</p>
+                    <div class="w-full max-w-sm sm:max-w-md 2xl:max-w-lg 3xl:max-w-xl 4xl:max-w-2xl mx-auto mt-6 sm:mt-16 p-4 sm:p-8 2xl:p-12 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
+                        <h2 class="text-2xl sm:text-3xl 2xl:text-4xl 3xl:text-5xl 4xl:text-6xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Wachtwoord Herstellen</h2>
+                        <p class="text-[10px] sm:text-xs 2xl:text-sm 3xl:text-base text-zinc-500 uppercase tracking-widest text-center mb-6 sm:mb-8">Ontvang een herstellink</p>
                         <div class="space-y-4">
-                            <input type="text" id="auth-reset-input" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Gebruikersnaam of E-mailadres">
-                            <button onclick="handleForgotPassword()" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Verstuur herstellink</button>
-                            <p class="text-center text-xs text-zinc-500 mt-4"><button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i> Terug naar login</button></p>
+                            <input type="text" id="auth-reset-input" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Gebruikersnaam of E-mailadres">
+                            <button onclick="handleForgotPassword()" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Verstuur herstellink</button>
+                            <p class="text-center text-xs 2xl:text-sm 3xl:text-base text-zinc-500 mt-4"><button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i> Terug naar login</button></p>
                         </div>
                     </div>`;
             } else {
                 main.innerHTML = `
-                    <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                        <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
-                        <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Inloggen</p>
+                    <div class="w-full max-w-sm sm:max-w-md 2xl:max-w-lg 3xl:max-w-xl 4xl:max-w-2xl mx-auto mt-6 sm:mt-16 p-4 sm:p-8 2xl:p-12 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
+                        <h2 class="text-2xl sm:text-3xl 2xl:text-4xl 3xl:text-5xl 4xl:text-6xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
+                        <p class="text-[10px] sm:text-xs 2xl:text-sm 3xl:text-base text-zinc-500 uppercase tracking-widest text-center mb-6 sm:mb-8">Inloggen</p>
                         <div class="space-y-4">
-                            <input type="text" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="E-mailadres of Gebruikersnaam">
-                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Wachtwoord">
+                            <input type="text" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="E-mailadres of Gebruikersnaam">
+                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Wachtwoord">
                             <div class="text-right">
-                                <button onclick="showLoginPage('forgot')" class="text-zinc-500 text-xs hover:text-white transition">Wachtwoord vergeten?</button>
+                                <button onclick="showLoginPage('forgot')" class="text-zinc-500 text-xs 2xl:text-sm 3xl:text-base hover:text-white transition">Wachtwoord vergeten?</button>
                             </div>
-                            <button onclick="handleAuth('login')" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Inloggen</button>
-                            <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
-                            <p class="text-center text-xs text-zinc-500 mt-4">Nieuw hier? <button onclick="showLoginPage('register')" class="text-[#cae962] font-bold hover:underline">Registreren</button></p>
+                            <button onclick="handleAuth('login')" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Inloggen</button>
+                            <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
+                            <p class="text-center text-xs 2xl:text-sm 3xl:text-base text-zinc-500 mt-4">Nieuw hier? <button onclick="showLoginPage('register')" class="text-[#cae962] font-bold hover:underline">Registreren</button></p>
                         </div>
                     </div>`;
             }
@@ -552,12 +586,12 @@
             const main = document.getElementById('content');
             if(!main) return;
             main.innerHTML = `
-                <div class="max-w-md mx-auto mt-16 p-8 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                    <h2 class="text-3xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Nieuw Wachtwoord</h2>
-                    <p class="text-[10px] text-zinc-500 uppercase tracking-widest text-center mb-8">Stel een nieuw wachtwoord in</p>
+                <div class="w-full max-w-sm sm:max-w-md 2xl:max-w-lg 3xl:max-w-xl 4xl:max-w-2xl mx-auto mt-6 sm:mt-16 p-4 sm:p-8 2xl:p-12 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
+                    <h2 class="text-2xl sm:text-3xl 2xl:text-4xl 3xl:text-5xl 4xl:text-6xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Nieuw Wachtwoord</h2>
+                    <p class="text-[10px] sm:text-xs 2xl:text-sm 3xl:text-base text-zinc-500 uppercase tracking-widest text-center mb-6 sm:mb-8">Stel een nieuw wachtwoord in</p>
                     <div class="space-y-4">
-                        <input type="password" id="reset-new-password" class="w-full bg-zinc-900 border border-white/5 p-4 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs" placeholder="Nieuw Wachtwoord (min. 6)">
-                        <button onclick="handleResetPassword()" class="bg-[#cae962] text-black font-black py-4 rounded-xl w-full text-xs uppercase tracking-widest hover:bg-lime-400 transition font-bold">Bevestig Wachtwoord</button>
+                        <input type="password" id="reset-new-password" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Nieuw Wachtwoord (min. 6)">
+                        <button onclick="handleResetPassword()" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Bevestig Wachtwoord</button>
                     </div>
                 </div>`;
         }
@@ -1511,7 +1545,7 @@
                     }
                     selectHtml += `</select>`;
                     
-                    epGrid.innerHTML = selectHtml + `<div id="detail-ep-buttons-container" class="col-span-full grid grid-cols-5 sm:grid-cols-10 gap-2"></div>`;
+                    epGrid.innerHTML = selectHtml + `<div id="detail-ep-buttons-container" class="col-span-full grid grid-cols-4 xs:grid-cols-5 sm:grid-cols-10 md:grid-cols-12 2xl:grid-cols-15 3xl:grid-cols-20 gap-2"></div>`;
                     window.renderDetailsEpisodeChunk(0);
                 }
 
@@ -1827,7 +1861,7 @@
                 }
                 selectHtml += `</select>`;
                 
-                grid.innerHTML = selectHtml + `<div id="ep-buttons-container" class="col-span-full grid grid-cols-5 sm:grid-cols-10 gap-2"></div>`;
+                grid.innerHTML = selectHtml + `<div id="ep-buttons-container" class="col-span-full grid grid-cols-4 xs:grid-cols-5 sm:grid-cols-10 md:grid-cols-12 2xl:grid-cols-15 3xl:grid-cols-20 gap-2"></div>`;
                 window.renderWatchEpisodeChunk(activeChunkIndex);
             }
         };
@@ -1928,7 +1962,7 @@
                 window.currentPlayerServer = app.server;
 
                 main.innerHTML = `
-                    <div class="max-w-4xl mx-auto space-y-6">
+                    <div class="max-w-4xl lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl 3xl:max-w-[1800px] 4xl:max-w-[2200px] mx-auto space-y-6 2xl:space-y-8">
                         <div class="aspect-video w-full bg-black rounded-3xl overflow-hidden border border-white/10 shadow-2xl relative player-container" id="player-wrapper">
                             <iframe id="player" src="${app.server === 'megaplay' ? `https://megaplay.buzz/stream/ani/${app.id}/${app.ep}/${app.mode}` : ''}" allow="autoplay; fullscreen" class="${app.server === 'megaplay' ? 'block' : 'hidden'} w-full h-full border-none"></iframe>
                             <div id="native-player-container" class="${app.server !== 'megaplay' ? 'block' : 'hidden'} w-full h-full relative">
@@ -1970,7 +2004,7 @@
                         </div>
 
                         <div id="next-ep-timer-container"></div>
-                        <h1 id="w-title" class="text-2xl md:text-3xl font-black text-[#cae962] uppercase italic">${title}</h1>
+                        <h1 id="w-title" class="text-2xl md:text-3xl 2xl:text-4xl 3xl:text-5xl font-black text-[#cae962] uppercase italic">${title}</h1>
                         
                         <!-- Mijn Lijst status dropdown selectiekaart -->
                         <div id="local-status-card" class="bg-[#111111] p-4 rounded-xl border border-white/5 mb-6 flex flex-wrap gap-4 items-center justify-between">
@@ -1987,9 +2021,9 @@
                             </select>
                         </div>
 
-                        <div id="ep-grid" class="grid grid-cols-5 sm:grid-cols-10 gap-2 mb-8"></div>
+                        <div id="ep-grid" class="grid grid-cols-4 xs:grid-cols-5 sm:grid-cols-10 md:grid-cols-12 2xl:grid-cols-15 3xl:grid-cols-20 gap-2 mb-8"></div>
                         <h2 class="text-[10px] font-black uppercase text-zinc-500 mb-4">Gerelateerd</h2>
-                        <div id="rel-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-8"></div>
+                        <div id="rel-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5 gap-2 2xl:gap-4 mb-8"></div>
                     </div>`;
 
                 window.loadAnivexaAndRenderServers(app.id, app.ep, app.mode);
@@ -2066,7 +2100,7 @@
                             <h2 class="text-2xl font-black text-[#cae962] uppercase italic animate-fade-in">Verder Kijken</h2>
                             <span class="text-[10px] text-zinc-500 uppercase font-black">${app.recent.length} items</span>
                         </div>
-                        <div id="recent-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-6"></div>
+                        <div id="recent-grid" class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 3xl:grid-cols-10 gap-4 2xl:gap-6"></div>
                     </div>`;
                 const grid = document.getElementById('recent-grid');
                 if (!app.recent.length) return grid.innerHTML = '<p class="col-span-full text-center text-xs uppercase text-zinc-600 py-12">Geen geschiedenis.</p>';
@@ -2123,7 +2157,7 @@
             }
             else if (app.view === 'profile') {
                 main.innerHTML = `
-                    <div class="max-w-md mx-auto space-y-6">
+                    <div class="max-w-md md:max-w-lg lg:max-w-xl 2xl:max-w-2xl 3xl:max-w-3xl mx-auto space-y-6 2xl:space-y-8">
                         <!-- Profile Card -->
                         <div class="card p-8 border border-[#cae962]/20 space-y-6">
                             <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${app.user}</span></h2>
@@ -2192,15 +2226,15 @@
                 main.innerHTML = `
                     <div class="space-y-10">
                         <!-- Netflix Hero Banner -->
-                        <div id="home-hero" class="w-full min-h-[300px] md:h-[45vh] bg-zinc-900 rounded-2xl md:rounded-3xl overflow-hidden border border-white/5 relative flex items-end p-5 md:p-10 shadow-2xl">
+                        <div id="home-hero" class="w-full min-h-[260px] xs:min-h-[300px] md:h-[45vh] 2xl:h-[50vh] 3xl:h-[55vh] 4xl:h-[60vh] bg-zinc-900 rounded-2xl md:rounded-3xl overflow-hidden border border-white/5 relative flex items-end p-4 sm:p-6 md:p-10 2xl:p-14 3xl:p-16 shadow-2xl">
                             <div class="absolute inset-0 bg-gradient-to-t from-[#060606] via-[#060606]/75 to-transparent z-10"></div>
-                            <div class="relative z-20 space-y-3 max-w-2xl">
+                            <div class="relative z-20 space-y-3 2xl:space-y-4 max-w-2xl 2xl:max-w-4xl 3xl:max-w-5xl">
                                 <span class="bg-[#cae962] text-black text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider font-bold">Populairste Nu</span>
-                                <h1 class="text-2xl sm:text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white animate-fade-in leading-tight" id="hero-title">Laden...</h1>
-                                <p class="text-[11px] md:text-xs text-zinc-400 line-clamp-2 md:line-clamp-3 animate-fade-in leading-relaxed" id="hero-desc"></p>
+                                <h1 class="text-2xl sm:text-3xl md:text-5xl 2xl:text-6xl 3xl:text-7xl 4xl:text-8xl font-black italic uppercase tracking-tighter text-white animate-fade-in leading-tight" id="hero-title">Laden...</h1>
+                                <p class="text-[11px] md:text-xs 2xl:text-sm 3xl:text-base 4xl:text-lg text-zinc-400 line-clamp-2 md:line-clamp-3 2xl:line-clamp-4 animate-fade-in leading-relaxed" id="hero-desc"></p>
                                 <div class="flex gap-2.5 pt-1">
-                                    <button id="hero-play" class="bg-[#cae962] text-black px-5 py-2.5 md:px-6 md:py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:scale-105 transition shadow-[0_0_20px_rgba(202,233,98,0.3)] font-bold flex items-center"><i class="fa-solid fa-play mr-2"></i> Kijk Nu</button>
-                                    <button id="hero-info" class="bg-zinc-800/80 backdrop-blur text-white px-5 py-2.5 md:px-6 md:py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-700 transition flex items-center"><i class="fa-solid fa-info-circle mr-2"></i> Info</button>
+                                    <button id="hero-play" class="bg-[#cae962] text-black px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3 2xl:px-8 2xl:py-4 3xl:px-10 3xl:py-5 rounded-xl text-xs 2xl:text-sm 3xl:text-base font-black uppercase tracking-widest hover:scale-105 transition shadow-[0_0_20px_rgba(202,233,98,0.3)] font-bold flex items-center"><i class="fa-solid fa-play mr-2"></i> Kijk Nu</button>
+                                    <button id="hero-info" class="bg-zinc-800/80 backdrop-blur text-white px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3 2xl:px-8 2xl:py-4 3xl:px-10 3xl:py-5 rounded-xl text-xs 2xl:text-sm 3xl:text-base font-black uppercase tracking-widest hover:bg-zinc-700 transition flex items-center"><i class="fa-solid fa-info-circle mr-2"></i> Info</button>
                                 </div>
                             </div>
                             <img id="hero-img" class="absolute inset-0 w-full h-full object-cover opacity-50">
@@ -2208,7 +2242,7 @@
 
                         <!-- Continue Watching / Verder Kijken Shelf with Dynamic Badges -->
                         <div id="home-recent-section" class="hidden space-y-4 animate-fade-in">
-                            <h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-play text-[#cae962]"></i> Verder Kijken</h2>
+                            <h2 class="text-lg sm:text-xl 2xl:text-2xl 3xl:text-3xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-play text-[#cae962]"></i> Verder Kijken</h2>
                             <div id="home-recent-shelf" class="shelf-container no-scrollbar pb-4"></div>
                         </div>
                         
@@ -2232,11 +2266,11 @@
 
                         const trendShelf = document.getElementById('home-trending');
                         trendShelf.innerHTML = '';
-                        let trendHtml = `<h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-fire text-[#cae962]"></i> Trending Nu</h2><div class="shelf-container no-scrollbar">`;
+                        let trendHtml = `<h2 class="text-lg sm:text-xl 2xl:text-2xl 3xl:text-3xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-fire text-[#cae962]"></i> Trending Nu</h2><div class="shelf-container no-scrollbar">`;
                         tData.slice(1).forEach(m => {
                             const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                             trendHtml += `
-                                <div onclick="openDetailsModal('${m.id}')" class="flex-none w-32 md:w-40 text-left group cursor-pointer">
+                                <div onclick="openDetailsModal('${m.id}')" class="flex-none w-28 xs:w-32 sm:w-36 md:w-44 lg:w-52 2xl:w-64 3xl:w-72 4xl:w-80 text-left group cursor-pointer">
                                     <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
                                         <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                                     </div>
@@ -2248,11 +2282,11 @@
 
                     const popShelf = document.getElementById('home-popular');
                     popShelf.innerHTML = '';
-                    let popHtml = `<h2 class="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-heart text-[#cae962]"></i> All-Time Populair</h2><div class="shelf-container no-scrollbar">`;
+                    let popHtml = `<h2 class="text-lg sm:text-xl 2xl:text-2xl 3xl:text-3xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-heart text-[#cae962]"></i> All-Time Populair</h2><div class="shelf-container no-scrollbar">`;
                     res.data.popular.media.forEach(m => {
                         const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                         popHtml += `
-                            <div onclick="openDetailsModal('${m.id}')" class="flex-none w-32 md:w-40 text-left group cursor-pointer relative">
+                            <div onclick="openDetailsModal('${m.id}')" class="flex-none w-28 xs:w-32 sm:w-36 md:w-44 lg:w-52 2xl:w-64 3xl:w-72 4xl:w-80 text-left group cursor-pointer relative">
                                 <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
                                     <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                                     <span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore/10}</span>
@@ -2318,7 +2352,7 @@
                         }
 
                         recentShelf.innerHTML += `
-                            <div onclick="openDetailsModal('${r.id}')" class="flex-shrink-0 w-48 group cursor-pointer relative card p-3 flex flex-col justify-between">
+                            <div onclick="openDetailsModal('${r.id}')" class="flex-shrink-0 w-36 xs:w-44 sm:w-52 md:w-60 lg:w-68 2xl:w-80 3xl:w-96 group cursor-pointer relative card p-3 flex flex-col justify-between">
                                 <div>
                                     <div class="aspect-video rounded-xl bg-zinc-900 border border-white/5 relative overflow-hidden mb-2">
                                         <img src="${r.img}" class="w-full h-full object-cover group-hover:scale-105 transition-duration-500 opacity-80 group-hover:opacity-100">
@@ -2340,11 +2374,11 @@
             else if (app.view === 'search') {
                 main.innerHTML = `
                     <div class="space-y-6">
-                        <div class="relative max-w-2xl mx-auto">
+                        <div class="relative max-w-2xl 2xl:max-w-4xl 3xl:max-w-5xl mx-auto">
                             <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"></i>
                             <input type="text" id="search-input" oninput="liveSearch(event)" value="${app.searchQuery}" placeholder="Zoek een anime..." class="w-full bg-zinc-900 border border-white/10 py-4 pl-12 pr-4 rounded-2xl text-white font-bold text-sm outline-none focus:border-[#cae962] transition-colors shadow-2xl" autofocus>
                         </div>
-                        <div id="search-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
+                        <div id="search-grid" class="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-10 3xl:grid-cols-12 4xl:grid-cols-14 gap-3 sm:gap-4 2xl:gap-6">
                             <p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ iets om te zoeken...</p>
                         </div>
                     </div>`;
@@ -2370,7 +2404,7 @@
                                 `).join('')}
                             </div>
                         </div>
-                        <div id="lib-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4"></div>
+                        <div id="lib-grid" class="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-10 3xl:grid-cols-12 4xl:grid-cols-14 gap-3 sm:gap-4 2xl:gap-6"></div>
                     </div>`;
                 window.renderLibraryGrid();
             }
