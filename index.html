@@ -355,6 +355,7 @@
 
         let app = {
             view: 'home', id: null, ep: 1, mode: 'sub', server: 'megaplay', searchQuery: '', libraryFilter: 'All',
+            searchFilters: { genres: [], country: '', season: '', year: '', format: [], status: [], sort: 'POPULARITY_DESC' },
             user: 'Gebruiker', showContinue: true, lang: 'english', autoPlay: true, autoNext: true, autoSkipIntro: false, skipSeconds: 85, 
             defaultAudio: 'sub', recent: [], xmlLib: [], autoDubFallback: true, anilistToken: null, anilistProfile: null
         };
@@ -1806,31 +1807,179 @@
             window.showToast(`Geskipt (+${app.skipSeconds}s)`);
         };
 
+
         // =========================================================================
+        // ANIWAVE SEARCH FILTERS & LOGIC
+        // =========================================================================
+        const FILTER_OPTIONS = {
+            genres: [
+                'Action', 'Adventure', 'Comedy', 'Drama', 'Ecchi', 'Fantasy', 'Hentai', 'Horror',
+                'Mahou Shoujo', 'Mecha', 'Music', 'Mystery', 'Psychological', 'Romance', 'Sci-Fi',
+                'Slice of Life', 'Sports', 'Supernatural', 'Thriller'
+            ],
+            country: [
+                { label: 'Japan', code: 'JP' },
+                { label: 'China', code: 'CN' },
+                { label: 'South Korea', code: 'KR' }
+            ],
+            season: [
+                { label: 'Spring', val: 'SPRING' },
+                { label: 'Summer', val: 'SUMMER' },
+                { label: 'Fall', val: 'FALL' },
+                { label: 'Winter', val: 'WINTER' }
+            ],
+            years: Array.from({ length: 2027 - 1970 }, (_, i) => 2026 - i),
+            types: [
+                { label: 'TV', val: 'TV' },
+                { label: 'Movie', val: 'MOVIE' },
+                { label: 'OVA', val: 'OVA' },
+                { label: 'ONA', val: 'ONA' },
+                { label: 'Special', val: 'SPECIAL' },
+                { label: 'Music', val: 'MUSIC' }
+            ],
+            status: [
+                { label: 'Currently Airing', val: 'RELEASING' },
+                { label: 'Finished Airing', val: 'FINISHED' },
+                { label: 'Not Yet Released', val: 'NOT_YET_RELEASED' },
+                { label: 'Cancelled', val: 'CANCELLED' }
+            ],
+            sorts: [
+                { label: 'Popularity', val: 'POPULARITY_DESC' },
+                { label: 'Score', val: 'SCORE_DESC' },
+                { label: 'Recently Updated', val: 'UPDATED_AT_DESC' },
+                { label: 'Release Date', val: 'START_DATE_DESC' },
+                { label: 'Name A-Z', val: 'TITLE_ROMAJI' },
+                { label: 'Trending', val: 'TRENDING_DESC' },
+                { label: 'Favorites', val: 'FAVOURITES_DESC' }
+            ]
+        };
+
+        window.toggleFilterDropdown = function(name, e) {
+            e.stopPropagation();
+            const targetMenu = document.getElementById(`menu-${name}`);
+            const allMenus = document.querySelectorAll('.filter-dropdown > div');
+            allMenus.forEach(m => {
+                if (m !== targetMenu) m.classList.add('hidden');
+            });
+            if (targetMenu) {
+                targetMenu.classList.toggle('hidden');
+            }
+        };
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.filter-dropdown')) {
+                document.querySelectorAll('.filter-dropdown > div').forEach(m => m.classList.add('hidden'));
+            }
+        });
+
+        window.renderFilterLabel = function(key, defaultTitle) {
+            const val = app.searchFilters[key];
+            if (Array.isArray(val)) {
+                if (val.length === 0) return defaultTitle;
+                if (val.length === 1) return escapeHTML(val[0]);
+                return `${escapeHTML(val[0])} <span class="bg-[#cae962] text-black text-[9px] font-black px-1.5 py-0.5 rounded-full ml-1">+${val.length - 1}</span>`;
+            }
+            if (!val || val === 'POPULARITY_DESC') return defaultTitle;
+            if (key === 'country') {
+                const found = FILTER_OPTIONS.country.find(c => c.code === val);
+                return found ? found.label : defaultTitle;
+            }
+            if (key === 'season') {
+                const found = FILTER_OPTIONS.season.find(s => s.val === val);
+                return found ? found.label : defaultTitle;
+            }
+            if (key === 'sort') {
+                const found = FILTER_OPTIONS.sorts.find(s => s.val === val);
+                return found ? found.label : defaultTitle;
+            }
+            return escapeHTML(String(val));
+        };
+
+        window.updateFilterButtonLabel = function(key, defaultTitle, btnId) {
+            const el = document.getElementById(btnId || `label-${key}`);
+            if (el) {
+                el.innerHTML = renderFilterLabel(key, defaultTitle);
+            }
+        };
+
+        window.toggleFilterValue = function(key, val, e) {
+            e.stopPropagation();
+            const arr = app.searchFilters[key];
+            const idx = arr.indexOf(val);
+            if (idx > -1) {
+                arr.splice(idx, 1);
+            } else {
+                arr.push(val);
+            }
+            let defaultTitle = 'Filter';
+            if (key === 'genres') defaultTitle = 'Genre';
+            if (key === 'format') defaultTitle = 'Type';
+            if (key === 'status') defaultTitle = 'Status';
+            updateFilterButtonLabel(key, defaultTitle, `label-${key === 'format' ? 'type' : key}`);
+            triggerSearchExecution();
+        };
+
+        window.setSingleFilterValue = function(key, val, e) {
+            e.stopPropagation();
+            app.searchFilters[key] = val;
+            let defaultTitle = 'Filter';
+            if (key === 'country') defaultTitle = 'Country';
+            if (key === 'season') defaultTitle = 'Season';
+            if (key === 'year') defaultTitle = 'Year';
+            if (key === 'sort') defaultTitle = 'Sort By';
+            updateFilterButtonLabel(key, defaultTitle);
+            document.querySelectorAll('.filter-dropdown > div').forEach(m => m.classList.add('hidden'));
+            triggerSearchExecution();
+        };
+
+        window.resetSearchFilters = function() {
+            app.searchFilters = { genres: [], country: '', season: '', year: '', format: [], status: [], sort: 'POPULARITY_DESC' };
+            if (app.view === 'search') {
+                renderView();
+            } else {
+                triggerSearchExecution();
+            }
+        };
+
+        window.triggerSearchExecution = function() {
+            const input = document.getElementById('search-input');
+            const q = input ? input.value : app.searchQuery;
+            liveSearch({ target: { value: q } });
+        };
+
+// =========================================================================
         // SEARCH, LIBRARY FILTERS & BACKUP EXPORTS
         // =========================================================================
         window.liveSearch = function(e) {
-            const q = e.target.value.trim();
+            const q = e && e.target ? e.target.value.trim() : (app.searchQuery || '').trim();
             app.searchQuery = q;
             clearTimeout(searchTimeout);
             const grid = document.getElementById('search-grid');
-            if(!grid) return;
-            if (q.length < 3) {
-                grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ 3 of meer letters...</p>'; return;
+            if (!grid) return;
+
+            const f = app.searchFilters || {};
+            const hasFilters = (f.genres && f.genres.length > 0) || f.country || f.season || f.year || (f.format && f.format.length > 0) || (f.status && f.status.length > 0) || (f.sort && f.sort !== 'POPULARITY_DESC');
+
+            if (q.length < 3 && !hasFilters) {
+                grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ 3 of meer letters of kies een filter...</p>';
+                return;
             }
+
+            const cacheKey = JSON.stringify({ q, f });
 
             const renderSearchResults = (res) => {
                 grid.innerHTML = '';
-                if (res && res.data && res.data.Page.media.length) {
+                if (res && res.data && res.data.Page && res.data.Page.media && res.data.Page.media.length) {
                     res.data.Page.media.forEach(m => {
-                        const t = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
+                        const titleText = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
+                        const safeTitle = escapeHTML(titleText);
                         grid.innerHTML += `
                             <div onclick="openDetailsModal('${m.id}')" class="text-left group cursor-pointer animate-fade-in relative">
-                                <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
-                                    <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative bg-zinc-800">
+                                    <img src="${escapeHTML(m.coverImage.large)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
                                     ${m.averageScore ? `<span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore/10}</span>` : ''}
                                 </div>
-                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${t}</p>
+                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1" title="${safeTitle}">${safeTitle}</p>
                             </div>`;
                     });
                 } else {
@@ -1838,19 +1987,56 @@
                 }
             };
 
-            if (searchCache[q]) {
-                renderSearchResults(searchCache[q]);
+            if (searchCache[cacheKey]) {
+                renderSearchResults(searchCache[cacheKey]);
                 return;
             }
 
             grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
-            
+
             searchTimeout = setTimeout(async () => {
-                const res = await gql(`query($s:String){Page(perPage:24){media(type:ANIME,search:$s,sort:POPULARITY_DESC){id title{romaji english}coverImage{large}averageScore}}}`, { s: q });
-                searchCache[q] = res;
-                setStorageCache("searchCache", searchCache);
+                const variables = {};
+                if (q.length >= 3) variables.search = q;
+                if (f.genres && f.genres.length) variables.genre_in = f.genres;
+                if (f.country) variables.countryOfOrigin = f.country;
+                if (f.season) variables.season = f.season;
+                if (f.year) variables.seasonYear = parseInt(f.year, 10);
+                if (f.format && f.format.length) variables.format_in = f.format;
+                if (f.status && f.status.length) variables.status_in = f.status;
+                variables.sort = f.sort ? [f.sort] : ['POPULARITY_DESC'];
+
+                const varDefs = [];
+                if (variables.search) varDefs.push('$search: String');
+                if (variables.genre_in) varDefs.push('$genre_in: [String]');
+                if (variables.countryOfOrigin) varDefs.push('$countryOfOrigin: CountryCode');
+                if (variables.season) varDefs.push('$season: MediaSeason');
+                if (variables.seasonYear) varDefs.push('$seasonYear: Int');
+                if (variables.format_in) varDefs.push('$format_in: [MediaFormat]');
+                if (variables.status_in) varDefs.push('$status_in: [MediaStatus]');
+                if (variables.sort) varDefs.push('$sort: [MediaSort]');
+
+                const varStr = varDefs.length ? `(${varDefs.join(', ')})` : '';
+                const fieldArgs = [
+                    'type: ANIME',
+                    variables.search ? 'search: $search' : '',
+                    variables.genre_in ? 'genre_in: $genre_in' : '',
+                    variables.countryOfOrigin ? 'countryOfOrigin: $countryOfOrigin' : '',
+                    variables.season ? 'season: $season' : '',
+                    variables.seasonYear ? 'seasonYear: $seasonYear' : '',
+                    variables.format_in ? 'format_in: $format_in' : '',
+                    variables.status_in ? 'status_in: $status_in' : '',
+                    variables.sort ? 'sort: $sort' : ''
+                ].filter(Boolean).join(', ');
+
+                const query = `query ${varStr} { Page(perPage: 24) { media(${fieldArgs}) { id title { romaji english } coverImage { large } averageScore } } }`;
+
+                const res = await gql(query, variables);
+                if (res) {
+                    searchCache[cacheKey] = res;
+                    setStorageCache('searchCache', searchCache);
+                }
                 renderSearchResults(res);
-            }, 500);
+            }, 350);
         };
 
         window.filterXml = function(status) { app.libraryFilter = status; renderLibraryGrid(); };
@@ -2426,17 +2612,154 @@
             else if (app.view === 'search') {
                 main.innerHTML = `
                     <div class="space-y-6">
-                        <div class="relative max-w-2xl 2xl:max-w-4xl 3xl:max-w-5xl mx-auto">
-                            <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"></i>
-                            <input type="text" id="search-input" oninput="liveSearch(event)" value="${app.searchQuery}" placeholder="Zoek een anime..." class="w-full bg-zinc-900 border border-white/10 py-4 pl-12 pr-4 rounded-2xl text-white font-bold text-sm outline-none focus:border-[#cae962] transition-colors shadow-2xl" autofocus>
+                        <div class="bg-zinc-900/80 border border-white/10 p-4 sm:p-6 rounded-2xl shadow-2xl space-y-4">
+                            <div class="relative max-w-full">
+                                <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"></i>
+                                <input type="text" id="search-input" oninput="liveSearch(event)" value="${escapeHTML(app.searchQuery)}" placeholder="Zoek een anime op titel of trefwoord..." class="w-full bg-black/60 border border-white/10 py-3.5 pl-12 pr-4 rounded-xl text-white font-bold text-sm outline-none focus:border-[#cae962] transition-colors shadow-inner" autofocus>
+                            </div>
+
+                            <!-- AniWave Style Filter Controls -->
+                            <div class="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-7 lg:grid-cols-8 gap-2.5 text-xs">
+                                <!-- Genre Dropdown -->
+                                <div class="relative group filter-dropdown" id="filter-dropdown-genre">
+                                    <button type="button" onclick="toggleFilterDropdown('genre', event)" class="w-full bg-black/50 hover:bg-black/70 border border-white/10 px-3 py-2.5 rounded-xl flex items-center justify-between text-zinc-300 font-semibold truncate transition-colors">
+                                        <span id="label-genre" class="truncate">${renderFilterLabel('genre', 'Genre')}</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
+                                    </button>
+                                    <div id="menu-genre" class="hidden absolute left-0 top-full mt-2 w-72 sm:w-80 max-h-72 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-3 z-50 grid grid-cols-2 gap-1.5 custom-scrollbar">
+                                        ${FILTER_OPTIONS.genres.map(g => `
+                                            <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
+                                                <input type="checkbox" onchange="toggleFilterValue('genres', '${g}', event)" ${app.searchFilters.genres.includes(g) ? 'checked' : ''} class="accent-[#cae962] rounded">
+                                                <span class="truncate">${g}</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
+
+                                <!-- Country Dropdown -->
+                                <div class="relative group filter-dropdown" id="filter-dropdown-country">
+                                    <button type="button" onclick="toggleFilterDropdown('country', event)" class="w-full bg-black/50 hover:bg-black/70 border border-white/10 px-3 py-2.5 rounded-xl flex items-center justify-between text-zinc-300 font-semibold truncate transition-colors">
+                                        <span id="label-country" class="truncate">${renderFilterLabel('country', 'Country')}</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
+                                    </button>
+                                    <div id="menu-country" class="hidden absolute left-0 top-full mt-2 w-48 max-h-60 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1">
+                                        <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
+                                            <input type="radio" name="filter-country" onchange="setSingleFilterValue('country', '', event)" ${!app.searchFilters.country ? 'checked' : ''} class="accent-[#cae962]">
+                                            <span>All Countries</span>
+                                        </label>
+                                        ${FILTER_OPTIONS.country.map(c => `
+                                            <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
+                                                <input type="radio" name="filter-country" onchange="setSingleFilterValue('country', '${c.code}', event)" ${app.searchFilters.country === c.code ? 'checked' : ''} class="accent-[#cae962]">
+                                                <span>${c.label}</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
+
+                                <!-- Season Dropdown -->
+                                <div class="relative group filter-dropdown" id="filter-dropdown-season">
+                                    <button type="button" onclick="toggleFilterDropdown('season', event)" class="w-full bg-black/50 hover:bg-black/70 border border-white/10 px-3 py-2.5 rounded-xl flex items-center justify-between text-zinc-300 font-semibold truncate transition-colors">
+                                        <span id="label-season" class="truncate">${renderFilterLabel('season', 'Season')}</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
+                                    </button>
+                                    <div id="menu-season" class="hidden absolute left-0 top-full mt-2 w-44 max-h-60 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1">
+                                        <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
+                                            <input type="radio" name="filter-season" onchange="setSingleFilterValue('season', '', event)" ${!app.searchFilters.season ? 'checked' : ''} class="accent-[#cae962]">
+                                            <span>All Seasons</span>
+                                        </label>
+                                        ${FILTER_OPTIONS.season.map(s => `
+                                            <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
+                                                <input type="radio" name="filter-season" onchange="setSingleFilterValue('season', '${s.val}', event)" ${app.searchFilters.season === s.val ? 'checked' : ''} class="accent-[#cae962]">
+                                                <span>${s.label}</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
+
+                                <!-- Year Dropdown -->
+                                <div class="relative group filter-dropdown" id="filter-dropdown-year">
+                                    <button type="button" onclick="toggleFilterDropdown('year', event)" class="w-full bg-black/50 hover:bg-black/70 border border-white/10 px-3 py-2.5 rounded-xl flex items-center justify-between text-zinc-300 font-semibold truncate transition-colors">
+                                        <span id="label-year" class="truncate">${renderFilterLabel('year', 'Year')}</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
+                                    </button>
+                                    <div id="menu-year" class="hidden absolute left-0 top-full mt-2 w-40 max-h-64 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1 custom-scrollbar">
+                                        <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
+                                            <input type="radio" name="filter-year" onchange="setSingleFilterValue('year', '', event)" ${!app.searchFilters.year ? 'checked' : ''} class="accent-[#cae962]">
+                                            <span>All Years</span>
+                                        </label>
+                                        ${FILTER_OPTIONS.years.map(y => `
+                                            <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
+                                                <input type="radio" name="filter-year" onchange="setSingleFilterValue('year', '${y}', event)" ${String(app.searchFilters.year) === String(y) ? 'checked' : ''} class="accent-[#cae962]">
+                                                <span>${y}</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
+
+                                <!-- Type Dropdown -->
+                                <div class="relative group filter-dropdown" id="filter-dropdown-type">
+                                    <button type="button" onclick="toggleFilterDropdown('type', event)" class="w-full bg-black/50 hover:bg-black/70 border border-white/10 px-3 py-2.5 rounded-xl flex items-center justify-between text-zinc-300 font-semibold truncate transition-colors">
+                                        <span id="label-type" class="truncate">${renderFilterLabel('format', 'Type')}</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
+                                    </button>
+                                    <div id="menu-type" class="hidden absolute left-0 top-full mt-2 w-48 max-h-60 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1">
+                                        ${FILTER_OPTIONS.types.map(t => `
+                                            <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
+                                                <input type="checkbox" onchange="toggleFilterValue('format', '${t.val}', event)" ${app.searchFilters.format.includes(t.val) ? 'checked' : ''} class="accent-[#cae962] rounded">
+                                                <span>${t.label}</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
+
+                                <!-- Status Dropdown -->
+                                <div class="relative group filter-dropdown" id="filter-dropdown-status">
+                                    <button type="button" onclick="toggleFilterDropdown('status', event)" class="w-full bg-black/50 hover:bg-black/70 border border-white/10 px-3 py-2.5 rounded-xl flex items-center justify-between text-zinc-300 font-semibold truncate transition-colors">
+                                        <span id="label-status" class="truncate">${renderFilterLabel('status', 'Status')}</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
+                                    </button>
+                                    <div id="menu-status" class="hidden absolute left-0 top-full mt-2 w-52 max-h-60 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1">
+                                        ${FILTER_OPTIONS.status.map(s => `
+                                            <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
+                                                <input type="checkbox" onchange="toggleFilterValue('status', '${s.val}', event)" ${app.searchFilters.status.includes(s.val) ? 'checked' : ''} class="accent-[#cae962] rounded">
+                                                <span>${s.label}</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
+
+                                <!-- Sort Dropdown -->
+                                <div class="relative group filter-dropdown" id="filter-dropdown-sort">
+                                    <button type="button" onclick="toggleFilterDropdown('sort', event)" class="w-full bg-black/50 hover:bg-black/70 border border-white/10 px-3 py-2.5 rounded-xl flex items-center justify-between text-zinc-300 font-semibold truncate transition-colors">
+                                        <span id="label-sort" class="truncate">${renderFilterLabel('sort', 'Sort By')}</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
+                                    </button>
+                                    <div id="menu-sort" class="hidden absolute right-0 sm:left-0 top-full mt-2 w-52 max-h-64 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1 custom-scrollbar">
+                                        ${FILTER_OPTIONS.sorts.map(so => `
+                                            <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
+                                                <input type="radio" name="filter-sort" onchange="setSingleFilterValue('sort', '${so.val}', event)" ${app.searchFilters.sort === so.val ? 'checked' : ''} class="accent-[#cae962]">
+                                                <span>${so.label}</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
+
+                                <!-- Reset & Filter Action Buttons -->
+                                <div class="col-span-2 xs:col-span-1 flex items-center gap-2">
+                                    <button type="button" onclick="resetSearchFilters()" class="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white font-bold py-2.5 px-3 rounded-xl transition-colors flex items-center justify-center gap-1.5" title="Filters Resetten">
+                                        <i class="fa-solid fa-[#cae962] fa-rotate-right text-[11px]"></i>
+                                        <span>Reset</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
+
+                        <!-- Results Grid -->
                         <div id="search-grid" class="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-10 3xl:grid-cols-12 4xl:grid-cols-14 gap-3 sm:gap-4 2xl:gap-6">
-                            <p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ iets om te zoeken...</p>
+                            <p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ een zoekopdracht of kies filters om te zoeken...</p>
                         </div>
                     </div>`;
-                if (app.searchQuery) {
-                    document.getElementById('search-input').dispatchEvent(new Event('input'));
-                }
+                triggerSearchExecution();
             }
             else if (app.view === 'library') {
                 main.innerHTML = `
