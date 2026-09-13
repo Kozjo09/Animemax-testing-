@@ -750,6 +750,44 @@
                 .replace(/'/g, '&#39;');
         }
 
+        // Helper function to sanitize rich HTML strings from external APIs (e.g. AniList descriptions)
+        function sanitizeHTML(htmlString) {
+            if (!htmlString) return '';
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlString, 'text/html');
+            const allowedTags = new Set(['B', 'I', 'EM', 'STRONG', 'P', 'BR', 'SPAN', 'A', 'UL', 'OL', 'LI', 'SMALL']);
+
+            function clean(node) {
+                const children = Array.from(node.childNodes);
+                for (const child of children) {
+                    if (child.nodeType === Node.ELEMENT_NODE) {
+                        clean(child);
+                        if (!allowedTags.has(child.tagName)) {
+                            if (child.tagName !== 'SCRIPT' && child.tagName !== 'STYLE') {
+                                while (child.firstChild) {
+                                    node.insertBefore(child.firstChild, child);
+                                }
+                            }
+                            node.removeChild(child);
+                        } else {
+                            const attrs = Array.from(child.attributes);
+                            for (const attr of attrs) {
+                                if (child.tagName === 'A' && attr.name.toLowerCase() === 'href') {
+                                    if (!/^(https?:\/\/|\/|#)/i.test(attr.value)) {
+                                        child.removeAttribute('href');
+                                    }
+                                } else {
+                                    child.removeAttribute(attr.name);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            clean(doc.body);
+            return doc.body.innerHTML;
+        }
+
         window.logout = async function() { 
             await sb.auth.signOut(); 
             sessionData = null; 
@@ -1470,7 +1508,7 @@
                 document.getElementById('detail-title').innerText = titleStr;
                 document.getElementById('detail-banner').src = m.bannerImage || m.coverImage.extraLarge || m.coverImage.large;
                 document.getElementById('detail-poster').src = m.coverImage.large || m.coverImage.extraLarge;
-                document.getElementById('detail-desc').innerHTML = m.description || "Geen synopsis beschikbaar.";
+                document.getElementById('detail-desc').innerHTML = sanitizeHTML(m.description) || "Geen synopsis beschikbaar.";
                 document.getElementById('detail-score').innerHTML = `<i class="fa-solid fa-star text-[9px] mr-1 text-[#cae962]"></i> ${m.averageScore ? (m.averageScore/10) : '?'}`;
                 document.getElementById('detail-year').innerText = m.seasonYear || "?";
                 document.getElementById('detail-episodes').innerText = isAiring 
@@ -2273,7 +2311,7 @@
                         const hero = tData[0];
                         const ht = app.lang === 'english' ? (hero.title.english || hero.title.romaji) : hero.title.romaji;
                         document.getElementById('hero-title').innerText = ht;
-                        document.getElementById('hero-desc').innerHTML = hero.description || '';
+                        document.getElementById('hero-desc').innerHTML = sanitizeHTML(hero.description) || '';
                         document.getElementById('hero-img').src = hero.bannerImage || hero.coverImage.extraLarge;
                         document.getElementById('hero-play').onclick = () => nav('watch', {id: hero.id, ep: 1});
                         document.getElementById('hero-info').onclick = () => openDetailsModal(hero.id);
