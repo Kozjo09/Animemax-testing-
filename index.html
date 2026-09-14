@@ -355,7 +355,7 @@
 
         let app = {
             view: 'home', id: null, ep: 1, mode: 'sub', server: 'megaplay', searchQuery: '', libraryFilter: 'All',
-            searchFilters: { genres: [], country: '', season: '', year: '', format: [], status: [], sort: 'POPULARITY_DESC' },
+            searchFilters: { genres: [], country: '', season: '', year: '', format: [], status: [], sort: 'POPULARITY_DESC' }, searchPage: 1,
             user: 'Gebruiker', showContinue: true, lang: 'english', autoPlay: true, autoNext: true, autoSkipIntro: false, skipSeconds: 85, 
             defaultAudio: 'sub', recent: [], xmlLib: [], autoDubFallback: true, anilistToken: null, anilistProfile: null
         };
@@ -1958,22 +1958,37 @@
 // =========================================================================
         // SEARCH, LIBRARY FILTERS & BACKUP EXPORTS
         // =========================================================================
-        window.liveSearch = function(e) {
+        window.changeSearchPage = function(newPage) {
+            app.searchPage = newPage;
+            window.liveSearch({ target: { value: app.searchQuery || '' } }, false);
+            const container = document.getElementById('search-grid');
+            if (container) {
+                container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        };
+
+        window.liveSearch = function(e, resetPage = true) {
             const q = e && e.target ? e.target.value.trim() : (app.searchQuery || '').trim();
             app.searchQuery = q;
+            if (resetPage) {
+                app.searchPage = 1;
+            }
             clearTimeout(searchTimeout);
             const grid = document.getElementById('search-grid');
+            const paginationContainer = document.getElementById('search-pagination');
             if (!grid) return;
 
             const f = app.searchFilters || {};
+            const page = app.searchPage || 1;
             const hasFilters = (f.genres && f.genres.length > 0) || f.country || f.season || f.year || (f.format && f.format.length > 0) || (f.status && f.status.length > 0) || (f.sort && f.sort !== 'POPULARITY_DESC');
 
             if (q.length < 3 && !hasFilters) {
                 grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ 3 of meer letters of kies een filter...</p>';
+                if (paginationContainer) paginationContainer.innerHTML = '';
                 return;
             }
 
-            const cacheKey = JSON.stringify({ q, f });
+            const cacheKey = JSON.stringify({ q, f, page });
 
             const renderSearchResults = (res) => {
                 grid.innerHTML = '';
@@ -1990,8 +2005,60 @@
                                 <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1" title="${safeTitle}">${safeTitle}</p>
                             </div>`;
                     });
+
+                    // Render pagination
+                    if (paginationContainer && res.data.Page.pageInfo) {
+                        const pageInfo = res.data.Page.pageInfo;
+                        const totalPages = pageInfo.lastPage || 1;
+                        const curr = pageInfo.currentPage || page;
+
+                        if (totalPages <= 1) {
+                            paginationContainer.innerHTML = '';
+                            return;
+                        }
+
+                        let pagesToShow = [];
+                        pagesToShow.push(1);
+
+                        let start = Math.max(2, curr - 2);
+                        let end = Math.min(totalPages - 1, curr + 2);
+
+                        if (start > 2) pagesToShow.push('...');
+                        for (let p = start; p <= end; p++) {
+                            if (!pagesToShow.includes(p)) pagesToShow.push(p);
+                        }
+                        if (end < totalPages - 1) pagesToShow.push('...');
+                        if (totalPages > 1 && !pagesToShow.includes(totalPages)) pagesToShow.push(totalPages);
+
+                        let pagHtml = `
+                            <div class="flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap text-xs font-bold pt-4">
+                                <button onclick="changeSearchPage(${curr - 1})" ${curr <= 1 ? 'disabled class="opacity-40 cursor-not-allowed bg-zinc-900 border border-white/5 text-zinc-500 px-3 py-2 rounded-xl flex items-center gap-1.5"' : 'class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer"'} aria-label="Vorige pagina">
+                                    <i class="fa-solid fa-chevron-left text-[10px]"></i> Vorige
+                                </button>
+                        `;
+
+                        pagesToShow.forEach(p => {
+                            if (p === '...') {
+                                pagHtml += `<span class="px-2 py-1 text-zinc-600 font-bold">...</span>`;
+                            } else if (p === curr) {
+                                pagHtml += `<button class="bg-[#cae962] text-black font-black px-3.5 py-2 rounded-xl shadow-lg shadow-[#cae962]/20 cursor-default" aria-label="Pagina ${p}">${p}</button>`;
+                            } else {
+                                pagHtml += `<button onclick="changeSearchPage(${p})" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl transition cursor-pointer" aria-label="Ga naar pagina ${p}">${p}</button>`;
+                            }
+                        });
+
+                        pagHtml += `
+                                <button onclick="changeSearchPage(${curr + 1})" ${curr >= totalPages ? 'disabled class="opacity-40 cursor-not-allowed bg-zinc-900 border border-white/5 text-zinc-500 px-3 py-2 rounded-xl flex items-center gap-1.5"' : 'class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer"'} aria-label="Volgende pagina">
+                                    Volgende <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                                </button>
+                            </div>
+                        `;
+
+                        paginationContainer.innerHTML = pagHtml;
+                    }
                 } else {
                     grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 text-xs mt-10">Niets gevonden.</p>';
+                    if (paginationContainer) paginationContainer.innerHTML = '';
                 }
             };
 
@@ -2001,9 +2068,10 @@
             }
 
             grid.innerHTML = '<div class="col-span-full text-center text-[#cae962] text-xs mt-10"><i class="fa-solid fa-circle-notch animate-spin"></i> Zoeken...</div>';
+            if (paginationContainer) paginationContainer.innerHTML = '';
 
             searchTimeout = setTimeout(async () => {
-                const variables = {};
+                const variables = { page: page, perPage: 24 };
                 if (q.length >= 3) variables.search = q;
                 if (f.genres && f.genres.length) variables.genre_in = f.genres;
                 if (f.country) variables.countryOfOrigin = f.country;
@@ -2013,7 +2081,7 @@
                 if (f.status && f.status.length) variables.status_in = f.status;
                 variables.sort = f.sort ? [f.sort] : ['POPULARITY_DESC'];
 
-                const varDefs = [];
+                const varDefs = ['$page: Int', '$perPage: Int'];
                 if (variables.search) varDefs.push('$search: String');
                 if (variables.genre_in) varDefs.push('$genre_in: [String]');
                 if (variables.countryOfOrigin) varDefs.push('$countryOfOrigin: CountryCode');
@@ -2036,7 +2104,7 @@
                     variables.sort ? 'sort: $sort' : ''
                 ].filter(Boolean).join(', ');
 
-                const query = `query ${varStr} { Page(perPage: 24) { media(${fieldArgs}) { id title { romaji english } coverImage { large } averageScore } } }`;
+                const query = `query ${varStr} { Page(page: $page, perPage: $perPage) { pageInfo { total currentPage lastPage hasNextPage } media(${fieldArgs}) { id title { romaji english } coverImage { large } averageScore } } }`;
 
                 const res = await gql(query, variables);
                 if (res) {
@@ -2044,7 +2112,7 @@
                     setStorageCache('searchCache', searchCache);
                 }
                 renderSearchResults(res);
-            }, 350);
+            }, resetPage ? 350 : 0);
         };
 
         window.filterXml = function(status) { app.libraryFilter = status; renderLibraryGrid(); };
@@ -2493,20 +2561,6 @@
                         </div>
                         
                         <!-- Genre Quick Navigation Chips -->
-                        <div id="home-genres" class="space-y-4 animate-fade-in">
-                            <h2 class="text-lg sm:text-xl 2xl:text-2xl 3xl:text-3xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-tags text-[#cae962]"></i> Ontdek op Genre</h2>
-                            <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                                <button onclick="navByGenre('Action')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Action"><i class="fa-solid fa-bolt text-[#cae962]"></i> Action</button>
-                                <button onclick="navByGenre('Fantasy')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Fantasy"><i class="fa-solid fa-wand-magic-sparkles text-[#cae962]"></i> Fantasy</button>
-                                <button onclick="navByGenre('Romance')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Romance"><i class="fa-solid fa-heart text-[#cae962]"></i> Romance</button>
-                                <button onclick="navByGenre('Comedy')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Comedy"><i class="fa-solid fa-face-laugh-beam text-[#cae962]"></i> Comedy</button>
-                                <button onclick="navByGenre('Sci-Fi')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Sci-Fi"><i class="fa-solid fa-robot text-[#cae962]"></i> Sci-Fi</button>
-                                <button onclick="navByGenre('Slice of Life')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Slice of Life"><i class="fa-solid fa-mug-hot text-[#cae962]"></i> Slice of Life</button>
-                                <button onclick="navByGenre('Adventure')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Adventure"><i class="fa-solid fa-compass text-[#cae962]"></i> Adventure</button>
-                                <button onclick="navByGenre('Drama')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Drama"><i class="fa-solid fa-masks-theater text-[#cae962]"></i> Drama</button>
-                                <button onclick="navByGenre('Supernatural')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Supernatural"><i class="fa-solid fa-ghost text-[#cae962]"></i> Supernatural</button>
-                                <button onclick="navByGenre('Thriller')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Thriller"><i class="fa-solid fa-skull text-[#cae962]"></i> Thriller</button>
-                            </div>
                         </div>
 
                         <div id="home-trending" class="space-y-4"></div>
@@ -2562,9 +2616,23 @@
 
                     const genreConfigs = [
                         { key: 'action', name: 'Action', icon: 'fa-bolt' },
+                        { key: 'adventure', name: 'Adventure', icon: 'fa-compass' },
+                        { key: 'comedy', name: 'Comedy', icon: 'fa-face-laugh-beam' },
+                        { key: 'drama', name: 'Drama', icon: 'fa-masks-theater' },
+                        { key: 'ecchi', name: 'Ecchi', icon: 'fa-fire-flame-curved' },
                         { key: 'fantasy', name: 'Fantasy', icon: 'fa-wand-magic-sparkles' },
+                        { key: 'horror', name: 'Horror', icon: 'fa-ghost' },
+                        { key: 'mahou_shoujo', name: 'Mahou Shoujo', icon: 'fa-sparkles' },
+                        { key: 'mecha', name: 'Mecha', icon: 'fa-robot' },
+                        { key: 'music', name: 'Music', icon: 'fa-music' },
+                        { key: 'mystery', name: 'Mystery', icon: 'fa-magnifying-glass' },
+                        { key: 'psychological', name: 'Psychological', icon: 'fa-brain' },
                         { key: 'romance', name: 'Romance', icon: 'fa-heart' },
-                        { key: 'comedy', name: 'Comedy', icon: 'fa-face-laugh-beam' }
+                        { key: 'sci_fi', name: 'Sci-Fi', icon: 'fa-atom' },
+                        { key: 'slice_of_life', name: 'Slice of Life', icon: 'fa-mug-hot' },
+                        { key: 'sports', name: 'Sports', icon: 'fa-basketball' },
+                        { key: 'supernatural', name: 'Supernatural', icon: 'fa-dragon' },
+                        { key: 'thriller', name: 'Thriller', icon: 'fa-skull' }
                     ];
 
                     const genreShelvesContainer = document.getElementById('home-genre-shelves');
@@ -2608,9 +2676,23 @@
                         trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
                         popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
                         action: Page(perPage:10){media(type:ANIME,genre_in:["Action"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
-                        fantasy: Page(perPage:10){media(type:ANIME,genre_in:["Fantasy"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
-                        romance: Page(perPage:10){media(type:ANIME,genre_in:["Romance"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        adventure: Page(perPage:10){media(type:ANIME,genre_in:["Adventure"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
                         comedy: Page(perPage:10){media(type:ANIME,genre_in:["Comedy"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        drama: Page(perPage:10){media(type:ANIME,genre_in:["Drama"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        ecchi: Page(perPage:10){media(type:ANIME,genre_in:["Ecchi"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        fantasy: Page(perPage:10){media(type:ANIME,genre_in:["Fantasy"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        horror: Page(perPage:10){media(type:ANIME,genre_in:["Horror"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        mahou_shoujo: Page(perPage:10){media(type:ANIME,genre_in:["Mahou Shoujo"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        mecha: Page(perPage:10){media(type:ANIME,genre_in:["Mecha"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        music: Page(perPage:10){media(type:ANIME,genre_in:["Music"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        mystery: Page(perPage:10){media(type:ANIME,genre_in:["Mystery"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        psychological: Page(perPage:10){media(type:ANIME,genre_in:["Psychological"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        romance: Page(perPage:10){media(type:ANIME,genre_in:["Romance"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        sci_fi: Page(perPage:10){media(type:ANIME,genre_in:["Sci-Fi"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        slice_of_life: Page(perPage:10){media(type:ANIME,genre_in:["Slice of Life"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        sports: Page(perPage:10){media(type:ANIME,genre_in:["Sports"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        supernatural: Page(perPage:10){media(type:ANIME,genre_in:["Supernatural"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        thriller: Page(perPage:10){media(type:ANIME,genre_in:["Thriller"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
                     }`).then(res => {
                         if (res && res.data) {
                             homeFeedCache = res;
@@ -2828,6 +2910,7 @@
                         <div id="search-grid" class="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-10 3xl:grid-cols-12 4xl:grid-cols-14 gap-3 sm:gap-4 2xl:gap-6">
                             <p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ een zoekopdracht of kies filters om te zoeken...</p>
                         </div>
+                        <div id="search-pagination" class="mt-8 flex justify-center"></div>
                     </div>`;
                 triggerSearchExecution();
             }
