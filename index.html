@@ -2212,7 +2212,7 @@
                     <div class="max-w-md md:max-w-lg lg:max-w-xl 2xl:max-w-2xl 3xl:max-w-3xl mx-auto space-y-6 2xl:space-y-8">
                         <!-- Profile Card -->
                         <div class="card p-8 border border-[#cae962]/20 space-y-6">
-                            <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${app.user}</span></h2>
+                            <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${escapeHTML(app.user)}</span></h2>
                             
                             <div class="space-y-4">
                                 <label class="flex justify-between items-center cursor-pointer p-1"><span class="text-xs font-black uppercase text-zinc-400">Toon 'Verder Kijken'</span>
@@ -2254,7 +2254,7 @@
                             
                             <div class="space-y-4">
                                 <div class="flex gap-2">
-                                    <input type="text" id="set-user" value="${app.user}" class="flex-1 bg-black border border-white/10 p-3 rounded-lg text-xs font-bold text-white outline-none focus:border-[#cae962]">
+                                    <input type="text" id="set-user" value="${escapeHTML(app.user)}" class="flex-1 bg-black border border-white/10 p-3 rounded-lg text-xs font-bold text-white outline-none focus:border-[#cae962]">
                                     <button onclick="changeUsername()" class="bg-[#cae962] text-black px-4 rounded-lg text-xs font-black uppercase tracking-widest hover:scale-105 transition font-bold">Wijzig</button>
                                 </div>
                                 
@@ -2428,7 +2428,7 @@
                     <div class="space-y-6">
                         <div class="relative max-w-2xl 2xl:max-w-4xl 3xl:max-w-5xl mx-auto">
                             <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"></i>
-                            <input type="text" id="search-input" oninput="liveSearch(event)" value="${app.searchQuery}" placeholder="Zoek een anime..." class="w-full bg-zinc-900 border border-white/10 py-4 pl-12 pr-4 rounded-2xl text-white font-bold text-sm outline-none focus:border-[#cae962] transition-colors shadow-2xl" autofocus>
+                            <input type="text" id="search-input" oninput="liveSearch(event)" value="${escapeHTML(app.searchQuery)}" placeholder="Zoek een anime..." class="w-full bg-zinc-900 border border-white/10 py-4 pl-12 pr-4 rounded-2xl text-white font-bold text-sm outline-none focus:border-[#cae962] transition-colors shadow-2xl" autofocus>
                         </div>
                         <div id="search-grid" class="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-10 3xl:grid-cols-12 4xl:grid-cols-14 gap-3 sm:gap-4 2xl:gap-6">
                             <p class="col-span-full text-center text-zinc-500 text-xs mt-10">Typ iets om te zoeken...</p>
