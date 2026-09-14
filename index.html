@@ -1545,7 +1545,7 @@
                 genContainer.innerHTML = '';
                 if(m.genres) {
                     m.genres.forEach(g => {
-                        genContainer.innerHTML += `<span class="bg-zinc-800 text-zinc-300 text-[10px] font-bold px-3 py-1 rounded-full">${g}</span>`;
+                        genContainer.innerHTML += `<button onclick="closeDetailsModal(); navByGenre('${g}')" class="bg-zinc-800 hover:bg-[#cae962] hover:text-black transition-colors text-zinc-300 text-[10px] font-bold px-3 py-1 rounded-full cursor-pointer">${g}</button>`;
                     });
                 }
 
@@ -1930,6 +1930,14 @@
             updateFilterButtonLabel(key, defaultTitle);
             document.querySelectorAll('.filter-dropdown > div').forEach(m => m.classList.add('hidden'));
             triggerSearchExecution();
+        };
+
+
+        window.navByGenre = function(genre) {
+            app.searchQuery = '';
+            app.searchFilters = { genres: [genre], country: '', season: '', year: '', format: [], status: [], sort: 'POPULARITY_DESC' };
+            updateFilterButtonLabel('genres', 'Genre', 'label-genre');
+            nav('search');
         };
 
         window.resetSearchFilters = function() {
@@ -2484,8 +2492,26 @@
                             <div id="home-recent-shelf" class="shelf-container no-scrollbar pb-4"></div>
                         </div>
                         
+                        <!-- Genre Quick Navigation Chips -->
+                        <div id="home-genres" class="space-y-4 animate-fade-in">
+                            <h2 class="text-lg sm:text-xl 2xl:text-2xl 3xl:text-3xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-tags text-[#cae962]"></i> Ontdek op Genre</h2>
+                            <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                                <button onclick="navByGenre('Action')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Action"><i class="fa-solid fa-bolt text-[#cae962]"></i> Action</button>
+                                <button onclick="navByGenre('Fantasy')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Fantasy"><i class="fa-solid fa-wand-magic-sparkles text-[#cae962]"></i> Fantasy</button>
+                                <button onclick="navByGenre('Romance')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Romance"><i class="fa-solid fa-heart text-[#cae962]"></i> Romance</button>
+                                <button onclick="navByGenre('Comedy')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Comedy"><i class="fa-solid fa-face-laugh-beam text-[#cae962]"></i> Comedy</button>
+                                <button onclick="navByGenre('Sci-Fi')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Sci-Fi"><i class="fa-solid fa-robot text-[#cae962]"></i> Sci-Fi</button>
+                                <button onclick="navByGenre('Slice of Life')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Slice of Life"><i class="fa-solid fa-mug-hot text-[#cae962]"></i> Slice of Life</button>
+                                <button onclick="navByGenre('Adventure')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Adventure"><i class="fa-solid fa-compass text-[#cae962]"></i> Adventure</button>
+                                <button onclick="navByGenre('Drama')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Drama"><i class="fa-solid fa-masks-theater text-[#cae962]"></i> Drama</button>
+                                <button onclick="navByGenre('Supernatural')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Supernatural"><i class="fa-solid fa-ghost text-[#cae962]"></i> Supernatural</button>
+                                <button onclick="navByGenre('Thriller')" class="bg-zinc-900 border border-white/10 hover:border-[#cae962] text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2" aria-label="Genre Thriller"><i class="fa-solid fa-skull text-[#cae962]"></i> Thriller</button>
+                            </div>
+                        </div>
+
                         <div id="home-trending" class="space-y-4"></div>
                         <div id="home-popular" class="space-y-4"></div>
+                        <div id="home-genre-shelves" class="space-y-10"></div>
                     </div>`;
                     
                 // Ophalen van Trending en Popular via AniList GraphQL with homeFeedCache
@@ -2533,6 +2559,46 @@
                             </div>`;
                     });
                     popShelf.innerHTML = popHtml + `</div>`;
+
+                    const genreConfigs = [
+                        { key: 'action', name: 'Action', icon: 'fa-bolt' },
+                        { key: 'fantasy', name: 'Fantasy', icon: 'fa-wand-magic-sparkles' },
+                        { key: 'romance', name: 'Romance', icon: 'fa-heart' },
+                        { key: 'comedy', name: 'Comedy', icon: 'fa-face-laugh-beam' }
+                    ];
+
+                    const genreShelvesContainer = document.getElementById('home-genre-shelves');
+                    if (genreShelvesContainer) {
+                        let genreShelvesHtml = '';
+                        genreConfigs.forEach(cfg => {
+                            if (res.data && res.data[cfg.key] && res.data[cfg.key].media && res.data[cfg.key].media.length) {
+                                genreShelvesHtml += `
+                                    <div class="space-y-4">
+                                        <div class="flex items-center justify-between">
+                                            <h2 class="text-lg sm:text-xl 2xl:text-2xl 3xl:text-3xl font-black italic uppercase tracking-tighter flex items-center gap-2">
+                                                <i class="fa-solid ${cfg.icon} text-[#cae962]"></i> Populair in ${cfg.name}
+                                            </h2>
+                                            <button onclick="navByGenre('${cfg.name}')" class="text-xs font-bold text-[#cae962] hover:underline flex items-center gap-1" aria-label="Bekijk alle ${cfg.name} anime">
+                                                Bekijk alle <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                                            </button>
+                                        </div>
+                                        <div class="shelf-container no-scrollbar">`;
+                                res.data[cfg.key].media.forEach(m => {
+                                    const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
+                                    genreShelvesHtml += `
+                                        <div onclick="openDetailsModal('${m.id}')" class="flex-none w-28 xs:w-32 sm:w-36 md:w-44 lg:w-52 2xl:w-64 3xl:w-72 4xl:w-80 text-left group cursor-pointer relative">
+                                            <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
+                                                <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                                ${m.averageScore ? `<span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore/10}</span>` : ''}
+                                            </div>
+                                            <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${mt}</p>
+                                        </div>`;
+                                });
+                                genreShelvesHtml += `</div></div>`;
+                            }
+                        });
+                        genreShelvesContainer.innerHTML = genreShelvesHtml;
+                    }
                 };
 
                 if (homeFeedCache) {
@@ -2541,6 +2607,10 @@
                     gql(`query{
                         trending: Page(perPage:12){media(type:ANIME,sort:TRENDING_DESC){id title{romaji english}coverImage{large extraLarge}description bannerImage}}
                         popular: Page(perPage:12){media(type:ANIME,sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        action: Page(perPage:10){media(type:ANIME,genre_in:["Action"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        fantasy: Page(perPage:10){media(type:ANIME,genre_in:["Fantasy"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        romance: Page(perPage:10){media(type:ANIME,genre_in:["Romance"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
+                        comedy: Page(perPage:10){media(type:ANIME,genre_in:["Comedy"],sort:SCORE_DESC){id title{romaji english}coverImage{large}averageScore}}
                     }`).then(res => {
                         if (res && res.data) {
                             homeFeedCache = res;
@@ -2626,7 +2696,7 @@
                                         <span id="label-genre" class="truncate">${renderFilterLabel('genre', 'Genre')}</span>
                                         <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
                                     </button>
-                                    <div id="menu-genre" class="hidden absolute left-0 top-full mt-2 w-72 sm:w-80 max-h-72 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-3 z-50 grid grid-cols-2 gap-1.5 custom-scrollbar">
+                                    <div id="menu-genre" class="hidden absolute left-0 top-full mt-2 max-w-[calc(100vw-2rem)] w-72 sm:w-80 max-h-72 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-3 z-50 grid grid-cols-2 gap-1.5 custom-scrollbar">
                                         ${FILTER_OPTIONS.genres.map(g => `
                                             <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
                                                 <input type="checkbox" onchange="toggleFilterValue('genres', '${g}', event)" ${app.searchFilters.genres.includes(g) ? 'checked' : ''} class="accent-[#cae962] rounded">
@@ -2642,7 +2712,7 @@
                                         <span id="label-country" class="truncate">${renderFilterLabel('country', 'Country')}</span>
                                         <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
                                     </button>
-                                    <div id="menu-country" class="hidden absolute left-0 top-full mt-2 w-48 max-h-60 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1">
+                                    <div id="menu-country" class="hidden absolute left-0 top-full mt-2 max-w-[calc(100vw-2rem)] w-48 max-h-60 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1">
                                         <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
                                             <input type="radio" name="filter-country" onchange="setSingleFilterValue('country', '', event)" ${!app.searchFilters.country ? 'checked' : ''} class="accent-[#cae962]">
                                             <span>All Countries</span>
@@ -2662,7 +2732,7 @@
                                         <span id="label-season" class="truncate">${renderFilterLabel('season', 'Season')}</span>
                                         <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
                                     </button>
-                                    <div id="menu-season" class="hidden absolute left-0 top-full mt-2 w-44 max-h-60 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1">
+                                    <div id="menu-season" class="hidden absolute left-0 top-full mt-2 max-w-[calc(100vw-2rem)] w-44 max-h-60 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1">
                                         <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
                                             <input type="radio" name="filter-season" onchange="setSingleFilterValue('season', '', event)" ${!app.searchFilters.season ? 'checked' : ''} class="accent-[#cae962]">
                                             <span>All Seasons</span>
@@ -2682,7 +2752,7 @@
                                         <span id="label-year" class="truncate">${renderFilterLabel('year', 'Year')}</span>
                                         <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
                                     </button>
-                                    <div id="menu-year" class="hidden absolute left-0 top-full mt-2 w-40 max-h-64 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1 custom-scrollbar">
+                                    <div id="menu-year" class="hidden absolute left-0 top-full mt-2 max-w-[calc(100vw-2rem)] w-40 max-h-64 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1 custom-scrollbar">
                                         <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
                                             <input type="radio" name="filter-year" onchange="setSingleFilterValue('year', '', event)" ${!app.searchFilters.year ? 'checked' : ''} class="accent-[#cae962]">
                                             <span>All Years</span>
@@ -2702,7 +2772,7 @@
                                         <span id="label-type" class="truncate">${renderFilterLabel('format', 'Type')}</span>
                                         <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
                                     </button>
-                                    <div id="menu-type" class="hidden absolute left-0 top-full mt-2 w-48 max-h-60 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1">
+                                    <div id="menu-type" class="hidden absolute left-0 top-full mt-2 max-w-[calc(100vw-2rem)] w-48 max-h-60 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1">
                                         ${FILTER_OPTIONS.types.map(t => `
                                             <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
                                                 <input type="checkbox" onchange="toggleFilterValue('format', '${t.val}', event)" ${app.searchFilters.format.includes(t.val) ? 'checked' : ''} class="accent-[#cae962] rounded">
@@ -2718,7 +2788,7 @@
                                         <span id="label-status" class="truncate">${renderFilterLabel('status', 'Status')}</span>
                                         <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
                                     </button>
-                                    <div id="menu-status" class="hidden absolute left-0 top-full mt-2 w-52 max-h-60 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1">
+                                    <div id="menu-status" class="hidden absolute left-0 top-full mt-2 max-w-[calc(100vw-2rem)] w-52 max-h-60 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1">
                                         ${FILTER_OPTIONS.status.map(s => `
                                             <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
                                                 <input type="checkbox" onchange="toggleFilterValue('status', '${s.val}', event)" ${app.searchFilters.status.includes(s.val) ? 'checked' : ''} class="accent-[#cae962] rounded">
@@ -2734,7 +2804,7 @@
                                         <span id="label-sort" class="truncate">${renderFilterLabel('sort', 'Sort By')}</span>
                                         <i class="fa-solid fa-chevron-down text-[10px] text-zinc-500 ml-1"></i>
                                     </button>
-                                    <div id="menu-sort" class="hidden absolute right-0 sm:left-0 top-full mt-2 w-52 max-h-64 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1 custom-scrollbar">
+                                    <div id="menu-sort" class="hidden absolute left-0 sm:right-0 md:right-0 md:left-auto top-full mt-2 w-52 max-w-[calc(100vw-2rem)] max-h-64 overflow-y-auto bg-zinc-900 border border-white/15 rounded-xl shadow-2xl p-2 z-50 space-y-1 custom-scrollbar">
                                         ${FILTER_OPTIONS.sorts.map(so => `
                                             <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer text-zinc-300 hover:text-white text-[11px]">
                                                 <input type="radio" name="filter-sort" onchange="setSingleFilterValue('sort', '${so.val}', event)" ${app.searchFilters.sort === so.val ? 'checked' : ''} class="accent-[#cae962]">
