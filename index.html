@@ -751,6 +751,83 @@
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
         }
+        window.renderRecentCardHtml = function(r, isUpToDate, isShelf = false) {
+            if (!r) return '';
+            const safeTitle = escapeHTML(r.title || 'Anime');
+            const safeImg = escapeHTML(r.img || '');
+            const safeId = escapeHTML(String(r.id));
+            const epNum = parseInt(r.ep) || 1;
+            const p = (r.time > 0 && r.duration > 0) ? Math.min(100, Math.max(0, Math.round((r.time / r.duration) * 100))) : 0;
+
+            let actionBadge = '';
+            if (isUpToDate) {
+                actionBadge = `
+                    <div class="w-full bg-emerald-950/70 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2.5 py-1.5 rounded-xl flex items-center justify-center gap-1.5 uppercase select-none shadow-sm">
+                        <i class="fa-solid fa-check text-[10px]"></i>
+                        <span>Up-to-Date</span>
+                    </div>`;
+            } else {
+                const nextEp = epNum + 1;
+                actionBadge = `
+                    <button onclick="event.stopPropagation(); nav('watch', {id:'${safeId}', ep:${nextEp}})" class="w-full bg-[#cae962] hover:bg-[#d8f080] text-black text-[9px] font-black px-2.5 py-1.5 rounded-xl flex items-center justify-center gap-1.5 uppercase shadow-[0_0_12px_rgba(202,233,98,0.25)] hover:shadow-[0_0_18px_rgba(202,233,98,0.45)] hover:scale-[1.02] active:scale-95 transition-all font-bold">
+                        <i class="fa-solid fa-play text-[8px]"></i>
+                        <span>Nieuwe Ep ${nextEp} Uit!</span>
+                    </button>`;
+            }
+
+            const containerClasses = isShelf
+                ? 'flex-shrink-0 w-44 xs:w-48 sm:w-56 md:w-64 lg:w-72 2xl:w-80 3xl:w-96 group text-left cursor-pointer card p-2.5 flex flex-col justify-between bg-zinc-900/90 border border-white/5 hover:border-[#cae962]/40 rounded-2xl shadow-lg transition-all duration-300'
+                : 'group text-left relative cursor-pointer card p-2.5 flex flex-col justify-between bg-zinc-900/90 border border-white/5 hover:border-[#cae962]/40 rounded-2xl shadow-lg transition-all duration-300';
+
+            return `
+                <div onclick="openDetailsModal('${safeId}')" class="${containerClasses}">
+                    <div class="space-y-2">
+                        <!-- Image Container with Overlays -->
+                        <div class="aspect-video rounded-xl bg-zinc-950 border border-white/10 relative overflow-hidden group/thumb">
+                            <img src="${safeImg}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" loading="lazy">
+
+                            <!-- Dark Gradient Overlay -->
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-70 group-hover:opacity-30 transition-opacity pointer-events-none"></div>
+
+                            <!-- Hover Play Button -->
+                            <div onclick="event.stopPropagation(); nav('watch', {id:'${safeId}', ep:${epNum}})" class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-black/40 backdrop-blur-[2px]" title="Aflevering ${epNum} hervatten">
+                                <div class="w-10 h-10 rounded-full bg-[#cae962] text-black flex items-center justify-center shadow-[0_0_15px_rgba(202,233,98,0.5)] transform scale-75 group-hover:scale-100 transition-transform">
+                                    <i class="fa-solid fa-play text-sm ml-0.5"></i>
+                                </div>
+                            </div>
+
+                            <!-- Floating EP Badge (Top Left) -->
+                            <span class="absolute top-2 left-2 bg-black/80 backdrop-blur-md border border-white/10 px-2 py-0.5 rounded-lg text-[9px] font-black text-[#cae962] uppercase tracking-wider shadow pointer-events-none">
+                                EP ${epNum}
+                            </span>
+
+                            <!-- Floating Delete Button (Top Right) -->
+                            <button onclick="removeRecentAnime(event, '${safeId}')" class="absolute top-2 right-2 w-6 h-6 rounded-lg bg-black/80 backdrop-blur-md border border-white/10 text-zinc-400 hover:text-red-400 hover:bg-red-950/80 hover:border-red-500/40 flex items-center justify-center opacity-80 hover:opacity-100 transition-all shadow" title="Verwijder uit geschiedenis" aria-label="Verwijder uit geschiedenis">
+                                <i class="fa-solid fa-trash text-[9px]"></i>
+                            </button>
+
+                            <!-- Bottom Progress Bar -->
+                            ${p > 0 ? `
+                                <div class="absolute bottom-0 left-0 w-full h-1 bg-white/10 pointer-events-none">
+                                    <div class="h-full bg-gradient-to-r from-[#cae962] to-lime-400 shadow-[0_0_8px_rgba(202,233,98,0.8)]" style="width: ${p}%"></div>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Anime Title -->
+                        <p class="text-[11px] font-black uppercase truncate text-zinc-300 group-hover:text-white px-0.5 transition-colors" title="${safeTitle}">
+                            ${safeTitle}
+                        </p>
+                    </div>
+
+                    <!-- Bottom Action Badge / Button -->
+                    <div class="mt-2.5 w-full">
+                        ${actionBadge}
+                    </div>
+                </div>
+            `;
+        };
+
 
         // Helper function to sanitize rich HTML strings from external APIs (e.g. AniList descriptions)
         function sanitizeHTML(htmlString) {
@@ -2454,33 +2531,9 @@
 
                 app.recent.forEach(r => {
                     if (!r) return;
-                    const p = (r.time > 0 && r.duration > 0) ? Math.round((r.time / r.duration) * 100) : 0;
                     const latestAvailable = latestEpMap[r.id] || r.ep || 12;
                     const isUpToDate = r.ep >= latestAvailable;
-
-                    let actionBadge = '';
-                    if (isUpToDate) {
-                        actionBadge = `<span class="bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 text-[8px] font-black px-2.5 py-1 rounded-xl flex items-center gap-1 uppercase select-none"><i class="fa-solid fa-check"></i> Up-to-Date</span>`;
-                    } else {
-                        actionBadge = `<button onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${parseInt(r.ep)+1}})" class="bg-[#cae962] text-black text-[8px] font-black px-2.5 py-1 rounded-xl flex items-center gap-1 uppercase hover:scale-105 active:scale-95 transition-all font-bold"><i class="fa-solid fa-play"></i> Nieuwe Ep ${parseInt(r.ep)+1} Uit!</button>`;
-                    }
-
-                    grid.innerHTML += `
-                        <div onclick="openDetailsModal('${r.id}')" class="group text-left relative cursor-pointer card p-3 flex flex-col justify-between">
-                            <div>
-                                <div class="aspect-video rounded-lg bg-zinc-900 border border-white/5 relative overflow-hidden mb-2">
-                                    <img src="${r.img}" class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-all duration-500">
-                                    <div onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${r.ep}})" class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition cursor-pointer"></div>
-                                    <span class="absolute top-2 left-2 bg-black/85 px-1.5 py-0.5 rounded text-[8px] font-black text-[#cae962]">EP ${r.ep}</span>
-                                    ${p > 0 ? `<div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#cae962]" style="width: ${p}%"></div></div>` : ''}
-                                </div>
-                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${r.title}</p>
-                            </div>
-                            <div class="mt-3 flex justify-between items-center w-full">
-                                ${actionBadge}
-                                <button onclick="removeRecentAnime(event, '${r.id}')" class="w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 flex items-center justify-center hover:bg-red-700 hover:text-white transition"><i class="fa-solid fa-trash text-[9px]"></i></button>
-                            </div>
-                        </div>`;
+                    grid.innerHTML += renderRecentCardHtml(r, isUpToDate, false);
                 });
             }
             else if (app.view === 'profile') {
@@ -2744,34 +2797,9 @@
                     recentShelf.innerHTML = '';
                     app.recent.slice(0, 5).forEach(r => {
                         if (!r) return;
-                        const p = (r.time > 0 && r.duration > 0) ? Math.round((r.time / r.duration) * 100) : 0;
                         const latestAvailable = latestEpMap[r.id] || r.ep || 12;
                         const isUpToDate = r.ep >= latestAvailable;
-
-                        let actionBadge = '';
-                        if (isUpToDate) {
-                            actionBadge = `<span class="bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 text-[8px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 uppercase select-none"><i class="fa-solid fa-check"></i> Up-to-Date</span>`;
-                        } else {
-                            actionBadge = `<button onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${parseInt(r.ep)+1}})" class="bg-[#cae962] text-black text-[8px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 uppercase hover:scale-105 active:scale-95 transition-all font-bold"><i class="fa-solid fa-play"></i> Nieuwe Ep ${parseInt(r.ep)+1} Uit!</button>`;
-                        }
-
-                        recentShelf.innerHTML += `
-                            <div onclick="openDetailsModal('${r.id}')" class="flex-shrink-0 w-36 xs:w-44 sm:w-52 md:w-60 lg:w-68 2xl:w-80 3xl:w-96 group cursor-pointer relative card p-3 flex flex-col justify-between">
-                                <div>
-                                    <div class="aspect-video rounded-xl bg-zinc-900 border border-white/5 relative overflow-hidden mb-2">
-                                        <img src="${r.img}" class="w-full h-full object-cover group-hover:scale-105 transition-duration-500 opacity-80 group-hover:opacity-100">
-                                        <div onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${r.ep}})" class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition"></div>
-                                        <i onclick="event.stopPropagation(); nav('watch', {id:'${r.id}', ep:${r.ep}})" class="fa-solid fa-play absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/50 group-hover:text-[#cae962] text-2xl transition-all scale-75 group-hover:scale-100"></i>
-                                        <span class="absolute top-2 left-2 bg-black/90 px-1.5 py-0.5 rounded text-[8px] font-black text-[#cae962]">EP ${r.ep}</span>
-                                        ${p > 0 ? `<div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#cae962]" style="width: ${p}%"></div></div>` : ''}
-                                    </div>
-                                    <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${r.title}</p>
-                                </div>
-                                <div class="mt-3 flex justify-between items-center w-full">
-                                    ${actionBadge}
-                                    <button onclick="removeRecentAnime(event, '${r.id}')" class="w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 flex items-center justify-center hover:bg-red-700 hover:text-white transition"><i class="fa-solid fa-trash text-[9px]"></i></button>
-                                </div>
-                            </div>`;
+                        recentShelf.innerHTML += renderRecentCardHtml(r, isUpToDate, true);
                     });
                 }
             }
