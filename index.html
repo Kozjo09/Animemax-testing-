@@ -1546,7 +1546,8 @@
                 genContainer.innerHTML = '';
                 if(m.genres) {
                     m.genres.forEach(g => {
-                        genContainer.innerHTML += `<button onclick="closeDetailsModal(); navByGenre('${g}')" class="bg-zinc-800 hover:bg-[#cae962] hover:text-black transition-colors text-zinc-300 text-[10px] font-bold px-3 py-1 rounded-full cursor-pointer">${g}</button>`;
+                        const safeG = escapeHTML(g);
+                        genContainer.innerHTML += `<button onclick="closeDetailsModal(); navByGenre('${safeG}')" class="bg-zinc-800 hover:bg-[#cae962] hover:text-black transition-colors text-zinc-300 text-[10px] font-bold px-3 py-1 rounded-full cursor-pointer">${safeG}</button>`;
                     });
                 }
 
@@ -1554,11 +1555,14 @@
                 charContainer.innerHTML = '';
                 if (m.characters && m.characters.edges) {
                     m.characters.edges.forEach(e => {
+                        const safeName = escapeHTML(e.node.name?.full || '');
+                        const safeRole = escapeHTML(e.role || '');
+                        const safeImg = escapeHTML(e.node.image?.large || '');
                         charContainer.innerHTML += `
                             <div class="flex-shrink-0 w-20 text-center">
-                                <img src="${e.node.image.large}" class="w-16 h-16 rounded-full object-cover border border-white/10 mx-auto shadow-md">
-                                <p class="text-[8px] font-black uppercase text-zinc-300 truncate mt-1.5">${e.node.name.full}</p>
-                                <p class="text-[7px] text-zinc-500 uppercase">${e.role}</p>
+                                <img src="${safeImg}" class="w-16 h-16 rounded-full object-cover border border-white/10 mx-auto shadow-md">
+                                <p class="text-[8px] font-black uppercase text-zinc-300 truncate mt-1.5">${safeName}</p>
+                                <p class="text-[7px] text-zinc-500 uppercase">${safeRole}</p>
                             </div>`;
                     });
                 }
@@ -1604,11 +1608,13 @@
                 relGrid.innerHTML = '';
                 m.relations.edges.filter(e => e.node.type === 'ANIME').forEach(e => {
                     const rTitle = app.lang === 'english' ? (e.node.title.english || e.node.title.romaji) : e.node.title.romaji;
+                    const safeRTitle = escapeHTML(rTitle);
+                    const safeRelType = escapeHTML((e.relationType || '').replace(/_/g, ' '));
                     relGrid.innerHTML += `
                         <button onclick="openDetailsModal('${e.node.id}')" class="card p-4 flex justify-between items-center text-[10px] font-black uppercase text-left w-full">
                             <div class="truncate pr-4">
-                                <p class="text-white truncate">${rTitle}</p>
-                                <p class="text-[7px] text-[#cae962] mt-0.5">${e.relationType.replace(/_/g, ' ')}</p>
+                                <p class="text-white truncate">${safeRTitle}</p>
+                                <p class="text-[7px] text-[#cae962] mt-0.5">${safeRelType}</p>
                             </div>
                             <i class="fa-solid fa-chevron-right text-zinc-600"></i>
                         </button>`;
