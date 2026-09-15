@@ -352,6 +352,7 @@
         let homeFeedCache = getStorageCache("homeFeedCache", 15 * 60 * 1000);
         let detailsCache = getStorageCache("detailsCache", 60 * 60 * 1000) || {};
         let searchCache = getStorageCache("searchCache", 30 * 60 * 1000) || {};
+        let currentSearchRequestId = 0;
 
         let app = {
             view: 'home', id: null, ep: 1, mode: 'sub', server: 'megaplay', searchQuery: '', libraryFilter: 'All',
@@ -1873,22 +1874,23 @@
         });
 
         window.renderFilterLabel = function(key, defaultTitle) {
-            const val = app.searchFilters[key];
+            const filterKey = key === 'genre' ? 'genres' : (key === 'type' ? 'format' : key);
+            const val = app.searchFilters[filterKey];
             if (Array.isArray(val)) {
                 if (val.length === 0) return defaultTitle;
                 if (val.length === 1) return escapeHTML(val[0]);
                 return `${escapeHTML(val[0])} <span class="bg-[#cae962] text-black text-[9px] font-black px-1.5 py-0.5 rounded-full ml-1">+${val.length - 1}</span>`;
             }
             if (!val || val === 'POPULARITY_DESC') return defaultTitle;
-            if (key === 'country') {
+            if (filterKey === 'country') {
                 const found = FILTER_OPTIONS.country.find(c => c.code === val);
                 return found ? found.label : defaultTitle;
             }
-            if (key === 'season') {
+            if (filterKey === 'season') {
                 const found = FILTER_OPTIONS.season.find(s => s.val === val);
                 return found ? found.label : defaultTitle;
             }
-            if (key === 'sort') {
+            if (filterKey === 'sort') {
                 const found = FILTER_OPTIONS.sorts.find(s => s.val === val);
                 return found ? found.label : defaultTitle;
             }
@@ -1941,9 +1943,12 @@
         };
 
         window.resetSearchFilters = function() {
+            app.searchQuery = '';
             app.searchFilters = { genres: [], country: '', season: '', year: '', format: [], status: [], sort: 'POPULARITY_DESC' };
+            const input = document.getElementById('search-input');
+            if (input) input.value = '';
             if (app.view === 'search') {
-                renderView();
+                render();
             } else {
                 triggerSearchExecution();
             }
@@ -1968,6 +1973,7 @@
         };
 
         window.liveSearch = function(e, resetPage = true) {
+            const requestId = ++currentSearchRequestId;
             const q = e && e.target ? e.target.value.trim() : (app.searchQuery || '').trim();
             app.searchQuery = q;
             if (resetPage) {
@@ -1991,6 +1997,7 @@
             const cacheKey = JSON.stringify({ q, f, page });
 
             const renderSearchResults = (res) => {
+                if (requestId !== currentSearchRequestId) return;
                 grid.innerHTML = '';
                 if (res && res.data && res.data.Page && res.data.Page.media && res.data.Page.media.length) {
                     res.data.Page.media.forEach(m => {
@@ -2107,6 +2114,7 @@
                 const query = `query ${varStr} { Page(page: $page, perPage: $perPage) { pageInfo { total currentPage lastPage hasNextPage } media(${fieldArgs}) { id title { romaji english } coverImage { large } averageScore } } }`;
 
                 const res = await gql(query, variables);
+                if (requestId !== currentSearchRequestId) return;
                 if (res) {
                     searchCache[cacheKey] = res;
                     setStorageCache('searchCache', searchCache);
