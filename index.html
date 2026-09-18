@@ -2656,12 +2656,15 @@
                         let trendHtml = `<h2 class="text-lg sm:text-xl 2xl:text-2xl 3xl:text-3xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-fire text-[#cae962]"></i> Trending Nu</h2><div class="shelf-container no-scrollbar">`;
                         tData.slice(1).forEach(m => {
                             const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
+                            const safeMt = escapeHTML(mt || '');
+                            const safeImg = escapeHTML(m.coverImage ? m.coverImage.large : '');
+                            const safeId = escapeHTML(String(m.id));
                             trendHtml += `
-                                <div onclick="openDetailsModal('${m.id}')" class="flex-none w-28 xs:w-32 sm:w-36 md:w-44 lg:w-52 2xl:w-64 3xl:w-72 4xl:w-80 text-left group cursor-pointer">
+                                <div onclick="openDetailsModal('${safeId}')" class="flex-none w-28 xs:w-32 sm:w-36 md:w-44 lg:w-52 2xl:w-64 3xl:w-72 4xl:w-80 text-left group cursor-pointer">
                                     <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
-                                        <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                        <img src="${safeImg}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                                     </div>
-                                    <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${mt}</p>
+                                    <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${safeMt}</p>
                                 </div>`;
                         });
                         trendShelf.innerHTML = trendHtml + `</div>`;
@@ -2672,13 +2675,16 @@
                     let popHtml = `<h2 class="text-lg sm:text-xl 2xl:text-2xl 3xl:text-3xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-heart text-[#cae962]"></i> All-Time Populair</h2><div class="shelf-container no-scrollbar">`;
                     res.data.popular.media.forEach(m => {
                         const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
+                        const safeMt = escapeHTML(mt || '');
+                        const safeImg = escapeHTML(m.coverImage ? m.coverImage.large : '');
+                        const safeId = escapeHTML(String(m.id));
                         popHtml += `
-                            <div onclick="openDetailsModal('${m.id}')" class="flex-none w-28 xs:w-32 sm:w-36 md:w-44 lg:w-52 2xl:w-64 3xl:w-72 4xl:w-80 text-left group cursor-pointer relative">
+                            <div onclick="openDetailsModal('${safeId}')" class="flex-none w-28 xs:w-32 sm:w-36 md:w-44 lg:w-52 2xl:w-64 3xl:w-72 4xl:w-80 text-left group cursor-pointer relative">
                                 <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
-                                    <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                                    <span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore/10}</span>
+                                    <img src="${safeImg}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                    <span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore ? (m.averageScore/10) : '?'}</span>
                                 </div>
-                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${mt}</p>
+                                <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${safeMt}</p>
                             </div>`;
                     });
                     popShelf.innerHTML = popHtml + `</div>`;
@@ -2722,13 +2728,16 @@
                                         <div class="shelf-container no-scrollbar">`;
                                 res.data[cfg.key].media.forEach(m => {
                                     const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
+                                    const safeMt = escapeHTML(mt || '');
+                                    const safeImg = escapeHTML(m.coverImage ? m.coverImage.large : '');
+                                    const safeId = escapeHTML(String(m.id));
                                     genreShelvesHtml += `
-                                        <div onclick="openDetailsModal('${m.id}')" class="flex-none w-28 xs:w-32 sm:w-36 md:w-44 lg:w-52 2xl:w-64 3xl:w-72 4xl:w-80 text-left group cursor-pointer relative">
+                                        <div onclick="openDetailsModal('${safeId}')" class="flex-none w-28 xs:w-32 sm:w-36 md:w-44 lg:w-52 2xl:w-64 3xl:w-72 4xl:w-80 text-left group cursor-pointer relative">
                                             <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
-                                                <img src="${m.coverImage.large}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                                <img src="${safeImg}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                                                 ${m.averageScore ? `<span class="absolute top-2 left-2 bg-black/85 text-accent text-[8px] font-black px-1.5 py-0.5 rounded shadow"><i class="fa-solid fa-star text-[7px] mr-1 text-[#cae962]"></i> ${m.averageScore/10}</span>` : ''}
                                             </div>
-                                            <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${mt}</p>
+                                            <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${safeMt}</p>
                                         </div>`;
                                 });
                                 genreShelvesHtml += `</div></div>`;
@@ -3007,15 +3016,20 @@
                 else if(m.status === 'Watched' || m.status === 'Completed') statColor = 'bg-emerald-600 text-white';
                 else if(m.status === 'Dropped') statColor = 'bg-red-900 text-white';
 
+                const safeTitle = escapeHTML(m.title || 'Anime');
+                const safeImg = escapeHTML(m.coverImage || '');
+                const safeId = escapeHTML(String(m.id));
+                const safeStatus = escapeHTML(m.status || '');
+
                 grid.innerHTML += `
-                    <div onclick="openDetailsModal('${m.id}')" class="text-left group cursor-pointer relative animate-fade-in">
+                    <div onclick="openDetailsModal('${safeId}')" class="text-left group cursor-pointer relative animate-fade-in">
                         <div class="aspect-[2/3] rounded-xl overflow-hidden mb-2 border border-white/5 relative">
-                            <img src="${m.coverImage}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100">
-                            <span class="absolute top-2 left-2 ${statColor} text-[8px] font-black px-1.5 py-0.5 rounded shadow uppercase">${m.status}</span>
+                            <img src="${safeImg}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100">
+                            <span class="absolute top-2 left-2 ${statColor} text-[8px] font-black px-1.5 py-0.5 rounded shadow uppercase">${safeStatus}</span>
                             <div class="absolute bottom-0 left-0 w-full h-1 bg-white/10"><div class="h-full bg-[#cae962]" style="width: ${(m.progress/m.episodes)*100}%"></div></div>
                         </div>
-                        <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${m.title}</p>
-                        <p class="text-[8px] font-bold text-zinc-500 pl-1 uppercase mt-0.5">${m.progress} / ${m.episodes || '?'} EPS</p>
+                        <p class="text-[10px] font-black uppercase truncate text-zinc-400 group-hover:text-white pl-1">${safeTitle}</p>
+                        <p class="text-[8px] font-bold text-zinc-500 pl-1 uppercase mt-0.5">${parseInt(m.progress) || 0} / ${parseInt(m.episodes) || '?'} EPS</p>
                     </div>`;
             });
         };
