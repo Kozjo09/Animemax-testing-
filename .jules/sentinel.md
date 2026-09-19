@@ -14,3 +14,8 @@
 **Vulnerability:** Rich HTML strings from external GraphQL APIs (such as AniList anime descriptions) were directly assigned to `innerHTML`. In custom DOM-based HTML sanitizers, handling node unwrapping before recursively cleaning child nodes leaves newly unwrapped child elements unsanitized if a static child node snapshot is iterated.
 **Learning:** When unwrapping disallowed outer tags in custom HTML sanitizers, child elements must be recursively sanitized *before* unwrapping or hoisting them into the parent node, ensuring no nested `<script>` or event-handler elements bypass inspection.
 **Prevention:** Always invoke `clean(child)` recursively before evaluating whether `child` is in `allowedTags`. Use `DOMParser` to whitelist structural tags and validate attribute protocols (`href`).
+
+## 2026-09-19 - [Context-Aware Escaping for Inline JavaScript String Literals in HTML Attributes]
+**Vulnerability:** Dynamic API values (such as anime titles) interpolated directly into inline `onclick` string parameters were susceptible to JavaScript syntax breakage and DOM-based XSS injection. Using `escapeHTML` alone fails because browser HTML attribute decoding translates `&#39;` back into raw single quotes `'` prior to JS execution.
+**Learning:** HTML attribute event handlers undergo dual-context evaluation: first HTML attribute decoding, then JavaScript engine evaluation. Escaping only HTML entities leaves string delimiters unescaped in JS context.
+**Prevention:** Create a dedicated helper function (`escapeAttrJS`) that escapes backslashes (`\\\\`) and single quotes (`\\'`) for JS string literal syntax before applying `escapeHTML` for attribute safety.
