@@ -1630,7 +1630,9 @@
                 if(m.genres) {
                     m.genres.forEach(g => {
                         const safeG = escapeHTML(g);
-                        genContainer.innerHTML += `<button onclick="closeDetailsModal(); navByGenre('${safeG}')" class="bg-zinc-800 hover:bg-[#cae962] hover:text-black transition-colors text-zinc-300 text-[10px] font-bold px-3 py-1 rounded-full cursor-pointer">${safeG}</button>`;
+                        // Security: Use escapeAttrJS for JS string parameter inside HTML event handler attribute to prevent DOM-based XSS
+                        const safeJSG = escapeAttrJS(g);
+                        genContainer.innerHTML += `<button onclick="closeDetailsModal(); navByGenre('${safeJSG}')" class="bg-zinc-800 hover:bg-[#cae962] hover:text-black transition-colors text-zinc-300 text-[10px] font-bold px-3 py-1 rounded-full cursor-pointer">${safeG}</button>`;
                     });
                 }
 
@@ -1658,7 +1660,7 @@
                     epGrid.innerHTML = '';
                     for (let i = 1; i <= releasedEps; i++) {
                         let c = (i <= prog) ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700";
-                        epGrid.innerHTML += `<button onclick="closeDetailsModal(); autoUpdateProgressOnEpClick('${id}', '${escapeAttrJS(titleStr)}', ${i}, ${eps}, '${m.coverImage.large}'); nav('watch', {id:'${id}', ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
+                        epGrid.innerHTML += `<button onclick="closeDetailsModal(); autoUpdateProgressOnEpClick('${id}', '${escapeAttrJS(titleStr)}', ${i}, ${eps}, '${escapeAttrJS(m.coverImage.large || '')}'); nav('watch', {id:'${id}', ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
                     }
                 } else {
                     window.renderDetailsEpisodeChunk = function(chunkIdx) {
@@ -1668,7 +1670,7 @@
                         let buttonsHtml = '';
                         for (let i = start; i <= end; i++) {
                             let c = (i <= prog) ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700";
-                            buttonsHtml += `<button onclick="closeDetailsModal(); autoUpdateProgressOnEpClick('${id}', '${escapeAttrJS(titleStr)}', ${i}, ${eps}, '${m.coverImage.large}'); nav('watch', {id:'${id}', ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
+                            buttonsHtml += `<button onclick="closeDetailsModal(); autoUpdateProgressOnEpClick('${id}', '${escapeAttrJS(titleStr)}', ${i}, ${eps}, '${escapeAttrJS(m.coverImage.large || '')}'); nav('watch', {id:'${id}', ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
                         }
                         
                         const buttonsContainer = document.getElementById('detail-ep-buttons-container');
