@@ -3144,8 +3144,20 @@
             document.addEventListener(evt, handleFullscreenChange);
         });
 
+        const TRUSTED_MESSAGE_ORIGINS = [
+            'https://megaplay.buzz',
+            'https://vidlink.pro',
+            'https://vidnest.fun',
+            'https://supaplay.fun',
+            'https://embed.filmu.in',
+            window.location.origin
+        ];
+
         window.addEventListener('message', function(event) {
             try {
+                // Security check: Ignore postMessage events from untrusted origins
+                if (!event.origin || !TRUSTED_MESSAGE_ORIGINS.includes(event.origin)) return;
+
                 const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
                 if (!data) return;
                 const eventName = data.event || data.method || (data.value && data.value.event);
