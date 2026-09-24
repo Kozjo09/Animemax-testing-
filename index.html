@@ -3146,6 +3146,16 @@
 
         window.addEventListener('message', function(event) {
             try {
+                const trustedOrigins = [
+                    'https://megaplay.buzz',
+                    'https://vidlink.pro',
+                    'https://vidnest.fun',
+                    'https://supaplay.fun',
+                    'https://embed.filmu.in',
+                    window.location.origin
+                ];
+                if (!event.origin || !trustedOrigins.includes(event.origin)) return;
+
                 const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
                 if (!data) return;
                 const eventName = data.event || data.method || (data.value && data.value.event);
