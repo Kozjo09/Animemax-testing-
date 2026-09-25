@@ -3145,6 +3145,15 @@
         });
 
         window.addEventListener('message', function(event) {
+            const allowedOrigins = [
+                'https://megaplay.buzz',
+                'https://vidlink.pro',
+                'https://vidnest.fun',
+                'https://supaplay.fun',
+                'https://embed.filmu.in',
+                window.location.origin
+            ];
+            if (!event.origin || !allowedOrigins.includes(event.origin)) return;
             try {
                 const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
                 if (!data) return;
