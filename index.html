@@ -3144,7 +3144,20 @@
             document.addEventListener(evt, handleFullscreenChange);
         });
 
+        // Validate postMessage origin to ensure messages originate from trusted embed providers
+        const TRUSTED_PLAYER_ORIGINS = [
+            'https://megaplay.buzz',
+            'https://vidlink.pro',
+            'https://vidnest.fun',
+            'https://supaplay.fun',
+            'https://embed.filmu.in',
+            window.location.origin
+        ];
+
         window.addEventListener('message', function(event) {
+            // Reject postMessage events from untrusted origins to prevent cross-origin state manipulation
+            if (event.origin && !TRUSTED_PLAYER_ORIGINS.includes(event.origin)) return;
+
             try {
                 const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
                 if (!data) return;
