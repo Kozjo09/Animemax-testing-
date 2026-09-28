@@ -1996,7 +1996,17 @@
             if (app.server === 'megaplay' || document.getElementById('player').classList.contains('block')) {
                 const player = document.getElementById('player');
                 if (player && player.contentWindow) {
-                    player.contentWindow.postMessage(JSON.stringify({ event: "command", command: "seek", value: currentPlaybackTime }), "*");
+                    // Security enhancement: Restrict postMessage targetOrigin to exact iframe origin to prevent cross-origin data leaks
+                    let targetOrigin = "*";
+                    if (player.src) {
+                        try {
+                            const parsedUrl = new URL(player.src);
+                            if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+                                targetOrigin = parsedUrl.origin;
+                            }
+                        } catch (e) {}
+                    }
+                    player.contentWindow.postMessage(JSON.stringify({ event: "command", command: "seek", value: currentPlaybackTime }), targetOrigin);
                 }
             } else {
                 const video = document.getElementById('native-player');
@@ -3316,15 +3326,6 @@
         ];
 
         window.addEventListener('message', function(event) {
-            const allowedOrigins = [
-                'https://megaplay.buzz',
-                'https://vidlink.pro',
-                'https://vidnest.fun',
-                'https://supaplay.fun',
-                'https://embed.filmu.in',
-                window.location.origin
-            ];
-            if (!event.origin || !allowedOrigins.includes(event.origin)) return;
             try {
                 // Security check: Ignore postMessage events from untrusted origins
                 if (!event.origin || !TRUSTED_MESSAGE_ORIGINS.includes(event.origin)) return;
