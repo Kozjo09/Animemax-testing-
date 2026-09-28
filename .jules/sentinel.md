@@ -19,3 +19,8 @@
 **Vulnerability:** Dynamic API values (such as anime titles) interpolated directly into inline `onclick` string parameters were susceptible to JavaScript syntax breakage and DOM-based XSS injection. Using `escapeHTML` alone fails because browser HTML attribute decoding translates `&#39;` back into raw single quotes `'` prior to JS execution.
 **Learning:** HTML attribute event handlers undergo dual-context evaluation: first HTML attribute decoding, then JavaScript engine evaluation. Escaping only HTML entities leaves string delimiters unescaped in JS context.
 **Prevention:** Create a dedicated helper function (`escapeAttrJS`) that escapes backslashes (`\\\\`) and single quotes (`\\'`) for JS string literal syntax before applying `escapeHTML` for attribute safety.
+
+## 2026-09-23 - [Unvalidated Cross-Origin Message Handler in Video Embeds]
+**Vulnerability:** The global `message` event listener processed incoming `postMessage` payloads from third-party iframe video embed providers without inspecting `event.origin`. Malicious or compromised iframe targets could broadcast fake `timeupdate` or `ended` events to alter playback progress or force automatic episode switching.
+**Learning:** Accepting `postMessage` data across external third-party embeds without origin validation allows arbitrary cross-origin sites to manipulate application state.
+**Prevention:** Validate `event.origin` against an explicit allowlist of trusted origins before processing `postMessage` events.
