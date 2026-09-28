@@ -357,8 +357,95 @@
         let app = {
             view: 'home', id: null, ep: 1, mode: 'sub', server: 'megaplay', searchQuery: '', libraryFilter: 'All',
             searchFilters: { genres: [], country: '', season: '', year: '', format: [], status: [], sort: 'POPULARITY_DESC' }, searchPage: 1,
-            user: 'Gebruiker', showContinue: true, lang: 'english', autoPlay: true, autoNext: true, autoSkipIntro: false, skipSeconds: 85, 
+            user: 'Gebruiker', avatar: null, showContinue: true, lang: 'english', autoPlay: true, autoNext: true, autoSkipIntro: false, skipSeconds: 85,
             defaultAudio: 'sub', recent: [], xmlLib: [], autoDubFallback: true, anilistToken: null, anilistProfile: null
+        };
+
+        // Security Helper to validate avatar image and GIF URLs / Base64 Data URLs
+        function isValidAvatarUrl(url) {
+            if (!url || typeof url !== 'string') return false;
+            const trimmed = url.trim();
+            if (!trimmed) return false;
+
+            const lower = trimmed.toLowerCase();
+            if (lower.includes('javascript:') || lower.includes('vbscript:') || lower.includes('<script') || lower.includes('data:text/html')) {
+                return false;
+            }
+
+            if (lower.startsWith('data:')) {
+                const dataUrlRegex = /^data:image\/(png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+$/i;
+                return dataUrlRegex.test(trimmed);
+            }
+
+            try {
+                const parsed = new URL(trimmed);
+                return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+            } catch (e) {
+                return false;
+            }
+        }
+        window.isValidAvatarUrl = isValidAvatarUrl;
+
+        window.handleAvatarFileUpload = function(e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+
+            const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+            if (!allowedTypes.includes(file.type.toLowerCase())) {
+                window.showToast("Ongeldig bestandstype. Kies een PNG, JPG, GIF of WEBP afbeelding.", "error");
+                e.target.value = '';
+                return;
+            }
+
+            const maxSize = 2 * 1024 * 1024;
+            if (file.size > maxSize) {
+                window.showToast("Bestand is te groot! Maximale grootte is 2MB.", "error");
+                e.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const dataUrl = event.target.result;
+                if (isValidAvatarUrl(dataUrl)) {
+                    app.avatar = dataUrl;
+                    saveCloudDataDebounced();
+                    window.showToast("Profielfoto succesvol geüpload!");
+                    render();
+                } else {
+                    window.showToast("Ongeldige of onveilige afbeeldingsdata.", "error");
+                }
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.changeAvatarUrl = function() {
+            const input = document.getElementById('set-avatar-url');
+            const url = input ? input.value.trim() : '';
+            if (!url) {
+                app.avatar = null;
+                saveCloudDataDebounced();
+                window.showToast("Profielfoto verwijderd.");
+                render();
+                return;
+            }
+
+            if (!isValidAvatarUrl(url)) {
+                window.showToast("Ongeldige of onveilige URL! Gebruik een http(s) link of GIF URL.", "error");
+                return;
+            }
+
+            app.avatar = url;
+            saveCloudDataDebounced();
+            window.showToast("Profielfoto succesvol bijgewerkt!");
+            render();
+        };
+
+        window.removeAvatar = function() {
+            app.avatar = null;
+            saveCloudDataDebounced();
+            window.showToast("Profielfoto gereset naar standaard.");
+            render();
         };
 
         let currentPlaybackTime = 0;
@@ -449,6 +536,7 @@
                 defaultAudio: app.defaultAudio, 
                 server: app.server, 
                 user: app.user, 
+                avatar: app.avatar || null,
                 showContinue: app.showContinue, 
                 lang: app.lang, 
                 autoPlay: app.autoPlay, 
@@ -702,7 +790,9 @@
                         if (data.settings) {
                             app.defaultAudio = data.settings.defaultAudio || 'sub'; app.mode = app.defaultAudio;
                             app.server = data.settings.server || 'megaplay';
-                            app.user = data.settings.user || app.user; app.showContinue = data.settings.showContinue !== false;
+                            app.user = data.settings.user || app.user;
+                            app.avatar = (data.settings.avatar && isValidAvatarUrl(data.settings.avatar)) ? data.settings.avatar : null;
+                            app.showContinue = data.settings.showContinue !== false;
                             app.lang = data.settings.lang || 'english'; app.autoPlay = data.settings.autoPlay !== false;
                             app.autoNext = data.settings.autoNext !== false; app.autoSkipIntro = data.settings.autoSkipIntro === true;
                             app.skipSeconds = parseInt(data.settings.skipSeconds || '85'); app.autoDubFallback = data.settings.autoDubFallback !== false;
@@ -2302,13 +2392,18 @@
                         </button>
                     `;
                 }
-                const safeProfAvatar = app.anilistToken && app.anilistProfile && app.anilistProfile.avatar ? escapeHTML(app.anilistProfile.avatar) : '';
+                const currentAvatar = (app.avatar && isValidAvatarUrl(app.avatar))
+                    ? app.avatar
+                    : ((app.anilistToken && app.anilistProfile && app.anilistProfile.avatar && isValidAvatarUrl(app.anilistProfile.avatar))
+                        ? app.anilistProfile.avatar
+                        : null);
+                const safeProfAvatar = currentAvatar ? escapeHTML(currentAvatar) : '';
                 headerRight.innerHTML = `
                     ${anilistPill}
                     <button onclick="nav('search')" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-[#cae962] transition-all duration-300" title="Zoeken"><i class="fa-solid fa-search text-xs"></i></button>
-                    <button onclick="nav('profile')" id="prof-btn" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-all duration-300" title="Profiel & Instellingen">
+                    <button onclick="nav('profile')" id="prof-btn" class="w-10 h-10 rounded-full bg-zinc-900/60 flex items-center justify-center border border-white/5 hover:border-[#cae962]/40 text-zinc-300 hover:text-white transition-all duration-300 overflow-hidden" title="Profiel & Instellingen">
                         ${safeProfAvatar ?
-                            `<img src="${safeProfAvatar}" class="w-full h-full rounded-full object-cover border border-[#cae962]/20">` :
+                            `<img src="${safeProfAvatar}" class="w-full h-full rounded-full object-cover border border-[#cae962]/20" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fa-solid fa-user-astronaut\'></i>';">` :
                             '<i class="fa-solid fa-user-astronaut"></i>'
                         }
                     </button>
@@ -2545,8 +2640,57 @@
                 });
             }
             else if (app.view === 'profile') {
+                const activeAvatar = (app.avatar && isValidAvatarUrl(app.avatar))
+                    ? app.avatar
+                    : ((app.anilistToken && app.anilistProfile && app.anilistProfile.avatar && isValidAvatarUrl(app.anilistProfile.avatar))
+                        ? app.anilistProfile.avatar
+                        : null);
+                const safeProfAvatar = activeAvatar ? escapeHTML(activeAvatar) : '';
+
                 main.innerHTML = `
                     <div class="max-w-md md:max-w-lg lg:max-w-xl 2xl:max-w-2xl 3xl:max-w-3xl mx-auto space-y-6 2xl:space-y-8">
+                        <!-- Profielfoto Card -->
+                        <div class="card p-8 border border-white/5 space-y-4">
+                            <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 text-[#cae962] flex items-center justify-between">
+                                <span class="flex items-center gap-2"><i class="fa-solid fa-image text-[#cae962]"></i> Profielfoto / GIF</span>
+                                <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded uppercase font-bold">
+                                    ${app.avatar ? 'Aangepaste Foto' : (app.anilistToken && app.anilistProfile && app.anilistProfile.avatar ? 'AniList Foto' : 'Standaard')}
+                                </span>
+                            </h2>
+
+                            <div class="flex flex-col sm:flex-row items-center gap-6 pb-2">
+                                <div class="w-20 h-20 rounded-full bg-zinc-900 border-2 border-[#cae962]/40 flex items-center justify-center overflow-hidden shadow-xl flex-shrink-0 relative">
+                                    ${safeProfAvatar ?
+                                        `<img src="${safeProfAvatar}" class="w-full h-full object-cover" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fa-solid fa-user-astronaut text-2xl text-zinc-400\'></i>';">` :
+                                        '<i class="fa-solid fa-user-astronaut text-2xl text-zinc-400"></i>'
+                                    }
+                                </div>
+                                <div class="space-y-1 text-center sm:text-left flex-1 w-full">
+                                    <p class="text-xs font-bold text-zinc-300">Upload een afbeelding of GIF, of koppel een afbeeldings-URL.</p>
+                                    <p class="text-[10px] text-zinc-500">Ondersteund: PNG, JPG, GIF, WEBP (Max 2MB).</p>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3 pt-2 border-t border-white/5">
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <input type="text" id="set-avatar-url" placeholder="https://example.com/afbeelding.gif" value="${app.avatar && !app.avatar.startsWith('data:') ? escapeHTML(app.avatar) : ''}" class="flex-1 bg-black border border-white/10 p-3 rounded-lg text-xs font-bold text-white outline-none focus:border-[#cae962]">
+                                    <button onclick="changeAvatarUrl()" class="bg-[#cae962] text-black px-4 py-3 rounded-lg text-xs font-black uppercase tracking-widest hover:scale-105 transition font-bold whitespace-nowrap">URL Koppelen</button>
+                                </div>
+
+                                <div class="flex flex-wrap gap-2 pt-1">
+                                    <input type="file" id="set-avatar-file" accept="image/png, image/jpeg, image/jpg, image/gif, image/webp" onchange="handleAvatarFileUpload(event)" class="hidden">
+                                    <button onclick="document.getElementById('set-avatar-file').click()" class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white py-3 rounded-xl text-xs font-black uppercase tracking-widest transition flex items-center justify-center gap-2 font-bold">
+                                        <i class="fa-solid fa-upload text-[#cae962]"></i> Upload Bestand / GIF
+                                    </button>
+                                    ${app.avatar ? `
+                                        <button onclick="removeAvatar()" class="bg-red-950/40 border border-red-500/20 text-red-400 hover:bg-red-900/50 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition font-bold">
+                                            <i class="fa-solid fa-trash mr-1"></i> Verwijder
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Profile Card -->
                         <div class="card p-8 border border-[#cae962]/20 space-y-6">
                             <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${escapeHTML(app.user)}</span></h2>
