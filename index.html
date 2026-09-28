@@ -143,11 +143,11 @@
         }
     
         /* Hide fixed overlays in fullscreen mode to prevent banners on top of player */
-        :fullscreen #app-header, :fullscreen #app-navigation,
-        :-webkit-full-screen #app-header, :-webkit-full-screen #app-navigation,
-        :-moz-full-screen #app-header, :-moz-full-screen #app-navigation,
-        :-ms-fullscreen #app-header, :-ms-fullscreen #app-navigation,
-        body.is-fullscreen #app-header, body.is-fullscreen #app-navigation {
+        :fullscreen #app-header, :fullscreen #app-navigation, :fullscreen #app-footer,
+        :-webkit-full-screen #app-header, :-webkit-full-screen #app-navigation, :-webkit-full-screen #app-footer,
+        :-moz-full-screen #app-header, :-moz-full-screen #app-navigation, :-moz-full-screen #app-footer,
+        :-ms-fullscreen #app-header, :-ms-fullscreen #app-navigation, :-ms-fullscreen #app-footer,
+        body.is-fullscreen #app-header, body.is-fullscreen #app-navigation, body.is-fullscreen #app-footer {
             display: none !important;
         }
 
@@ -235,6 +235,22 @@
             <p class="text-xs uppercase tracking-widest text-zinc-500 animate-pulse">Laden en cloud-database verbinden...</p>
         </div>
     </main>
+
+    <!-- Footer with Dough Entertainment Credits -->
+    <footer id="app-footer" class="mt-12 mb-8 max-w-7xl 2xl:max-w-[1600px] 3xl:max-w-[2000px] 4xl:max-w-[2560px] 5xl:max-w-[92vw] mx-auto px-4 text-center">
+        <div class="inline-flex flex-col items-center gap-2 p-4 sm:p-6 rounded-2xl bg-zinc-950/80 border border-white/5 hover:border-[#cae962]/30 transition-all duration-300 shadow-xl group">
+            <span class="text-[9px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+                <span class="text-[#cae962]/80">エンターテインメント部門</span>
+                <span>//</span>
+                <span>Gemaakt door</span>
+            </span>
+            <a href="https://notenoughdough.vercel.app/entertainment.html" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 text-sm sm:text-base font-black italic uppercase tracking-wider text-white hover:text-[#cae962] transition-colors group-hover:scale-105 transform duration-300" aria-label="DOUGH ENTERTAINMENT website">
+                <i class="fa-solid fa-clapperboard text-[#cae962]"></i>
+                <span>DOUGH <span class="text-[#cae962]">ENTERTAINMENT</span></span>
+                <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-zinc-500 group-hover:text-[#cae962] transition-colors ml-0.5"></i>
+            </a>
+        </div>
+    </footer>
 
     <!-- Bottom Navigation for Mobile -->
     <nav id="app-navigation" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-black/85 backdrop-blur-2xl rounded-2xl px-3 py-2 flex justify-around items-center shadow-[0_10px_30px_rgba(0,0,0,0.8)] z-[100] border border-white/10 md:hidden hidden">
