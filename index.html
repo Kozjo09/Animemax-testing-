@@ -1954,9 +1954,14 @@
                             <span class="text-rose-400"><i class="fa-solid fa-arrow-down mr-1"></i>${r.leechers} leechers</span>
                         </div>
                     </div>
-                    <button onclick="window.selectTorrentAndStream('${safeMagnet}', '${safeTitle}', '${safeTorrentUrl}', '${safeLink}')" class="px-4 py-2 rounded-xl bg-[#cae962] text-black font-black text-xs uppercase hover:bg-[#b8da4e] transition-all whitespace-nowrap flex items-center justify-center gap-1.5">
-                        <i class="fa-solid fa-play"></i> Stream Direct
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <a href="${safeTorrentUrl || safeMagnet}" target="_blank" rel="noopener noreferrer" download class="px-3 py-2 rounded-xl bg-zinc-800 text-zinc-300 font-bold text-xs uppercase hover:bg-zinc-700 hover:text-white transition-all whitespace-nowrap flex items-center justify-center gap-1.5 border border-white/5" title="Download Torrent of Magnet link">
+                            <i class="fa-solid fa-download"></i> Download
+                        </a>
+                        <button onclick="window.selectTorrentAndStream('${safeMagnet}', '${safeTitle}', '${safeTorrentUrl}', '${safeLink}')" class="px-4 py-2 rounded-xl bg-[#cae962] text-black font-black text-xs uppercase hover:bg-[#b8da4e] transition-all whitespace-nowrap flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-play"></i> Stream Direct
+                        </button>
+                    </div>
                 </div>`;
             });
             listEl.innerHTML = html;
