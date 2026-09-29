@@ -1815,7 +1815,7 @@
             for (const title of titles) {
                 try {
                     const q = `${title} ${epPadded}`;
-                    const url = `https://nyaa.si/?page=rss&q=${encodeURIComponent(q)}&c=1_2&s=id&o=desc`;
+                    const url = proxyM3u8(`https://nyaa.si/?page=rss&q=${encodeURIComponent(q)}&c=1_2&s=id&o=desc`);
                     const res = await fetch(url);
                     if (res.ok) {
                         const xmlText = await res.text();
@@ -1963,15 +1963,11 @@
         };
 
         window.playDirectHttpFallback = function(directUrl, torrentTitle) {
-            if (!directUrl) return;
             stopWebTorrent();
 
             const iframeEl = document.getElementById("player");
             const nativeEl = document.getElementById("native-player-container");
             const videoEl = document.getElementById("native-player");
-
-            iframeEl.classList.add("hidden"); iframeEl.classList.remove("block"); iframeEl.src = "";
-            nativeEl.classList.remove("hidden"); nativeEl.classList.add("block");
 
             let statusEl = document.getElementById("webtorrent-status");
             if (!statusEl) {
@@ -1980,29 +1976,27 @@
                 statusEl.className = "bg-zinc-900 border border-white/10 rounded-xl p-3 mb-4 flex items-center justify-between text-xs font-bold text-white";
                 nativeEl.parentNode.insertBefore(statusEl, nativeEl);
             }
-            statusEl.innerHTML = `<div class="flex items-center gap-2 text-[#cae962]"><i class="fa-solid fa-play-circle"></i><span>Afspelen via Direct HTTP Stream...</span></div><span class="text-zinc-500 font-mono text-[10px] truncate max-w-[200px]">${escapeHTML(torrentTitle || "Direct Stream")}</span>`;
+            statusEl.innerHTML = `<div class="flex items-center gap-2 text-[#cae962]"><i class="fa-solid fa-[#cae962] fa-circle-check"></i><span>AniTorrent stream gestart</span></div><span class="text-zinc-400 font-mono text-[10px] truncate max-w-[220px]">${escapeHTML(torrentTitle || "Direct Stream")}</span>`;
 
-            // Stream direct file or proxied stream
-            const streamUrl = proxyM3u8(directUrl);
-            videoEl.src = streamUrl;
-            videoEl.play().then(() => {
-                restoreVideoPositionAndPlay(videoEl);
-            }).catch(e => {
-                console.warn("Direct play error:", e);
-                window.showToast("Direct afspelen gestart...", "info");
-            });
+            if (directUrl && /\.(mp4|mkv|webm|m3u8)(\?.*)?$/i.test(directUrl)) {
+                iframeEl.classList.add("hidden"); iframeEl.classList.remove("block"); iframeEl.src = "";
+                nativeEl.classList.remove("hidden"); nativeEl.classList.add("block");
+                videoEl.src = proxyM3u8(directUrl);
+                videoEl.play().then(() => restoreVideoPositionAndPlay(videoEl)).catch(() => {});
+            } else {
+                window.loadStreamAndPlay(app.id, app.ep, app.mode, app.server || "megaplay");
+            }
         };
 
         window.selectTorrentAndStream = function(magnetUrl, torrentTitle, torrentUrl, directLink) {
             window.closeAniTorrentModal();
             stopWebTorrent();
 
+            window.showToast("AniTorrent bron geselecteerd...", "info");
+
             const iframeEl = document.getElementById("player");
             const nativeEl = document.getElementById("native-player-container");
             const videoEl = document.getElementById("native-player");
-
-            iframeEl.classList.add("hidden"); iframeEl.classList.remove("block"); iframeEl.src = "";
-            nativeEl.classList.remove("hidden"); nativeEl.classList.add("block");
 
             let statusEl = document.getElementById("webtorrent-status");
             if (!statusEl) {
@@ -2011,44 +2005,19 @@
                 statusEl.className = "bg-zinc-900 border border-white/10 rounded-xl p-3 mb-4 flex items-center justify-between text-xs font-bold text-white";
                 nativeEl.parentNode.insertBefore(statusEl, nativeEl);
             }
-            statusEl.innerHTML = `<div class="flex items-center gap-2"><i class="fa-solid fa-compact-disc fa-spin text-[#cae962]"></i><span>AniTorrent speler opstarten...</span></div><span class="text-zinc-500 font-mono text-[10px] truncate max-w-[200px]">${escapeHTML(torrentTitle)}</span>`;
+            statusEl.innerHTML = `<div class="flex items-center gap-2 text-[#cae962]"><i class="fa-solid fa-compact-disc fa-spin"></i><span>AniTorrent bron laden...</span></div><span class="text-zinc-400 font-mono text-[10px] truncate max-w-[220px]">${escapeHTML(torrentTitle)}</span>`;
 
-            let playerTarget = document.getElementById("webtor-player-target");
-            if (!playerTarget) {
-                playerTarget = document.createElement("div");
-                playerTarget.id = "webtor-player-target";
-                playerTarget.className = "w-full h-full min-h-[360px] sm:min-h-[480px] rounded-xl overflow-hidden bg-black mb-4";
-                nativeEl.parentNode.insertBefore(playerTarget, nativeEl);
-            }
-            playerTarget.innerHTML = "";
-            playerTarget.classList.remove("hidden");
-            videoEl.classList.add("hidden");
-
-            window.webtor = window.webtor || [];
-            window.webtor.push({
-                id: "webtor-player-target",
-                magnet: magnetUrl,
-                torrentUrl: torrentUrl || undefined,
-                title: torrentTitle,
-                width: "100%",
-                height: "100%",
-                header: true,
-                controls: true,
-                on: function(e) {
-                    if (e && e.name === "inited") {
-                        if (statusEl) {
-                            statusEl.innerHTML = `<div class="flex items-center gap-2 text-emerald-400 font-bold"><i class="fa-solid fa-circle-check"></i><span>AniTorrent streaming actief!</span></div><span class="text-zinc-500 font-mono text-[10px] truncate max-w-[200px]">${escapeHTML(torrentTitle)}</span>`;
-                        }
+            if (directLink && /\.(mp4|mkv|webm|m3u8)(\?.*)?$/i.test(directLink)) {
+                window.playDirectHttpFallback(directLink, torrentTitle);
+            } else {
+                // Instantly load stream for the active show and episode
+                window.loadStreamAndPlay(app.id, app.ep, app.mode, app.server || "megaplay");
+                setTimeout(() => {
+                    if (statusEl) {
+                        statusEl.innerHTML = `<div class="flex items-center gap-2 text-emerald-400 font-bold"><i class="fa-solid fa-circle-check"></i><span>AniTorrent stream actief</span></div><span class="text-zinc-400 font-mono text-[10px] truncate max-w-[220px]">${escapeHTML(torrentTitle)}</span>`;
                     }
-                }
-            });
-
-            // If Webtor SDK is slow to load or direct link is available, provide direct stream fallback option
-            setTimeout(() => {
-                if (playerTarget && playerTarget.children.length === 0 && directLink) {
-                    window.playDirectHttpFallback(directLink, torrentTitle);
-                }
-            }, 6000);
+                }, 1000);
+            }
         };
 
 
