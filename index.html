@@ -1733,12 +1733,8 @@
             "wss://tracker.webtorrent.dev",
             "wss://tracker.files.fm:7072/announce",
             "wss://tracker.fastcast.nz",
-            "udp://tracker.opentrackr.org:1337/announce",
-            "udp://open.stealth.si:80/announce",
-            "udp://tracker.torrent.eu.org:451/announce",
-            "udp://exodus.desync.com:6969/announce",
-            "udp://tracker.openbittorrent.com:6969/announce",
-            "http://nyaa.tracker.wf:7777/announce"
+            "wss://tracker.moking.moe:443/announce",
+            "wss://tracker.webtorrent.io"
         ];
 
         function buildMagnetLink(hash, name) {
@@ -1790,7 +1786,9 @@
                                         title: item.title,
                                         hash: item.info_hash,
                                         magnet: item.magnet_uri || buildMagnetLink(item.info_hash, item.title),
-                                        size: item.size_bytes ? (item.size_bytes / (1024*1024)).toFixed(1) + " MB" : "Unknown size",
+                                        torrent_url: item.torrent_url || null,
+                                        link: item.link || null,
+                                        size: item.total_size ? (item.total_size / (1024*1024)).toFixed(1) + " MB" : (item.size_bytes ? (item.size_bytes / (1024*1024)).toFixed(1) + " MB" : "Unknown size"),
                                         seeders: item.seeders ?? 0,
                                         leechers: item.leechers ?? 0,
                                         source: "AnimeTosho"
@@ -1828,10 +1826,13 @@
                                 else if (/yameii/i.test(cleanTitle) || /dub/i.test(cleanTitle)) srcName = "Yameii";
                                 else if (/seadex/i.test(cleanTitle)) srcName = "SeaDex";
 
+                                const linkMatch = itemXml.match(/<link>(.*?)<\/link>/);
                                 rawResults.push({
                                     title: cleanTitle,
                                     hash: hash,
                                     magnet: buildMagnetLink(hash, cleanTitle),
+                                    torrent_url: hash ? `https://storage.animetosho.org/torrent/${hash}/${encodeURIComponent(cleanTitle)}.torrent` : null,
+                                    link: linkMatch ? linkMatch[1] : null,
                                     size: sizeMatch ? sizeMatch[1] : "Unknown size",
                                     seeders: seedersMatch ? parseInt(seedersMatch[1]) || 0 : 0,
                                     leechers: leechersMatch ? parseInt(leechersMatch[1]) || 0 : 0,
@@ -1924,6 +1925,8 @@
             results.forEach((r) => {
                 const safeTitle = escapeHTML(r.title);
                 const safeMagnet = escapeAttrJS(r.magnet);
+                const safeTorrentUrl = escapeAttrJS(r.torrent_url || "");
+                const safeLink = escapeAttrJS(r.link || "");
                 const badgeColor = r.resolution === "1080p" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : (r.resolution === "720p" ? "bg-blue-500/20 text-blue-400 border-blue-500/30" : "bg-zinc-800 text-zinc-400 border-white/5");
 
                 html += `
@@ -1940,7 +1943,7 @@
                             <span class="text-rose-400"><i class="fa-solid fa-arrow-down mr-1"></i>${r.leechers} leechers</span>
                         </div>
                     </div>
-                    <button onclick="window.selectTorrentAndStream('${safeMagnet}', '${safeTitle}')" class="px-4 py-2 rounded-xl bg-[#cae962] text-black font-black text-xs uppercase hover:bg-[#b8da4e] transition-all whitespace-nowrap flex items-center justify-center gap-1.5">
+                    <button onclick="window.selectTorrentAndStream('${safeMagnet}', '${safeTitle}', '${safeTorrentUrl}', '${safeLink}')" class="px-4 py-2 rounded-xl bg-[#cae962] text-black font-black text-xs uppercase hover:bg-[#b8da4e] transition-all whitespace-nowrap flex items-center justify-center gap-1.5">
                         <i class="fa-solid fa-play"></i> Stream Direct
                     </button>
                 </div>`;
@@ -1948,7 +1951,38 @@
             listEl.innerHTML = html;
         };
 
-        window.selectTorrentAndStream = function(magnetUrl, torrentTitle) {
+        window.playDirectHttpFallback = function(directUrl, torrentTitle) {
+            if (!directUrl) return;
+            stopWebTorrent();
+
+            const iframeEl = document.getElementById("player");
+            const nativeEl = document.getElementById("native-player-container");
+            const videoEl = document.getElementById("native-player");
+
+            iframeEl.classList.add("hidden"); iframeEl.classList.remove("block"); iframeEl.src = "";
+            nativeEl.classList.remove("hidden"); nativeEl.classList.add("block");
+
+            let statusEl = document.getElementById("webtorrent-status");
+            if (!statusEl) {
+                statusEl = document.createElement("div");
+                statusEl.id = "webtorrent-status";
+                statusEl.className = "bg-zinc-900 border border-white/10 rounded-xl p-3 mb-4 flex items-center justify-between text-xs font-bold text-white";
+                nativeEl.parentNode.insertBefore(statusEl, nativeEl);
+            }
+            statusEl.innerHTML = `<div class="flex items-center gap-2 text-[#cae962]"><i class="fa-solid fa-play-circle"></i><span>Afspelen via Direct HTTP Stream...</span></div><span class="text-zinc-500 font-mono text-[10px] truncate max-w-[200px]">${escapeHTML(torrentTitle || "Direct Stream")}</span>`;
+
+            // Stream direct file or proxied stream
+            const streamUrl = proxyM3u8(directUrl);
+            videoEl.src = streamUrl;
+            videoEl.play().then(() => {
+                restoreVideoPositionAndPlay(videoEl);
+            }).catch(e => {
+                console.warn("Direct play error:", e);
+                window.showToast("Direct afspelen via spiegelserver...", "info");
+            });
+        };
+
+        window.selectTorrentAndStream = function(magnetUrl, torrentTitle, torrentUrl, directLink) {
             window.closeAniTorrentModal();
             stopWebTorrent();
 
@@ -1988,13 +2022,19 @@
             }
             statusEl.innerHTML = `<div class="flex items-center gap-2"><i class="fa-solid fa-circle-notch fa-spin text-[#cae962]"></i><span>Verbinden met WebTorrent peers...</span></div><span class="text-zinc-500 font-mono text-[10px] truncate max-w-[200px]">${escapeHTML(torrentTitle)}</span>`;
 
-            activeTorrent = wtClient.add(magnetUrl, { announce: TRACKERS }, function(torrent) {
+            const torrentSource = torrentUrl || magnetUrl;
+            let peerCheckTimer = null;
+
+            activeTorrent = wtClient.add(torrentSource, { announce: TRACKERS }, function(torrent) {
+                if (peerCheckTimer) clearTimeout(peerCheckTimer);
+
                 // Disable active seeding/uploading to satisfy privacy requirements
                 if (typeof torrent.throttleUpload === "function") torrent.throttleUpload(0);
                 // Find best video file (.mp4, .mkv, .webm)
                 const file = torrent.files.find(f => /\.(mp4|mkv|webm)$/i.test(f.name)) || torrent.files[0];
                 if (!file) {
                     window.showToast("Geen afspeelbaar videobestand gevonden in torrent.", "error");
+                    if (directLink) window.playDirectHttpFallback(directLink, torrentTitle);
                     return;
                 }
 
@@ -2026,9 +2066,23 @@
                 });
             });
 
+            // Fallback timer: if 0 WebRTC peers connect within 6s, switch to Direct HTTP stream fallback if available
+            peerCheckTimer = setTimeout(() => {
+                if (activeTorrent && activeTorrent.numPeers === 0 && directLink) {
+                    if (statusEl) {
+                        statusEl.innerHTML = `<div class="flex items-center gap-2 text-amber-400 font-bold"><i class="fa-solid fa-triangle-exclamation"></i><span>Geen WebRTC peers. Overschakelen naar Direct Stream...</span></div>`;
+                    }
+                    window.playDirectHttpFallback(directLink, torrentTitle);
+                }
+            }, 6000);
+
             wtClient.on("error", function(err) {
                 console.warn("WebTorrent error:", err);
-                window.showToast("WebTorrent fout: " + (err.message || "Verbinding mislukt"), "error");
+                if (directLink) {
+                    window.playDirectHttpFallback(directLink, torrentTitle);
+                } else {
+                    window.showToast("WebTorrent fout: " + (err.message || "Verbinding mislukt"), "error");
+                }
             });
         };
 
