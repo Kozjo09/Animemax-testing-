@@ -2364,7 +2364,7 @@
                 grid.innerHTML = '';
                 for (let i = 1; i <= releasedEpsCount; i++) {
                     let c = (i == activeEp) ? "bg-[#cae962] text-black font-bold font-black" : (i <= currentProg ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700");
-                    grid.innerHTML += `<button onclick="window.bypassPlayerPlaceholder = true; autoUpdateProgressOnEpClick('${app.id}', '${escapeAttrJS(title)}', ${i}, ${totalEps}, '${img}'); nav('watch', {id:${app.id}, ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
+                    grid.innerHTML += `<button onclick="window.bypassPlayerPlaceholder = true; autoUpdateProgressOnEpClick('${app.id}', '${escapeAttrJS(title)}', ${i}, ${totalEps}, '${escapeAttrJS(img)}'); nav('watch', {id:${app.id}, ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
                 }
             } else {
                 const activeChunkIndex = Math.floor((activeEp - 1) / chunkSize);
@@ -2376,7 +2376,7 @@
                     let buttonsHtml = '';
                     for (let i = start; i <= end; i++) {
                         let c = (i == activeEp) ? "bg-[#cae962] text-black font-bold font-black" : (i <= currentProg ? "bg-emerald-800 text-emerald-100 hover:bg-emerald-700" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700");
-                        buttonsHtml += `<button onclick="window.bypassPlayerPlaceholder = true; autoUpdateProgressOnEpClick('${app.id}', '${escapeAttrJS(title)}', ${i}, ${totalEps}, '${img}'); nav('watch', {id:${app.id}, ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
+                        buttonsHtml += `<button onclick="window.bypassPlayerPlaceholder = true; autoUpdateProgressOnEpClick('${app.id}', '${escapeAttrJS(title)}', ${i}, ${totalEps}, '${escapeAttrJS(img)}'); nav('watch', {id:${app.id}, ep:${i}})" class="aspect-square rounded-xl font-black text-xs transition-all ${c}">${i}</button>`;
                     }
                     
                     const buttonsContainer = document.getElementById('ep-buttons-container');
