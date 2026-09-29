@@ -1955,9 +1955,9 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
-                        <a href="${safeTorrentUrl || safeMagnet}" target="_blank" rel="noopener noreferrer" download class="px-3 py-2 rounded-xl bg-zinc-800 text-zinc-300 font-bold text-xs uppercase hover:bg-zinc-700 hover:text-white transition-all whitespace-nowrap flex items-center justify-center gap-1.5 border border-white/5" title="Download Torrent of Magnet link">
-                            <i class="fa-solid fa-download"></i> Download
-                        </a>
+                        <button onclick="window.downloadVideoFile('${safeTorrentUrl}', '${safeMagnet}', '${safeTitle}')" class="px-3 py-2 rounded-xl bg-zinc-800 text-zinc-300 font-bold text-xs uppercase hover:bg-zinc-700 hover:text-white transition-all whitespace-nowrap flex items-center justify-center gap-1.5 border border-white/5" title="Download Videobestand (.mp4 / .mkv)">
+                            <i class="fa-solid fa-download"></i> Download Video
+                        </button>
                         <button onclick="window.selectTorrentAndStream('${safeMagnet}', '${safeTitle}', '${safeTorrentUrl}', '${safeLink}')" class="px-4 py-2 rounded-xl bg-[#cae962] text-black font-black text-xs uppercase hover:bg-[#b8da4e] transition-all whitespace-nowrap flex items-center justify-center gap-1.5">
                             <i class="fa-solid fa-play"></i> Stream Direct
                         </button>
@@ -1965,6 +1965,51 @@
                 </div>`;
             });
             listEl.innerHTML = html;
+        };
+
+        window.downloadVideoFile = function(torrentUrl, magnetUrl, title) {
+            window.showToast("Videobestand voorbehandelen voor download...", "info");
+            const cleanTitle = (title || "Anime_Video").replace(/[^a-zA-Z0-9_.-]/g, "_");
+
+            if (typeof WebTorrent !== "undefined") {
+                const tempClient = new WebTorrent();
+                const source = torrentUrl || magnetUrl;
+
+                tempClient.add(source, { announce: TRACKERS }, function(torrent) {
+                    if (typeof torrent.throttleUpload === "function") torrent.throttleUpload(0);
+                    const file = torrent.files.find(f => /\.(mp4|mkv|webm)$/i.test(f.name)) || torrent.files[0];
+                    if (file) {
+                        file.getBlobURL((err, url) => {
+                            if (!err && url) {
+                                const a = document.createElement("a");
+                                a.href = url;
+                                a.download = file.name || (cleanTitle + ".mp4");
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                                window.showToast("Videobestand download gestart!", "success");
+                            } else {
+                                window.showToast("Downloaden via directe mirror...", "warning");
+                                if (torrentUrl && torrentUrl.startsWith("http")) window.open(torrentUrl, "_blank");
+                            }
+                            tempClient.destroy(() => {});
+                        });
+                    } else {
+                        window.showToast("Geen videobestand gevonden in torrent.", "error");
+                        tempClient.destroy(() => {});
+                    }
+                });
+
+                tempClient.on("error", function() {
+                    window.showToast("Directe download via netwerk starten...", "info");
+                    if (torrentUrl && torrentUrl.startsWith("http")) window.open(torrentUrl, "_blank");
+                    tempClient.destroy(() => {});
+                });
+            } else if (torrentUrl && torrentUrl.startsWith("http")) {
+                window.open(torrentUrl, "_blank");
+            } else {
+                window.showToast("Download niet mogelijk: Geen actieve client.", "error");
+            }
         };
 
         window.playDirectHttpFallback = function(directUrl, torrentTitle) {
