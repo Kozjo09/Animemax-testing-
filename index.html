@@ -358,6 +358,7 @@
 
         let sb = null;
         let sessionData = null;
+        let isPasswordResetFlow = false;
         let saveInterval = null;
         let saveTimeout = null;
         let dubTimeout = null;
@@ -689,6 +690,7 @@
         window.showLoginPage = showLoginPage;
 
         window.showResetPasswordView = function() {
+            isPasswordResetFlow = true;
             document.getElementById('app-header').classList.add('hidden');
             document.getElementById('app-navigation').classList.add('hidden');
             const main = document.getElementById('content');
@@ -731,6 +733,7 @@
                 window.showToast("Mislukt: " + error.message, "error");
             } else {
                 window.showToast("Succesvol hersteld! Log nu in.");
+                isPasswordResetFlow = false;
                 await sb.auth.signOut();
                 showLoginPage('login');
             }
@@ -2398,6 +2401,10 @@
         // RENDERING PAGES / DASHBOARD
         // =========================================================================
         async function render() {
+            if (isPasswordResetFlow) {
+                showResetPasswordView();
+                return;
+            }
             if (!sessionData) return showLoginPage('login');
             const main = document.getElementById('content'); if(!main) return;
             
@@ -3383,13 +3390,28 @@
                 return;
             }
             
+            if (window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery')) {
+                isPasswordResetFlow = true;
+            }
+
             sb.auth.onAuthStateChange(async (event, session) => {
+                if (event === 'PASSWORD_RECOVERY') {
+                    isPasswordResetFlow = true;
+                    showResetPasswordView();
+                    return;
+                }
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                     const isNewUser = !sessionData || !session || !session.user || sessionData.user.id !== session.user.id;
                     sessionData = session;
                     
                     if (isNewUser) {
                         await loadCloudData();
+                    }
+
+                    if (isPasswordResetFlow || window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery')) {
+                        isPasswordResetFlow = true;
+                        showResetPasswordView();
+                        return;
                     }
                     
                     // Verwijder de lelijke access_token uit de URL nadat we succesvol zijn ingelogd.
@@ -3401,27 +3423,27 @@
                 } else if (event === 'SIGNED_OUT') {
                     sessionData = null;
                     app.view = 'home';
-                    showLoginPage('login');
-                } else if (event === 'PASSWORD_RECOVERY') {
-                    showResetPasswordView();
+                    if (!isPasswordResetFlow) {
+                        showLoginPage('login');
+                    }
                 }
             });
 
             sb.auth.getSession().then(({ data: { session } }) => {
-                if (window.location.hash.includes('access_token=')) {
-                    return; // Laat onAuthStateChange dit afhandelen.
+                if (isPasswordResetFlow || window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery') || window.location.hash.includes('access_token=')) {
+                    if (isPasswordResetFlow || window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery')) {
+                        isPasswordResetFlow = true;
+                        showResetPasswordView();
+                    }
+                    return; // Laat onAuthStateChange of recovery dit afhandelen.
                 }
 
                 if (session) {
                     sessionData = session;
                     loadCloudData().then(() => restoreStateFromUrl());
                 } else {
-                    if (window.location.hash.includes('type=recovery')) {
-                        showResetPasswordView();
-                    } else {
-                        restoreStateFromUrl();
-                        showLoginPage('login');
-                    }
+                    restoreStateFromUrl();
+                    showLoginPage('login');
                 }
             });
         });
