@@ -1728,15 +1728,17 @@
         }
 
         const TRACKERS = [
+            "wss://tracker.openwebtorrent.com",
+            "wss://tracker.btorrent.xyz",
+            "wss://tracker.webtorrent.dev",
+            "wss://tracker.files.fm:7072/announce",
+            "wss://tracker.fastcast.nz",
             "udp://tracker.opentrackr.org:1337/announce",
             "udp://open.stealth.si:80/announce",
             "udp://tracker.torrent.eu.org:451/announce",
             "udp://exodus.desync.com:6969/announce",
             "udp://tracker.openbittorrent.com:6969/announce",
-            "wss://tracker.openwebtorrent.com",
-            "wss://tracker.btorrent.xyz",
-            "wss://tracker.webtorrent.dev",
-            "wss://tracker.files.fm:7072/announce"
+            "http://nyaa.tracker.wf:7777/announce"
         ];
 
         function buildMagnetLink(hash, name) {
@@ -1964,7 +1966,17 @@
                 return;
             }
 
-            wtClient = new WebTorrent();
+            wtClient = new WebTorrent({
+                tracker: {
+                    announce: TRACKERS,
+                    rtcConfig: {
+                        iceServers: [
+                            { urls: "stun:stun.l.google.com:19302" },
+                            { urls: "stun:global.stun.twilio.com:3478" }
+                        ]
+                    }
+                }
+            });
 
             // Create progress/speed UI overlay above player
             let statusEl = document.getElementById("webtorrent-status");
@@ -1976,7 +1988,9 @@
             }
             statusEl.innerHTML = `<div class="flex items-center gap-2"><i class="fa-solid fa-circle-notch fa-spin text-[#cae962]"></i><span>Verbinden met WebTorrent peers...</span></div><span class="text-zinc-500 font-mono text-[10px] truncate max-w-[200px]">${escapeHTML(torrentTitle)}</span>`;
 
-            activeTorrent = wtClient.add(magnetUrl, function(torrent) {
+            activeTorrent = wtClient.add(magnetUrl, { announce: TRACKERS }, function(torrent) {
+                // Disable active seeding/uploading to satisfy privacy requirements
+                if (typeof torrent.throttleUpload === "function") torrent.throttleUpload(0);
                 // Find best video file (.mp4, .mkv, .webm)
                 const file = torrent.files.find(f => /\.(mp4|mkv|webm)$/i.test(f.name)) || torrent.files[0];
                 if (!file) {
@@ -2005,8 +2019,9 @@
                 });
 
                 torrent.on("done", function() {
+                    if (typeof torrent.throttleUpload === "function") torrent.throttleUpload(0);
                     if (statusEl) {
-                        statusEl.innerHTML = `<div class="flex items-center gap-2 text-emerald-400 font-bold"><i class="fa-solid fa-check-circle"></i><span>Download voltooid (100%) - Streamen vanaf lokaal geheugen</span></div>`;
+                        statusEl.innerHTML = `<div class="flex items-center gap-2 text-emerald-400 font-bold"><i class="fa-solid fa-check-circle"></i><span>Download voltooid (100%) - Niet geseet</span></div>`;
                     }
                 });
             });
