@@ -2042,7 +2042,7 @@
             window.closeAniTorrentModal();
             stopWebTorrent();
 
-            window.showToast("AniTorrent bron geselecteerd...", "info");
+            window.showToast("AniTorrent bron laden via Webtor...", "info");
 
             const iframeEl = document.getElementById("player");
             const nativeEl = document.getElementById("native-player-container");
@@ -2055,19 +2055,61 @@
                 statusEl.className = "bg-zinc-900 border border-white/10 rounded-xl p-3 mb-4 flex items-center justify-between text-xs font-bold text-white";
                 nativeEl.parentNode.insertBefore(statusEl, nativeEl);
             }
-            statusEl.innerHTML = `<div class="flex items-center gap-2 text-[#cae962]"><i class="fa-solid fa-compact-disc fa-spin"></i><span>AniTorrent bron laden...</span></div><span class="text-zinc-400 font-mono text-[10px] truncate max-w-[220px]">${escapeHTML(torrentTitle)}</span>`;
+            statusEl.innerHTML = `<div class="flex items-center gap-2 text-[#cae962]"><i class="fa-solid fa-compact-disc fa-spin"></i><span>AniTorrent stream via Webtor server laden...</span></div><span class="text-zinc-400 font-mono text-[10px] truncate max-w-[220px]">${escapeHTML(torrentTitle)}</span>`;
 
-            if (directLink && /\.(mp4|mkv|webm|m3u8)(\?.*)?$/i.test(directLink)) {
-                window.playDirectHttpFallback(directLink, torrentTitle);
-            } else {
-                // Instantly load stream for the active show and episode
-                window.loadStreamAndPlay(app.id, app.ep, app.mode, app.server || "megaplay");
-                setTimeout(() => {
-                    if (statusEl) {
-                        statusEl.innerHTML = `<div class="flex items-center gap-2 text-emerald-400 font-bold"><i class="fa-solid fa-circle-check"></i><span>AniTorrent stream actief</span></div><span class="text-zinc-400 font-mono text-[10px] truncate max-w-[220px]">${escapeHTML(torrentTitle)}</span>`;
-                    }
-                }, 1000);
+            let playerTarget = document.getElementById("webtor-player-target");
+            if (!playerTarget) {
+                playerTarget = document.createElement("div");
+                playerTarget.id = "webtor-player-target";
+                playerTarget.className = "w-full h-full min-h-[360px] sm:min-h-[480px] rounded-xl overflow-hidden bg-black mb-4";
+                nativeEl.parentNode.insertBefore(playerTarget, nativeEl);
             }
+            playerTarget.innerHTML = "";
+            playerTarget.classList.remove("hidden");
+            iframeEl.classList.add("hidden"); iframeEl.classList.remove("block"); iframeEl.src = "";
+            nativeEl.classList.add("hidden"); nativeEl.classList.remove("block");
+
+            window.webtor = window.webtor || [];
+            const opts = {
+                id: "webtor-player-target",
+                baseUrl: "https://webtor.io/s/ulk68o47cw7olwgh",
+                title: torrentTitle,
+                width: "100%",
+                height: "100%",
+                header: true,
+                controls: true,
+                on: function(e) {
+                    if (e && (e.name === "inited" || e.name === "play")) {
+                        if (statusEl) {
+                            statusEl.innerHTML = `<div class="flex items-center gap-2 text-emerald-400 font-bold"><i class="fa-solid fa-circle-check"></i><span>AniTorrent Webtor streaming actief!</span></div><span class="text-zinc-400 font-mono text-[10px] truncate max-w-[220px]">${escapeHTML(torrentTitle)}</span>`;
+                        }
+                    }
+                }
+            };
+
+            if (torrentUrl && torrentUrl.startsWith("http")) {
+                opts.torrentUrl = torrentUrl;
+            } else {
+                opts.magnet = magnetUrl;
+            }
+
+            try {
+                window.webtor.push(opts);
+            } catch(err) {
+                console.warn("Webtor push error:", err);
+            }
+
+            // Fallback to active stream server if Webtor is slow or fails
+            setTimeout(() => {
+                if (playerTarget && playerTarget.children.length === 0) {
+                    if (directLink && /\.(mp4|mkv|webm|m3u8)(\?.*)?$/i.test(directLink)) {
+                        window.playDirectHttpFallback(directLink, torrentTitle);
+                    } else {
+                        nativeEl.classList.remove("hidden"); nativeEl.classList.add("block");
+                        window.loadStreamAndPlay(app.id, app.ep, app.mode, app.server || "megaplay");
+                    }
+                }
+            }, 5000);
         };
 
 
