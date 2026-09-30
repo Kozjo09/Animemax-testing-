@@ -24,3 +24,8 @@
 **Vulnerability:** The global `message` event listener processed incoming `postMessage` payloads from third-party iframe video embed providers without inspecting `event.origin`. Malicious or compromised iframe targets could broadcast fake `timeupdate` or `ended` events to alter playback progress or force automatic episode switching.
 **Learning:** Accepting `postMessage` data across external third-party embeds without origin validation allows arbitrary cross-origin sites to manipulate application state.
 **Prevention:** Validate `event.origin` against an explicit allowlist of trusted origins before processing `postMessage` events.
+
+## 2026-09-30 - [Reverse Tabnabbing and Navigation Hijacking in Sanitized Rich Text Anchor Elements]
+**Vulnerability:** Rich HTML descriptions fetched from external GraphQL APIs (AniList) contained anchor (`<a>`) elements. While `sanitizeHTML` removed unsafe attribute event handlers, stripping all non-`href` attributes allowed external links to navigate away from the SPA window in-place, and omitted `rel="noopener noreferrer"`, leaving the app open to reverse tabnabbing via `window.opener`.
+**Learning:** Sanitizing HTML links requires enforcing secure navigation behavior (`target="_blank"`) and isolation (`rel="noopener noreferrer"`) on valid `<a>` elements after stripping arbitrary or untrusted attributes.
+**Prevention:** In custom HTML sanitizers, explicitly set `child.setAttribute('target', '_blank')` and `child.setAttribute('rel', 'noopener noreferrer')` on all allowed `<a>` tags possessing a valid `href`.
