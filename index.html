@@ -976,6 +976,11 @@
                                     child.removeAttribute(attr.name);
                                 }
                             }
+                            // Security Enhancement: Enforce target="_blank" and rel="noopener noreferrer" on allowed <a> tags to prevent reverse tabnabbing
+                            if (child.tagName === 'A' && child.hasAttribute('href')) {
+                                child.setAttribute('target', '_blank');
+                                child.setAttribute('rel', 'noopener noreferrer');
+                            }
                         }
                     }
                 }
