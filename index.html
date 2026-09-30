@@ -41,6 +41,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- HLS.js for native m3u8 streaming -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- WebTorrent for browser torrent streaming -->
+    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@webtor/embed-sdk-js/dist/index.min.js" charset="utf-8" async></script>
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap');
@@ -196,6 +200,43 @@
 <body class="pb-32 relative">
 
     <div id="toast-container" class="flex flex-col gap-2"></div>
+
+
+    <!-- AniTorrent / WebTorrent Torrent Selection Modal -->
+    <div id="anitorrent-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-[10000] hidden flex items-center justify-center p-4">
+        <div class="bg-[#121212] border border-white/10 p-5 sm:p-6 rounded-2xl max-w-2xl w-full shadow-2xl max-h-[85vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-download text-[#cae962] text-xl"></i>
+                    <div>
+                        <h3 class="text-base font-black uppercase text-white tracking-wide">AniTorrent Bronnen</h3>
+                        <p class="text-[10px] text-zinc-400 font-bold">Selecteer een torrent om direct via WebTorrent P2P te streamen</p>
+                    </div>
+                </div>
+                <button onclick="window.closeAniTorrentModal()" class="w-8 h-8 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center transition-all">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Resolution Filter Tabs -->
+            <div class="flex items-center gap-2 mb-4 overflow-x-auto no-scrollbar">
+                <span class="text-[10px] font-black text-zinc-500 uppercase mr-1">Resolutie:</span>
+                <button id="anitorrent-filter-ALL" onclick="window.filterAniTorrentResults('ALL')" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase bg-[#cae962] text-black">Alle</button>
+                <button id="anitorrent-filter-1080p" onclick="window.filterAniTorrentResults('1080p')" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase bg-zinc-800 text-zinc-400 hover:bg-zinc-700">1080p</button>
+                <button id="anitorrent-filter-720p" onclick="window.filterAniTorrentResults('720p')" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase bg-zinc-800 text-zinc-400 hover:bg-zinc-700">720p</button>
+                <button id="anitorrent-filter-480p" onclick="window.filterAniTorrentResults('480p')" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase bg-zinc-800 text-zinc-400 hover:bg-zinc-700">480p</button>
+            </div>
+
+            <!-- Results Scroll List -->
+            <div id="anitorrent-results-list" class="flex-1 overflow-y-auto space-y-2.5 pr-1 no-scrollbar">
+            </div>
+
+            <div class="pt-4 border-t border-white/5 mt-4 flex items-center justify-between text-[10px] text-zinc-500">
+                <span><i class="fa-solid fa-shield-halved mr-1 text-[#cae962]"></i>Automatische opschoning na streamen</span>
+                <button onclick="window.closeAniTorrentModal()" class="px-4 py-2 rounded-xl bg-zinc-800 text-white font-bold uppercase hover:bg-zinc-700">Sluiten</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Confirm Modal -->
     <div id="confirm-modal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-[10000] hidden items-center justify-center p-4">
@@ -1301,6 +1342,7 @@
             const video = document.getElementById('native-player');
             if (!video) return;
 
+            if (typeof stopWebTorrent === 'function') stopWebTorrent();
             if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
             video.innerHTML = ''; 
 
@@ -1466,35 +1508,27 @@
                 embedContainer.appendChild(btn);
             });
 
-            return window.loadAllProviders(anilistId).then(providers => {
-                let validServers = [];
-                providers.forEach(p => {
-                     const epList = p[mode] || [];
-                     const hasEp = epList.find(e => e.number == targetEp || e.episode == targetEp);
-                     if (hasEp || (p.api === 'anivexa' && epList.length === 0)) {
-                          validServers.push(p);
-                     }
-                });
+            // Render torrent sources under "Torrents:" container
+            const torrentSources = [
+                { id: 'torrent-all', label: 'ALLE TORRENTS', source: 'ALL' },
+                { id: 'torrent-nyaa', label: 'NYAA.SI', source: 'Nyaa' },
+                { id: 'torrent-animetosho', label: 'ANIMETOSHO', source: 'AnimeTosho' },
+                { id: 'torrent-subsplease', label: 'SUBSPLEASE', source: 'SubsPlease' },
+                { id: 'torrent-toonshub', label: 'TOONSHUB', source: 'ToonsHub' },
+                { id: 'torrent-yameii', label: 'YAMEII (DUB)', source: 'Yameii' },
+                { id: 'torrent-seadex', label: 'SEADEX', source: 'SeaDex' }
+            ];
 
-                validServers.forEach(p => {
-                    const btn = document.createElement('button');
-                    const srvName = p.id;
-                    const isActive = app.server === srvName;
-                    btn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${isActive ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
-                    btn.innerHTML = `<i class="fa-solid fa-server mr-1"></i> ${p.provider.toUpperCase()}`;
-                    btn.onclick = () => window.setServer(srvName);
-
-                    if (EMBED_PROVIDERS.includes(p.provider.toLowerCase())) {
-                        embedContainer.appendChild(btn);
-                    } else {
-                        restContainer.appendChild(btn);
-                    }
-                });
-                return validServers;
-            }).catch(err => {
-                console.warn("Server bronnen ophalen mislukt:", err);
-                return [];
+            torrentSources.forEach(ts => {
+                const btn = document.createElement('button');
+                const isActive = app.server === ts.id;
+                btn.className = `px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${isActive ? 'bg-[#cae962] text-black font-bold' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`;
+                btn.innerHTML = `<i class="fa-solid fa-download mr-1"></i> ${ts.label}`;
+                btn.onclick = () => window.setServer(ts.id);
+                restContainer.appendChild(btn);
             });
+
+            return Promise.resolve(torrentSources);
         };
 
         window.loadStreamAndPlay = async function(anilistId, targetEp, mode, serverId) {
@@ -1586,6 +1620,16 @@
                 return;
             }
 
+            if (serverId.startsWith('torrent-')) {
+                const providerFilter = serverId.replace('torrent-', '');
+                if (typeof stopWebTorrent === 'function') stopWebTorrent();
+                iframeEl.classList.add('hidden'); iframeEl.classList.remove('block'); iframeEl.src = "";
+                nativeEl.classList.remove('hidden'); nativeEl.classList.add('block');
+                if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+                window.openAniTorrentModal(providerFilter);
+                return;
+            }
+
             const providers = await loadAllProviders(anilistId);
             const pObj = providers.find(p => p.id === serverId);
             if (!pObj) return;
@@ -1646,8 +1690,9 @@
                 const isVidNestBtn = srv === 'vidnest' && btn.innerText.includes('VIDNEST');
                 const isAnimePaheBtn = srv === 'animepahe' && btn.innerText.includes('ANIMEPAHE');
                 const isSupaPlayBtn = srv === 'supaplay' && btn.innerText.includes('SUPAPLAY');
+                const isTorrentBtn = srv.startsWith('torrent-') && (btn.innerText.includes(srv.replace('torrent-', '').toUpperCase()) || (srv === 'torrent-all' && btn.innerText.includes('ALLE TORRENTS')));
                 const isMatchingSrv = btn.innerText.includes(srv.toUpperCase().replace('ANIVEXA-', ''));
-                if (isMegaPlayBtn || isFilmUBtn || isVidLinkBtn || isVidNestBtn || isAnimePaheBtn || isSupaPlayBtn || isMatchingSrv) {
+                if (isMegaPlayBtn || isFilmUBtn || isVidLinkBtn || isVidNestBtn || isAnimePaheBtn || isSupaPlayBtn || isTorrentBtn || isMatchingSrv) {
                     btn.className = 'px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap bg-[#cae962] text-black font-bold';
                 } else {
                     btn.className = 'px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap bg-zinc-800 text-zinc-400 hover:bg-zinc-700';
@@ -1661,6 +1706,418 @@
         window.initializePlayerStream = function() {
             window.loadStreamAndPlay(app.id, app.ep, app.mode, app.server);
         };
+
+
+        // =========================================================================
+        // ANITORRENT INTEGRATION & WEBTORRENT CLIENT
+        // =========================================================================
+        let wtClient = null;
+        let activeTorrent = null;
+
+        function stopWebTorrent() {
+            if (activeTorrent) {
+                try {
+                    activeTorrent.destroy({ destroyStore: true }, () => {});
+                } catch(e) {}
+                activeTorrent = null;
+            }
+            if (wtClient) {
+                try {
+                    wtClient.destroy(() => {});
+                } catch(e) {}
+                wtClient = null;
+            }
+            const statusEl = document.getElementById("webtorrent-status");
+            if (statusEl) statusEl.remove();
+
+            const targetEl = document.getElementById("webtor-player-target");
+            if (targetEl) {
+                targetEl.innerHTML = "";
+                targetEl.classList.add("hidden");
+            }
+            const videoEl = document.getElementById("native-player");
+            if (videoEl) {
+                videoEl.classList.remove("hidden");
+            }
+        }
+
+        const TRACKERS = [
+            "wss://tracker.openwebtorrent.com",
+            "wss://tracker.btorrent.xyz",
+            "wss://tracker.webtorrent.dev",
+            "wss://tracker.files.fm:7072/announce",
+            "wss://tracker.fastcast.nz",
+            "wss://tracker.moking.moe:443/announce",
+            "wss://tracker.webtorrent.io"
+        ];
+
+        function buildMagnetLink(hash, name) {
+            const tr = TRACKERS.map(t => "tr=" + encodeURIComponent(t)).join("&");
+            const dn = name ? "&dn=" + encodeURIComponent(name) : "";
+            return `magnet:?xt=urn:btih:${hash.toLowerCase()}${dn}&${tr}`;
+        }
+
+        async function fetchAniTorrentResults(anilistId, targetEp) {
+            let titles = [];
+
+            if (detailsCache[anilistId] && detailsCache[anilistId].data && detailsCache[anilistId].data.Media) {
+                const media = detailsCache[anilistId].data.Media;
+                if (media.title) {
+                    if (media.title.romaji) titles.push(media.title.romaji);
+                    if (media.title.english) titles.push(media.title.english);
+                }
+            }
+
+            if (titles.length === 0) {
+                try {
+                    const res = await gql(`query($id:Int){Media(id:$id){title{romaji english} format episodes}}`, {id: parseInt(anilistId)});
+                    if (res && res.data && res.data.Media) {
+                        const media = res.data.Media;
+                        if (media.title.romaji) titles.push(media.title.romaji);
+                        if (media.title.english) titles.push(media.title.english);
+                    }
+                } catch(e) {}
+            }
+
+            titles = [...new Set(titles)].filter(Boolean);
+            if (titles.length === 0) return [];
+
+            const epPadded = String(targetEp).padStart(2, "0");
+            let rawResults = [];
+
+            // 1. Query AnimeTosho JSON API
+            for (const title of titles) {
+                try {
+                    const q = `${title} ${epPadded}`;
+                    const url = `https://feed.animetosho.org/json?q=${encodeURIComponent(q)}`;
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const items = await res.json();
+                        if (Array.isArray(items)) {
+                            items.forEach(item => {
+                                if (item.info_hash) {
+                                    rawResults.push({
+                                        title: item.title,
+                                        hash: item.info_hash,
+                                        magnet: item.magnet_uri || buildMagnetLink(item.info_hash, item.title),
+                                        torrent_url: item.torrent_url || null,
+                                        link: item.link || null,
+                                        size: item.total_size ? (item.total_size / (1024*1024)).toFixed(1) + " MB" : (item.size_bytes ? (item.size_bytes / (1024*1024)).toFixed(1) + " MB" : "Unknown size"),
+                                        seeders: item.seeders ?? 0,
+                                        leechers: item.leechers ?? 0,
+                                        source: "AnimeTosho"
+                                    });
+                                }
+                            });
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            // 2. Query Nyaa RSS API
+            for (const title of titles) {
+                try {
+                    const q = `${title} ${epPadded}`;
+                    const url = proxyM3u8(`https://nyaa.si/?page=rss&q=${encodeURIComponent(q)}&c=1_2&s=id&o=desc`);
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const xmlText = await res.text();
+                        const itemMatches = xmlText.match(/<item>[\s\S]*?<\/item>/g) || [];
+                        itemMatches.forEach(itemXml => {
+                            const titleMatch = itemXml.match(/<title>(.*?)<\/title>/);
+                            const hashMatch = itemXml.match(/<nyaa:infoHash>(.*?)<\/nyaa:infoHash>/);
+                            const seedersMatch = itemXml.match(/<nyaa:seeders>(.*?)<\/nyaa:seeders>/);
+                            const leechersMatch = itemXml.match(/<nyaa:leecher[s]?>(.*?)<\/nyaa:leecher[s]?>/);
+                            const sizeMatch = itemXml.match(/<nyaa:size>(.*?)<\/nyaa:size>/);
+
+                            if (titleMatch && hashMatch) {
+                                const cleanTitle = titleMatch[1].replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+                                const hash = hashMatch[1].trim();
+
+                                let srcName = "Nyaa";
+                                if (/subsplease/i.test(cleanTitle)) srcName = "SubsPlease";
+                                else if (/toonshub/i.test(cleanTitle)) srcName = "ToonsHub";
+                                else if (/yameii/i.test(cleanTitle) || /dub/i.test(cleanTitle)) srcName = "Yameii";
+                                else if (/seadex/i.test(cleanTitle)) srcName = "SeaDex";
+
+                                const linkMatch = itemXml.match(/<link>(.*?)<\/link>/);
+                                rawResults.push({
+                                    title: cleanTitle,
+                                    hash: hash,
+                                    magnet: buildMagnetLink(hash, cleanTitle),
+                                    torrent_url: hash ? `https://storage.animetosho.org/torrent/${hash}/${encodeURIComponent(cleanTitle)}.torrent` : null,
+                                    link: linkMatch ? linkMatch[1] : null,
+                                    size: sizeMatch ? sizeMatch[1] : "Unknown size",
+                                    seeders: seedersMatch ? parseInt(seedersMatch[1]) || 0 : 0,
+                                    leechers: leechersMatch ? parseInt(leechersMatch[1]) || 0 : 0,
+                                    source: srcName
+                                });
+                            }
+                        });
+                    }
+                } catch(e) {}
+            }
+
+            // Deduplicate by info_hash
+            const uniqueMap = new Map();
+            rawResults.forEach(r => {
+                const key = r.hash.toLowerCase();
+                if (!uniqueMap.has(key)) {
+                    uniqueMap.set(key, r);
+                } else {
+                    const existing = uniqueMap.get(key);
+                    if (r.seeders > existing.seeders) uniqueMap.set(key, r);
+                }
+            });
+
+            let finalResults = Array.from(uniqueMap.values());
+
+            // Detect resolutions
+            finalResults.forEach(r => {
+                if (/1080p|1920x1080/i.test(r.title)) r.resolution = "1080p";
+                else if (/720p|1280x720/i.test(r.title)) r.resolution = "720p";
+                else if (/480p|848x480|640x480/i.test(r.title)) r.resolution = "480p";
+                else if (/2160p|4k/i.test(r.title)) r.resolution = "2160p";
+                else r.resolution = "Unknown";
+            });
+
+            // Sort by seeders descending
+            finalResults.sort((a, b) => b.seeders - a.seeders);
+            return finalResults;
+        }
+
+        window.openAniTorrentModal = async function(providerFilter = "all") {
+            const modal = document.getElementById("anitorrent-modal");
+            if (!modal) return;
+            modal.classList.remove("hidden");
+            const listEl = document.getElementById("anitorrent-results-list");
+            listEl.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-3xl text-[#cae962] mb-3"></i><p class="text-xs font-bold text-zinc-400">Torrents zoeken via AniTorrent (${escapeHTML(providerFilter.toUpperCase())})...</p></div>`;
+
+            window.currentAniTorrentProviderFilter = providerFilter;
+            window.currentAniTorrentResults = await fetchAniTorrentResults(app.id, app.ep);
+            window.filterAniTorrentResults("ALL");
+        };
+
+        window.closeAniTorrentModal = function() {
+            const modal = document.getElementById("anitorrent-modal");
+            if (modal) modal.classList.add("hidden");
+        };
+
+        window.filterAniTorrentResults = function(resFilter) {
+            const listEl = document.getElementById("anitorrent-results-list");
+            if (!listEl) return;
+
+            // Highlight filter buttons
+            ["ALL", "1080p", "720p", "480p"].forEach(res => {
+                const btn = document.getElementById(`anitorrent-filter-${res}`);
+                if (btn) {
+                    if (res === resFilter) {
+                        btn.className = "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase bg-[#cae962] text-black";
+                    } else {
+                        btn.className = "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase bg-zinc-800 text-zinc-400 hover:bg-zinc-700";
+                    }
+                }
+            });
+
+            let results = window.currentAniTorrentResults || [];
+            const pFilter = window.currentAniTorrentProviderFilter || "all";
+
+            if (pFilter !== "all") {
+                results = results.filter(r => r.source.toLowerCase().includes(pFilter.toLowerCase()));
+            }
+
+            if (resFilter !== "ALL") {
+                results = results.filter(r => r.resolution === resFilter);
+            }
+
+            if (results.length === 0) {
+                listEl.innerHTML = `<div class="text-center py-8 text-zinc-500 text-xs font-bold">Geen torrents gevonden voor bron '${escapeHTML(pFilter.toUpperCase())}' en resolutie '${escapeHTML(resFilter)}'</div>`;
+                return;
+            }
+
+            let html = "";
+            results.forEach((r) => {
+                const safeTitle = escapeHTML(r.title);
+                const safeMagnet = escapeAttrJS(r.magnet);
+                const safeTorrentUrl = escapeAttrJS(r.torrent_url || "");
+                const safeLink = escapeAttrJS(r.link || "");
+                const badgeColor = r.resolution === "1080p" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : (r.resolution === "720p" ? "bg-blue-500/20 text-blue-400 border-blue-500/30" : "bg-zinc-800 text-zinc-400 border-white/5");
+
+                html += `
+                <div class="bg-zinc-900/80 border border-white/5 rounded-xl p-3 hover:border-[#cae962]/50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="space-y-1 min-w-0 flex-1">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase border ${badgeColor}">${escapeHTML(r.resolution)}</span>
+                            <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-zinc-800 text-zinc-400">${escapeHTML(r.source)}</span>
+                            <span class="text-[10px] font-mono text-zinc-400">${escapeHTML(r.size)}</span>
+                        </div>
+                        <h4 class="text-xs font-bold text-white truncate" title="${safeTitle}">${safeTitle}</h4>
+                        <div class="flex items-center gap-4 text-[10px] font-bold">
+                            <span class="text-emerald-400"><i class="fa-solid fa-arrow-up mr-1"></i>${r.seeders} seeders</span>
+                            <span class="text-rose-400"><i class="fa-solid fa-arrow-down mr-1"></i>${r.leechers} leechers</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <a href="${safeTorrentUrl || safeMagnet}" target="_blank" rel="noopener noreferrer" download class="px-2.5 py-1.5 rounded-xl bg-zinc-800/80 text-zinc-300 font-bold text-[10px] uppercase hover:bg-zinc-700 hover:text-white transition-all whitespace-nowrap flex items-center justify-center gap-1 border border-white/5" title="Download .torrent bestand of Magnet link">
+                            <i class="fa-solid fa-magnet text-amber-400"></i> .Torrent / Magnet
+                        </a>
+                        <button onclick="window.downloadVideoFile('${safeTorrentUrl}', '${safeMagnet}', '${safeTitle}')" class="px-2.5 py-1.5 rounded-xl bg-zinc-800 text-zinc-200 font-bold text-[10px] uppercase hover:bg-zinc-700 hover:text-white transition-all whitespace-nowrap flex items-center justify-center gap-1 border border-white/5" title="Download Videobestand (.mp4 / .mkv)">
+                            <i class="fa-solid fa-download text-[#cae962]"></i> Download Video
+                        </button>
+                        <button onclick="window.selectTorrentAndStream('${safeMagnet}', '${safeTitle}', '${safeTorrentUrl}', '${safeLink}')" class="px-3 py-1.5 rounded-xl bg-[#cae962] text-black font-black text-[10px] uppercase hover:bg-[#b8da4e] transition-all whitespace-nowrap flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-play"></i> Stream Direct
+                        </button>
+                    </div>
+                </div>`;
+            });
+            listEl.innerHTML = html;
+        };
+
+        window.downloadVideoFile = function(torrentUrl, magnetUrl, title) {
+            window.showToast("Videobestand voorbehandelen voor download...", "info");
+            const cleanTitle = (title || "Anime_Video").replace(/[^a-zA-Z0-9_.-]/g, "_");
+
+            if (typeof WebTorrent !== "undefined") {
+                const tempClient = new WebTorrent();
+                const source = torrentUrl || magnetUrl;
+
+                tempClient.add(source, { announce: TRACKERS }, function(torrent) {
+                    if (typeof torrent.throttleUpload === "function") torrent.throttleUpload(0);
+                    const file = torrent.files.find(f => /\.(mp4|mkv|webm)$/i.test(f.name)) || torrent.files[0];
+                    if (file) {
+                        file.getBlobURL((err, url) => {
+                            if (!err && url) {
+                                const a = document.createElement("a");
+                                a.href = url;
+                                a.download = file.name || (cleanTitle + ".mp4");
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                                window.showToast("Videobestand download gestart!", "success");
+                            } else {
+                                window.showToast("Downloaden via directe mirror...", "warning");
+                                if (torrentUrl && torrentUrl.startsWith("http")) window.open(torrentUrl, "_blank");
+                            }
+                            tempClient.destroy(() => {});
+                        });
+                    } else {
+                        window.showToast("Geen videobestand gevonden in torrent.", "error");
+                        tempClient.destroy(() => {});
+                    }
+                });
+
+                tempClient.on("error", function() {
+                    window.showToast("Directe download via netwerk starten...", "info");
+                    if (torrentUrl && torrentUrl.startsWith("http")) window.open(torrentUrl, "_blank");
+                    tempClient.destroy(() => {});
+                });
+            } else if (torrentUrl && torrentUrl.startsWith("http")) {
+                window.open(torrentUrl, "_blank");
+            } else {
+                window.showToast("Download niet mogelijk: Geen actieve client.", "error");
+            }
+        };
+
+        window.playDirectHttpFallback = function(directUrl, torrentTitle) {
+            stopWebTorrent();
+
+            const iframeEl = document.getElementById("player");
+            const nativeEl = document.getElementById("native-player-container");
+            const videoEl = document.getElementById("native-player");
+
+            let statusEl = document.getElementById("webtorrent-status");
+            if (!statusEl) {
+                statusEl = document.createElement("div");
+                statusEl.id = "webtorrent-status";
+                statusEl.className = "bg-zinc-900 border border-white/10 rounded-xl p-3 mb-4 flex items-center justify-between text-xs font-bold text-white";
+                nativeEl.parentNode.insertBefore(statusEl, nativeEl);
+            }
+            statusEl.innerHTML = `<div class="flex items-center gap-2 text-[#cae962]"><i class="fa-solid fa-[#cae962] fa-circle-check"></i><span>AniTorrent stream gestart</span></div><span class="text-zinc-400 font-mono text-[10px] truncate max-w-[220px]">${escapeHTML(torrentTitle || "Direct Stream")}</span>`;
+
+            if (directUrl && /\.(mp4|mkv|webm|m3u8)(\?.*)?$/i.test(directUrl)) {
+                iframeEl.classList.add("hidden"); iframeEl.classList.remove("block"); iframeEl.src = "";
+                nativeEl.classList.remove("hidden"); nativeEl.classList.add("block");
+                videoEl.src = proxyM3u8(directUrl);
+                videoEl.play().then(() => restoreVideoPositionAndPlay(videoEl)).catch(() => {});
+            } else {
+                window.loadStreamAndPlay(app.id, app.ep, app.mode, app.server || "megaplay");
+            }
+        };
+
+        window.selectTorrentAndStream = function(magnetUrl, torrentTitle, torrentUrl, directLink) {
+            window.closeAniTorrentModal();
+            stopWebTorrent();
+
+            window.showToast("AniTorrent bron laden via Webtor...", "info");
+
+            const iframeEl = document.getElementById("player");
+            const nativeEl = document.getElementById("native-player-container");
+            const videoEl = document.getElementById("native-player");
+
+            let statusEl = document.getElementById("webtorrent-status");
+            if (!statusEl) {
+                statusEl = document.createElement("div");
+                statusEl.id = "webtorrent-status";
+                statusEl.className = "bg-zinc-900 border border-white/10 rounded-xl p-3 mb-4 flex items-center justify-between text-xs font-bold text-white";
+                nativeEl.parentNode.insertBefore(statusEl, nativeEl);
+            }
+            statusEl.innerHTML = `<div class="flex items-center gap-2 text-[#cae962]"><i class="fa-solid fa-compact-disc fa-spin"></i><span>AniTorrent stream via Webtor server laden...</span></div><span class="text-zinc-400 font-mono text-[10px] truncate max-w-[220px]">${escapeHTML(torrentTitle)}</span>`;
+
+            let playerTarget = document.getElementById("webtor-player-target");
+            if (!playerTarget) {
+                playerTarget = document.createElement("div");
+                playerTarget.id = "webtor-player-target";
+                playerTarget.className = "w-full h-full min-h-[360px] sm:min-h-[480px] rounded-xl overflow-hidden bg-black mb-4";
+                nativeEl.parentNode.insertBefore(playerTarget, nativeEl);
+            }
+            playerTarget.innerHTML = "";
+            playerTarget.classList.remove("hidden");
+            iframeEl.classList.add("hidden"); iframeEl.classList.remove("block"); iframeEl.src = "";
+            nativeEl.classList.add("hidden"); nativeEl.classList.remove("block");
+
+            window.webtor = window.webtor || [];
+            const opts = {
+                id: "webtor-player-target",
+                baseUrl: "https://webtor.io/s/ulk68o47cw7olwgh",
+                title: torrentTitle,
+                width: "100%",
+                height: "100%",
+                header: true,
+                controls: true,
+                on: function(e) {
+                    if (e && (e.name === "inited" || e.name === "play")) {
+                        if (statusEl) {
+                            statusEl.innerHTML = `<div class="flex items-center gap-2 text-emerald-400 font-bold"><i class="fa-solid fa-circle-check"></i><span>AniTorrent Webtor streaming actief!</span></div><span class="text-zinc-400 font-mono text-[10px] truncate max-w-[220px]">${escapeHTML(torrentTitle)}</span>`;
+                        }
+                    }
+                }
+            };
+
+            if (torrentUrl && torrentUrl.startsWith("http")) {
+                opts.torrentUrl = torrentUrl;
+            } else {
+                opts.magnet = magnetUrl;
+            }
+
+            try {
+                window.webtor.push(opts);
+            } catch(err) {
+                console.warn("Webtor push error:", err);
+            }
+
+            // Fallback to active stream server if Webtor is slow or fails
+            setTimeout(() => {
+                if (playerTarget && playerTarget.children.length === 0) {
+                    if (directLink && /\.(mp4|mkv|webm|m3u8)(\?.*)?$/i.test(directLink)) {
+                        window.playDirectHttpFallback(directLink, torrentTitle);
+                    } else {
+                        nativeEl.classList.remove("hidden"); nativeEl.classList.add("block");
+                        window.loadStreamAndPlay(app.id, app.ep, app.mode, app.server || "megaplay");
+                    }
+                }
+            }, 5000);
+        };
+
 
         // =========================================================================
         // DETAILS MODAL / DRAWER
@@ -2539,7 +2996,7 @@
                                         <div id="anivexa-embeds-container" class="flex gap-2 overflow-x-auto no-scrollbar py-0.5 max-w-full"></div>
                                     </div>
                                     <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
-                                        <span class="text-[10px] font-black text-[#cae962] sm:w-24 uppercase">Direct / HLS:</span>
+                                        <span class="text-[10px] font-black text-[#cae962] sm:w-24 uppercase">Torrents:</span>
                                         <div id="anivexa-rest-container" class="flex gap-2 overflow-x-auto no-scrollbar py-0.5 max-w-full"></div>
                                     </div>
                                 </div>
