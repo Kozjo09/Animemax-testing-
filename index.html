@@ -2001,7 +2001,7 @@
                                 window.showToast("Videobestand download gestart!", "success");
                             } else {
                                 window.showToast("Downloaden via directe mirror...", "warning");
-                                if (torrentUrl && torrentUrl.startsWith("http")) window.open(torrentUrl, "_blank");
+                                if (torrentUrl && /^https?:\/\//i.test(torrentUrl)) window.open(torrentUrl, "_blank", "noopener,noreferrer");
                             }
                             tempClient.destroy(() => {});
                         });
@@ -2013,11 +2013,11 @@
 
                 tempClient.on("error", function() {
                     window.showToast("Directe download via netwerk starten...", "info");
-                    if (torrentUrl && torrentUrl.startsWith("http")) window.open(torrentUrl, "_blank");
+                    if (torrentUrl && /^https?:\/\//i.test(torrentUrl)) window.open(torrentUrl, "_blank", "noopener,noreferrer");
                     tempClient.destroy(() => {});
                 });
-            } else if (torrentUrl && torrentUrl.startsWith("http")) {
-                window.open(torrentUrl, "_blank");
+            } else if (torrentUrl && /^https?:\/\//i.test(torrentUrl)) {
+                window.open(torrentUrl, "_blank", "noopener,noreferrer");
             } else {
                 window.showToast("Download niet mogelijk: Geen actieve client.", "error");
             }
