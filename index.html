@@ -406,6 +406,7 @@
         let lazyObserver = null;
         let searchTimeout = null;
         let countdownInterval = null;
+        let heroInterval = null;
         let hlsInstance = null;
         let anivexaEpisodesCache = {}; 
         let autoNextTriggered = false;
@@ -624,6 +625,7 @@
             clearInterval(saveInterval); 
             clearTimeout(dubTimeout);
             clearInterval(countdownInterval);
+            clearInterval(heroInterval);
             if (lazyObserver) lazyObserver.disconnect();
             if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
 
@@ -3087,6 +3089,7 @@
                                 const distance = targetTime - new Date().getTime();
                                 if (distance < 0) {
                                     clearInterval(countdownInterval);
+            clearInterval(heroInterval);
                                     if(timerContainer) timerContainer.innerHTML = '';
                                     return;
                                 }
@@ -3266,15 +3269,16 @@
                         <div id="home-hero" class="w-full min-h-[260px] xs:min-h-[300px] md:h-[45vh] 2xl:h-[50vh] 3xl:h-[55vh] 4xl:h-[60vh] bg-zinc-900 rounded-2xl md:rounded-3xl overflow-hidden border border-white/5 relative flex items-end p-4 sm:p-6 md:p-10 2xl:p-14 3xl:p-16 shadow-2xl">
                             <div class="absolute inset-0 bg-gradient-to-t from-[#060606] via-[#060606]/75 to-transparent z-10"></div>
                             <div class="relative z-20 space-y-3 2xl:space-y-4 max-w-2xl 2xl:max-w-4xl 3xl:max-w-5xl">
-                                <span class="bg-[#cae962] text-black text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider font-bold">Populairste Nu</span>
-                                <h1 class="text-2xl sm:text-3xl md:text-5xl 2xl:text-6xl 3xl:text-7xl 4xl:text-8xl font-black italic uppercase tracking-tighter text-white animate-fade-in leading-tight" id="hero-title">Laden...</h1>
-                                <p class="text-[11px] md:text-xs 2xl:text-sm 3xl:text-base 4xl:text-lg text-zinc-400 line-clamp-2 md:line-clamp-3 2xl:line-clamp-4 animate-fade-in leading-relaxed" id="hero-desc"></p>
+                                <span id="hero-badge" class="bg-[#cae962] text-black text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider font-bold">Populairste Nu #1</span>
+                                <h1 class="text-2xl sm:text-3xl md:text-5xl 2xl:text-6xl 3xl:text-7xl 4xl:text-8xl font-black italic uppercase tracking-tighter text-white animate-fade-in leading-tight transition-all duration-500" id="hero-title">Laden...</h1>
+                                <p class="text-[11px] md:text-xs 2xl:text-sm 3xl:text-base 4xl:text-lg text-zinc-400 line-clamp-2 md:line-clamp-3 2xl:line-clamp-4 animate-fade-in leading-relaxed transition-all duration-500" id="hero-desc"></p>
                                 <div class="flex gap-2.5 pt-1">
                                     <button id="hero-play" class="bg-[#cae962] text-black px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3 2xl:px-8 2xl:py-4 3xl:px-10 3xl:py-5 rounded-xl text-xs 2xl:text-sm 3xl:text-base font-black uppercase tracking-widest hover:scale-105 transition shadow-[0_0_20px_rgba(202,233,98,0.3)] font-bold flex items-center"><i class="fa-solid fa-play mr-2"></i> Kijk Nu</button>
                                     <button id="hero-info" class="bg-zinc-800/80 backdrop-blur text-white px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3 2xl:px-8 2xl:py-4 3xl:px-10 3xl:py-5 rounded-xl text-xs 2xl:text-sm 3xl:text-base font-black uppercase tracking-widest hover:bg-zinc-700 transition flex items-center"><i class="fa-solid fa-info-circle mr-2"></i> Info</button>
                                 </div>
                             </div>
-                            <img id="hero-img" class="absolute inset-0 w-full h-full object-cover opacity-50">
+                            <div id="hero-indicators" class="absolute top-4 right-4 sm:top-6 sm:right-6 md:bottom-6 md:right-10 md:top-auto z-20 flex gap-1.5 items-center bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10"></div>
+                            <img id="hero-img" class="absolute inset-0 w-full h-full object-cover opacity-50 transition-opacity duration-700">
                         </div>
 
                         <!-- Continue Watching / Verder Kijken Shelf with Dynamic Badges -->
@@ -3295,15 +3299,69 @@
                 const renderHomeFeeds = (res) => {
                     if(!res || !res.data) return;
                     
+                    clearInterval(heroInterval);
                     const tData = res.data.trending.media;
                     if(tData.length > 0) {
-                        const hero = tData[0];
-                        const ht = app.lang === 'english' ? (hero.title.english || hero.title.romaji) : hero.title.romaji;
-                        document.getElementById('hero-title').innerText = ht;
-                        document.getElementById('hero-desc').innerHTML = sanitizeHTML(hero.description) || '';
-                        document.getElementById('hero-img').src = hero.bannerImage || hero.coverImage.extraLarge;
-                        document.getElementById('hero-play').onclick = () => nav('watch', {id: hero.id, ep: 1});
-                        document.getElementById('hero-info').onclick = () => openDetailsModal(hero.id);
+                        const top10 = tData.slice(0, 10);
+                        let currentHeroIdx = 0;
+
+                        const updateHeroSlide = (idx) => {
+                            currentHeroIdx = idx;
+                            const hero = top10[idx];
+                            if (!hero) return;
+                            const ht = app.lang === 'english' ? (hero.title.english || hero.title.romaji) : hero.title.romaji;
+
+                            const badgeEl = document.getElementById('hero-badge');
+                            if (badgeEl) badgeEl.innerText = `Populairste Nu #${idx + 1}`;
+
+                            const titleEl = document.getElementById('hero-title');
+                            if (titleEl) titleEl.innerText = ht;
+
+                            const descEl = document.getElementById('hero-desc');
+                            if (descEl) descEl.innerHTML = sanitizeHTML(hero.description) || '';
+
+                            const imgEl = document.getElementById('hero-img');
+                            if (imgEl) imgEl.src = hero.bannerImage || hero.coverImage.extraLarge;
+
+                            const playBtn = document.getElementById('hero-play');
+                            if (playBtn) playBtn.onclick = () => nav('watch', {id: hero.id, ep: 1});
+
+                            const infoBtn = document.getElementById('hero-info');
+                            if (infoBtn) infoBtn.onclick = () => openDetailsModal(hero.id);
+
+                            const indContainer = document.getElementById('hero-indicators');
+                            if (indContainer) {
+                                let indHtml = '';
+                                top10.forEach((_, i) => {
+                                    const active = i === idx;
+                                    indHtml += `<button onclick="event.stopPropagation(); window.switchHeroSlide(${i});" class="h-2 rounded-full transition-all duration-300 ${active ? 'w-6 bg-[#cae962]' : 'w-2 bg-white/30 hover:bg-white/60'}" aria-label="Slide ${i+1}"></button>`;
+                                });
+                                indContainer.innerHTML = indHtml;
+                            }
+                        };
+
+                        window.switchHeroSlide = (idx) => {
+                            clearInterval(heroInterval);
+                            updateHeroSlide(idx);
+                            startHeroTimer();
+                        };
+
+                        const startHeroTimer = () => {
+                            clearInterval(heroInterval);
+                            heroInterval = setInterval(() => {
+                                const nextIdx = (currentHeroIdx + 1) % top10.length;
+                                updateHeroSlide(nextIdx);
+                            }, 6000);
+                        };
+
+                        updateHeroSlide(0);
+                        startHeroTimer();
+
+                        const heroContainer = document.getElementById('home-hero');
+                        if (heroContainer) {
+                            heroContainer.onmouseenter = () => clearInterval(heroInterval);
+                            heroContainer.onmouseleave = () => startHeroTimer();
+                        }
 
                         const trendShelf = document.getElementById('home-trending');
                         trendShelf.innerHTML = '';
