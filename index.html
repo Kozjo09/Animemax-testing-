@@ -1943,9 +1943,14 @@
             let html = "";
             results.forEach((r) => {
                 const safeTitle = escapeHTML(r.title);
-                const safeMagnet = escapeAttrJS(r.magnet);
-                const safeTorrentUrl = escapeAttrJS(r.torrent_url || "");
-                const safeLink = escapeAttrJS(r.link || "");
+                // Validate URL schemes to prevent javascript: or data: injection
+                const rawMagnet = (r.magnet && /^(magnet:|https?:\/\/)/i.test(r.magnet.trim())) ? r.magnet : '#';
+                const rawTorrentUrl = (r.torrent_url && /^https?:\/\//i.test(r.torrent_url.trim())) ? r.torrent_url : '';
+                const rawLink = (r.link && /^https?:\/\//i.test(r.link.trim())) ? r.link : '';
+
+                const safeMagnet = escapeAttrJS(rawMagnet);
+                const safeTorrentUrl = escapeAttrJS(rawTorrentUrl);
+                const safeLink = escapeAttrJS(rawLink);
                 const badgeColor = r.resolution === "1080p" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : (r.resolution === "720p" ? "bg-blue-500/20 text-blue-400 border-blue-500/30" : "bg-zinc-800 text-zinc-400 border-white/5");
 
                 html += `
