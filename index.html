@@ -3278,7 +3278,8 @@
                                     <button id="hero-info" class="bg-zinc-800/80 backdrop-blur text-white px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3 2xl:px-8 2xl:py-4 3xl:px-10 3xl:py-5 rounded-xl text-xs 2xl:text-sm 3xl:text-base font-black uppercase tracking-widest hover:bg-zinc-700 transition flex items-center"><i class="fa-solid fa-info-circle mr-2"></i> Info</button>
                                 </div>
                             </div>
-                            <div id="hero-indicators" class="absolute top-4 right-4 sm:top-6 sm:right-6 md:bottom-6 md:right-10 md:top-auto z-20 flex gap-1.5 items-center bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10"></div>
+
+                            <div id="hero-indicators" class="absolute top-4 right-4 sm:top-6 sm:right-6 md:bottom-6 md:right-10 md:top-auto z-20 flex gap-1.5 items-center bg-black/50 backdrop-blur-md px-3 py-2 rounded-full border border-white/10 max-w-[180px] xs:max-w-[220px] sm:max-w-[280px] md:max-w-xs overflow-x-auto no-scrollbar scroll-smooth"></div>
                             <img id="hero-img" class="absolute inset-0 w-full h-full object-cover opacity-50 transition-opacity duration-700">
                         </div>
 
@@ -3335,15 +3336,34 @@
                                 let indHtml = '';
                                 top10.forEach((_, i) => {
                                     const active = i === idx;
-                                    indHtml += `<button onclick="event.stopPropagation(); window.switchHeroSlide(${i});" class="h-2 rounded-full transition-all duration-300 ${active ? 'w-6 bg-[#cae962]' : 'w-2 bg-white/30 hover:bg-white/60'}" aria-label="Slide ${i+1}"></button>`;
+                                    indHtml += `<button onclick="event.stopPropagation(); window.switchHeroSlide(${i});" class="shrink-0 h-2.5 rounded-full transition-all duration-300 ${active ? 'w-7 bg-[#cae962]' : 'w-2.5 bg-white/30 hover:bg-white/60'}" aria-label="Slide ${i+1}"></button>`;
                                 });
                                 indContainer.innerHTML = indHtml;
+
+                                const activeBtn = indContainer.children[idx];
+                                if (activeBtn) {
+                                    activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                                }
                             }
                         };
 
                         window.switchHeroSlide = (idx) => {
                             clearInterval(heroInterval);
                             updateHeroSlide(idx);
+                            startHeroTimer();
+                        };
+
+                        window.nextHeroSlide = () => {
+                            clearInterval(heroInterval);
+                            const nextIdx = (currentHeroIdx + 1) % top10.length;
+                            updateHeroSlide(nextIdx);
+                            startHeroTimer();
+                        };
+
+                        window.prevHeroSlide = () => {
+                            clearInterval(heroInterval);
+                            const prevIdx = (currentHeroIdx - 1 + top10.length) % top10.length;
+                            updateHeroSlide(prevIdx);
                             startHeroTimer();
                         };
 
@@ -3362,6 +3382,35 @@
                         if (heroContainer) {
                             heroContainer.onmouseenter = () => clearInterval(heroInterval);
                             heroContainer.onmouseleave = () => startHeroTimer();
+
+                            let touchStartX = 0;
+                            let touchStartY = 0;
+                            let touchEndX = 0;
+                            let touchEndY = 0;
+
+                            heroContainer.addEventListener('touchstart', (e) => {
+                                if (e.target.closest('button')) return;
+                                touchStartX = e.changedTouches[0].clientX;
+                                touchStartY = e.changedTouches[0].clientY;
+                            }, { passive: true });
+
+                            heroContainer.addEventListener('touchend', (e) => {
+                                if (e.target.closest('button')) return;
+                                touchEndX = e.changedTouches[0].clientX;
+                                touchEndY = e.changedTouches[0].clientY;
+
+                                const deltaX = touchEndX - touchStartX;
+                                const deltaY = touchEndY - touchStartY;
+
+                                // Require minimum horizontal distance of 40px and horizontal swipe priority over vertical scroll
+                                if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                                    if (deltaX < 0) {
+                                        window.nextHeroSlide();
+                                    } else {
+                                        window.prevHeroSlide();
+                                    }
+                                }
+                            }, { passive: true });
                         }
 
                         const trendShelf = document.getElementById('home-trending');
