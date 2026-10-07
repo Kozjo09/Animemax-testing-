@@ -3278,10 +3278,8 @@
                                     <button id="hero-info" class="bg-zinc-800/80 backdrop-blur text-white px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3 2xl:px-8 2xl:py-4 3xl:px-10 3xl:py-5 rounded-xl text-xs 2xl:text-sm 3xl:text-base font-black uppercase tracking-widest hover:bg-zinc-700 transition flex items-center"><i class="fa-solid fa-info-circle mr-2"></i> Info</button>
                                 </div>
                             </div>
-                            <!-- Navigation Arrow Buttons -->
-                            <button id="hero-prev" onclick="event.stopPropagation(); window.prevHeroSlide();" class="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/10 text-white hover:text-[#cae962] flex items-center justify-center transition opacity-80 hover:opacity-100 shadow-lg" aria-label="Vorige Slide"><i class="fa-solid fa-chevron-left text-sm sm:text-base"></i></button>
-                            <button id="hero-next" onclick="event.stopPropagation(); window.nextHeroSlide();" class="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/10 text-white hover:text-[#cae962] flex items-center justify-center transition opacity-80 hover:opacity-100 shadow-lg" aria-label="Volgende Slide"><i class="fa-solid fa-chevron-right text-sm sm:text-base"></i></button>
-                            <div id="hero-indicators" class="absolute top-4 right-4 sm:top-6 sm:right-6 md:bottom-6 md:right-10 md:top-auto z-20 flex gap-1.5 items-center bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10"></div>
+
+                            <div id="hero-indicators" class="absolute top-4 right-4 sm:top-6 sm:right-6 md:bottom-6 md:right-10 md:top-auto z-20 flex gap-1.5 items-center bg-black/50 backdrop-blur-md px-3 py-2 rounded-full border border-white/10 max-w-[180px] xs:max-w-[220px] sm:max-w-[280px] md:max-w-xs overflow-x-auto no-scrollbar scroll-smooth"></div>
                             <img id="hero-img" class="absolute inset-0 w-full h-full object-cover opacity-50 transition-opacity duration-700">
                         </div>
 
@@ -3338,9 +3336,14 @@
                                 let indHtml = '';
                                 top10.forEach((_, i) => {
                                     const active = i === idx;
-                                    indHtml += `<button onclick="event.stopPropagation(); window.switchHeroSlide(${i});" class="h-2 rounded-full transition-all duration-300 ${active ? 'w-6 bg-[#cae962]' : 'w-2 bg-white/30 hover:bg-white/60'}" aria-label="Slide ${i+1}"></button>`;
+                                    indHtml += `<button onclick="event.stopPropagation(); window.switchHeroSlide(${i});" class="shrink-0 h-2.5 rounded-full transition-all duration-300 ${active ? 'w-7 bg-[#cae962]' : 'w-2.5 bg-white/30 hover:bg-white/60'}" aria-label="Slide ${i+1}"></button>`;
                                 });
                                 indContainer.innerHTML = indHtml;
+
+                                const activeBtn = indContainer.children[idx];
+                                if (activeBtn) {
+                                    activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                                }
                             }
                         };
 
