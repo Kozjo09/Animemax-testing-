@@ -692,41 +692,41 @@
                     <div class="w-full max-w-sm sm:max-w-md 2xl:max-w-lg 3xl:max-w-xl 4xl:max-w-2xl mx-auto mt-6 sm:mt-16 p-4 sm:p-8 2xl:p-12 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
                         <h2 class="text-2xl sm:text-3xl 2xl:text-4xl 3xl:text-5xl 4xl:text-6xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
                         <p class="text-[10px] sm:text-xs 2xl:text-sm 3xl:text-base text-zinc-500 uppercase tracking-widest text-center mb-6 sm:mb-8">Nieuw cloud-profiel aanmaken</p>
-                        <div class="space-y-4">
-                            <input type="text" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="E-mailadres">
-                            <input type="text" id="auth-username" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Gebruikersnaam">
-                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Wachtwoord (min. 6)">
-                            <button onclick="handleAuth('reg')" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Account Aanmaken</button>
-                            <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
-                            <p class="text-center text-xs 2xl:text-sm 3xl:text-base text-zinc-500 mt-4">Al een account? <button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline">Inloggen</button></p>
-                        </div>
+                        <form onsubmit="event.preventDefault(); handleAuth('reg');" class="space-y-4">
+                            <input type="text" id="auth-email" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-username').focus();}" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="E-mailadres">
+                            <input type="text" id="auth-username" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-password').focus();}" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Gebruikersnaam">
+                            <input type="password" id="auth-password" onkeydown="if(event.key==='Enter'){event.preventDefault();handleAuth('reg');}" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Wachtwoord (min. 6)">
+                            <button type="submit" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Account Aanmaken</button>
+                            <button type="button" onclick="handleGoogleLogin()" class="bg-white text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
+                            <p class="text-center text-xs 2xl:text-sm 3xl:text-base text-zinc-500 mt-4">Al een account? <button type="button" onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline">Inloggen</button></p>
+                        </form>
                     </div>`;
             } else if (mode === 'forgot') {
                 main.innerHTML = `
                     <div class="w-full max-w-sm sm:max-w-md 2xl:max-w-lg 3xl:max-w-xl 4xl:max-w-2xl mx-auto mt-6 sm:mt-16 p-4 sm:p-8 2xl:p-12 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
                         <h2 class="text-2xl sm:text-3xl 2xl:text-4xl 3xl:text-5xl 4xl:text-6xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Wachtwoord Herstellen</h2>
                         <p class="text-[10px] sm:text-xs 2xl:text-sm 3xl:text-base text-zinc-500 uppercase tracking-widest text-center mb-6 sm:mb-8">Ontvang een herstellink</p>
-                        <div class="space-y-4">
-                            <input type="text" id="auth-reset-input" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Gebruikersnaam of E-mailadres">
-                            <button onclick="handleForgotPassword()" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Verstuur herstellink</button>
-                            <p class="text-center text-xs 2xl:text-sm 3xl:text-base text-zinc-500 mt-4"><button onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i> Terug naar login</button></p>
-                        </div>
+                        <form onsubmit="event.preventDefault(); handleForgotPassword();" class="space-y-4">
+                            <input type="text" id="auth-reset-input" onkeydown="if(event.key==='Enter'){event.preventDefault();handleForgotPassword();}" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Gebruikersnaam of E-mailadres">
+                            <button type="submit" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Verstuur herstellink</button>
+                            <p class="text-center text-xs 2xl:text-sm 3xl:text-base text-zinc-500 mt-4"><button type="button" onclick="showLoginPage('login')" class="text-[#cae962] font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i> Terug naar login</button></p>
+                        </form>
                     </div>`;
             } else {
                 main.innerHTML = `
                     <div class="w-full max-w-sm sm:max-w-md 2xl:max-w-lg 3xl:max-w-xl 4xl:max-w-2xl mx-auto mt-6 sm:mt-16 p-4 sm:p-8 2xl:p-12 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
                         <h2 class="text-2xl sm:text-3xl 2xl:text-4xl 3xl:text-5xl 4xl:text-6xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">ANIME<span class="text-white">MAX</span></h2>
                         <p class="text-[10px] sm:text-xs 2xl:text-sm 3xl:text-base text-zinc-500 uppercase tracking-widest text-center mb-6 sm:mb-8">Inloggen</p>
-                        <div class="space-y-4">
-                            <input type="text" id="auth-email" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="E-mailadres of Gebruikersnaam">
-                            <input type="password" id="auth-password" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Wachtwoord">
+                        <form onsubmit="event.preventDefault(); handleAuth('login');" class="space-y-4">
+                            <input type="text" id="auth-email" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-password').focus();}" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="E-mailadres of Gebruikersnaam">
+                            <input type="password" id="auth-password" onkeydown="if(event.key==='Enter'){event.preventDefault();handleAuth('login');}" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Wachtwoord">
                             <div class="text-right">
-                                <button onclick="showLoginPage('forgot')" class="text-zinc-500 text-xs 2xl:text-sm 3xl:text-base hover:text-white transition">Wachtwoord vergeten?</button>
+                                <button type="button" onclick="showLoginPage('forgot')" class="text-zinc-500 text-xs 2xl:text-sm 3xl:text-base hover:text-white transition">Wachtwoord vergeten?</button>
                             </div>
-                            <button onclick="handleAuth('login')" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Inloggen</button>
-                            <button onclick="handleGoogleLogin()" class="bg-white text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
-                            <p class="text-center text-xs 2xl:text-sm 3xl:text-base text-zinc-500 mt-4">Nieuw hier? <button onclick="showLoginPage('register')" class="text-[#cae962] font-bold hover:underline">Registreren</button></p>
-                        </div>
+                            <button type="submit" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Inloggen</button>
+                            <button type="button" onclick="handleGoogleLogin()" class="bg-white text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest flex items-center justify-center gap-2 mt-4 hover:bg-zinc-200 transition"><i class="fa-brands fa-google"></i> Google</button>
+                            <p class="text-center text-xs 2xl:text-sm 3xl:text-base text-zinc-500 mt-4">Nieuw hier? <button type="button" onclick="showLoginPage('register')" class="text-[#cae962] font-bold hover:underline">Registreren</button></p>
+                        </form>
                     </div>`;
             }
         }
@@ -742,12 +742,13 @@
                 <div class="w-full max-w-sm sm:max-w-md 2xl:max-w-lg 3xl:max-w-xl 4xl:max-w-2xl mx-auto mt-6 sm:mt-16 p-4 sm:p-8 2xl:p-12 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
                     <h2 class="text-2xl sm:text-3xl 2xl:text-4xl 3xl:text-5xl 4xl:text-6xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Nieuw Wachtwoord</h2>
                     <p class="text-[10px] sm:text-xs 2xl:text-sm 3xl:text-base text-zinc-500 uppercase tracking-widest text-center mb-6 sm:mb-8">Stel een nieuw wachtwoord in</p>
-                    <div class="space-y-4">
-                        <input type="password" id="reset-new-password" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Nieuw Wachtwoord (min. 6)">
-                        <button onclick="handleResetPassword()" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Bevestig Wachtwoord</button>
-                    </div>
+                    <form onsubmit="event.preventDefault(); handleResetPassword();" class="space-y-4">
+                        <input type="password" id="reset-new-password" onkeydown="if(event.key==='Enter'){event.preventDefault();handleResetPassword();}" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Nieuw Wachtwoord (min. 6)">
+                        <button type="submit" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Bevestig Wachtwoord</button>
+                    </form>
                 </div>`;
         }
+
 
         window.handleForgotPassword = async function() {
             let input = document.getElementById('auth-reset-input').value.trim();
