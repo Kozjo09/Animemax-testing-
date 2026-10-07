@@ -2183,7 +2183,7 @@
 
                 const loc = app.xmlLib.find(i => i && i.id == id);
                 const statStr = loc ? loc.status : "Not Watching";
-                document.getElementById('detail-action-text').innerHTML = loc ? `<span class="text-[#cae962] font-black">${loc.status}</span> - Progress: ${loc.progress}/${anticipatedTotal || '?'}` : 'Niet in bibliotheek';
+                document.getElementById('detail-action-text').innerHTML = loc ? `<span class="text-[#cae962] font-black">${escapeHTML(loc.status)}</span> - Progress: ${loc.progress}/${anticipatedTotal || '?'}` : 'Niet in bibliotheek';
                 document.getElementById('detail-status-dropdown').value = statStr;
 
                 // Calculate progress to set the target episode for the Play button
@@ -2945,7 +2945,7 @@
                     const statusText = document.getElementById('local-status-text');
                     if (statusSpan && statusText) {
                         statusSpan.innerText = stat;
-                        statusText.innerHTML = `<span class="accent">${stat}</span> - Ep ${prog} / ${eps}`;
+                        statusText.innerHTML = `<span class="accent">${escapeHTML(stat)}</span> - Ep ${prog} / ${eps}`;
                     }
 
                     const statusDropdown = document.getElementById('local-status-dropdown');
