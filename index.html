@@ -1444,6 +1444,16 @@
                 window.showToast("Er is op dit moment geen directe video of .m3u8 bron geladen.", "error");
                 return;
             }
+            // Security: Enforce strict http/https scheme validation on stream URL before triggering custom VLC protocol launch
+            if (!/^https?:\/\//i.test(window.currentM3u8Url)) {
+                window.showToast("Onveilige of ongeldige video-URL voor VLC.", "error");
+                return;
+            }
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const vlcUrl = isMobile
+                ? "vlc-x-callback://x-callback-url/stream?url=" + encodeURIComponent(window.currentM3u8Url)
+                : "vlc://" + window.currentM3u8Url;
+            window.location.href = vlcUrl;
             window.showToast("VLC Player aangeroepen! Zorg ervoor dat de VLC-app is geïnstalleerd.", "success");
         };
 
