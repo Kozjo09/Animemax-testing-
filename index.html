@@ -3352,7 +3352,10 @@
 
                                 const activeBtn = indContainer.children[idx];
                                 if (activeBtn) {
-                                    activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                                    indContainer.scrollTo({
+                                        left: activeBtn.offsetLeft - (indContainer.clientWidth / 2) + (activeBtn.clientWidth / 2),
+                                        behavior: 'smooth'
+                                    });
                                 }
                             }
                         };
