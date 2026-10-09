@@ -1357,7 +1357,7 @@
             window.currentM3u8Url = m3u8Url;
             
             const vlcBtn = document.getElementById('vlc-btn');
-            if (vlcBtn) {
+            if (vlcBtn && /^https?:\/\//i.test(m3u8Url)) {
                 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
                 if (isMobile) {
                     vlcBtn.href = "vlc-x-callback://x-callback-url/stream?url=" + encodeURIComponent(m3u8Url);
@@ -1675,7 +1675,7 @@
                         
                         window.currentM3u8Url = best.url;
                         const vlcBtn = document.getElementById('vlc-btn');
-                        if (vlcBtn) {
+                        if (vlcBtn && /^https?:\/\//i.test(best.url)) {
                             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
                             if (isMobile) {
                                 vlcBtn.href = "vlc-x-callback://x-callback-url/stream?url=" + encodeURIComponent(best.url);
