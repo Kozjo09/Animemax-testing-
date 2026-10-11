@@ -449,7 +449,7 @@
         }
         window.isValidAvatarUrl = isValidAvatarUrl;
 
-        function getAgeRating(m) {
+                function getAgeRating(m) {
             if (!m) return { code: "PG-13", age: 13, isAdult: false, shortDesc: "13+", explanation: "13+ Teens and Older" };
             const isAdult = m.isAdult === true;
             const genres = (m.genres || []).map(g => String(g).toLowerCase());
@@ -467,16 +467,24 @@
             if (genres.includes("horror") || tags.includes("gore") || tags.includes("blood") || tags.includes("violence") || tags.includes("horror") || tags.includes("psychological")) {
                 return { code: "R", age: 17, isAdult: false, shortDesc: "17+ / 18+ Cen", explanation: "17+ Mild Gore / Violence / Horror" };
             }
+            if (genres.includes("kids") || tags.includes("kids") || tags.includes("children")) {
+                return { code: "G", age: 0, isAdult: false, shortDesc: "G / All", explanation: "G - All Ages / Children" };
+            }
+            if (tags.includes("shounen") || tags.includes("family") || genres.includes("slice of life") || genres.includes("sports")) {
+                return { code: "PG", age: 10, isAdult: false, shortDesc: "PG / 10+", explanation: "PG - Children & Family (10+)" };
+            }
             return { code: "PG-13", age: 13, isAdult: false, shortDesc: "13+", explanation: "13+ Teens and Older" };
         }
         window.getAgeRating = getAgeRating;
         window.isAgeUnlocked = false;
 
-        function isAnimeBlocked(m) {
+                function isAnimeBlocked(m) {
             if (!app.ageFilterEnabled) return false;
             if (!m) return false;
-            const levelRanks = { "PG-13": 1, "R": 2, "R+": 3, "Rx": 4 };
-            const maxRank = levelRanks[app.ageFilterLevel] || 4;
+            if (app.ageFilterLevel === "NO_RESTRICTION") return false;
+
+            const levelRanks = { "G": 1, "PG": 2, "PG-13": 3, "R": 4, "R+": 5, "Rx": 6, "NO_RESTRICTION": 7 };
+            const maxRank = levelRanks[app.ageFilterLevel] || 7;
             const rateInfo = getAgeRating(m);
             const animeRank = levelRanks[rateInfo.code] || 1;
             return animeRank > maxRank;
@@ -3454,21 +3462,27 @@
                                 <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 p-1">
                                     <span class="text-xs font-black uppercase text-zinc-400">Maximale Toegestane Keuring</span>
                                     <select id="set-age-filter-level" onchange="changeAgeFilterLevel(this.value)" class="bg-black border border-white/10 p-2.5 rounded-lg text-xs font-bold text-white outline-none" ${app.agePasswordEnabled && !window.isAgeUnlocked ? 'disabled' : ''}>
-                                        <option value="PG-13" ${app.ageFilterLevel==='PG-13'?'selected':''}>PG-13 (13+ Teens &amp; Older)</option>
-                                        <option value="R" ${app.ageFilterLevel==='R'?'selected':''}>R (17+ / 18+ Cen - Mild Gore/Horror)</option>
-                                        <option value="R+" ${app.ageFilterLevel==='R+'?'selected':''}>R+ (18+ Cen - Mild Nudity/Ecchi)</option>
-                                        <option value="Rx" ${app.ageFilterLevel==='Rx'?'selected':''}>Rx (18+ Uncen / Geen Beperking)</option>
+                                        <option value="G" ${app.ageFilterLevel==='G'?'selected':''}>G (Alle Leeftijden / Kinderen)</option>
+                                        <option value="PG" ${app.ageFilterLevel==='PG'?'selected':''}>PG (10+ Kinderen &amp; Familie)</option>
+                                        <option value="PG-13" ${app.ageFilterLevel==='PG-13'?'selected':''}>PG-13 (13+ Tieners &amp; Ouder)</option>
+                                        <option value="R" ${app.ageFilterLevel==='R'?'selected':''}>R (17+ Mild Geweld / Bloed / Horror)</option>
+                                        <option value="R+" ${app.ageFilterLevel==='R+'?'selected':''}>R+ (18+ Cen - Mild Naakt &amp; Ecchi)</option>
+                                        <option value="Rx" ${app.ageFilterLevel==='Rx'?'selected':''}>Rx (18+ Uncen - Explicit Adult)</option>
+                                        <option value="NO_RESTRICTION" ${app.ageFilterLevel==='NO_RESTRICTION'?'selected':''}>Geen Beperking (Alle Inhoud)</option>
                                     </select>
                                 </div>
 
                                 <!-- Explanation of Age Ratings -->
                                 <div class="bg-zinc-950 p-3 rounded-lg border border-white/5 space-y-1.5 text-[10px]">
-                                    <p class="font-black text-zinc-400 uppercase tracking-widest text-[9px]">Uitleg Keuringen:</p>
+                                    <p class="font-black text-zinc-400 uppercase tracking-widest text-[9px]">Uitleg Keuringen &amp; Beperkingen:</p>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-zinc-400">
-                                        <div><span class="font-black text-[#cae962]">PG-13:</span> 13+ Geschikt voor tieners en ouder.</div>
-                                        <div><span class="font-black text-amber-400">R:</span> 17+ / 18+ Cen (Mild geweld, bloed, horror).</div>
+                                        <div><span class="font-black text-emerald-400">G:</span> Alle leeftijden / Kinderen.</div>
+                                        <div><span class="font-black text-cyan-400">PG:</span> 10+ Kinderen &amp; Familie.</div>
+                                        <div><span class="font-black text-[#cae962]">PG-13:</span> 13+ Tieners en ouder.</div>
+                                        <div><span class="font-black text-amber-400">R:</span> 17+ Mild geweld, bloed &amp; horror.</div>
                                         <div><span class="font-black text-orange-400">R+:</span> 18+ Cen (Mild naakt, erotica &amp; ecchi).</div>
-                                        <div><span class="font-black text-red-500">Rx:</span> 18+ Uncen (18+ Explicite/Uncensored adult).</div>
+                                        <div><span class="font-black text-red-500">Rx:</span> 18+ Uncen (Explicit adult).</div>
+                                        <div class="col-span-1 sm:col-span-2"><span class="font-black text-purple-400">Geen Beperking:</span> Alle anime toegankelijk zonder leeftijdsblokkade.</div>
                                     </div>
                                 </div>
                             </div>
