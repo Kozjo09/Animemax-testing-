@@ -2013,6 +2013,7 @@
             let html = "";
             results.forEach((r) => {
                 const safeTitle = escapeHTML(r.title);
+                const safeJSTitle = escapeAttrJS(r.title);
                 // Validate URL schemes to prevent javascript: or data: injection
                 const rawMagnet = (r.magnet && /^(magnet:|https?:\/\/)/i.test(r.magnet.trim())) ? r.magnet : '#';
                 const rawTorrentUrl = (r.torrent_url && /^https?:\/\//i.test(r.torrent_url.trim())) ? r.torrent_url : '';
@@ -2041,10 +2042,10 @@
                         <a href="${safeTorrentUrl || safeMagnet}" target="_blank" rel="noopener noreferrer" download class="px-2.5 py-1.5 rounded-xl bg-zinc-800/80 text-zinc-300 font-bold text-[10px] uppercase hover:bg-zinc-700 hover:text-white transition-all whitespace-nowrap flex items-center justify-center gap-1 border border-white/5" title="Download .torrent bestand of Magnet link">
                             <i class="fa-solid fa-magnet text-amber-400"></i> .Torrent / Magnet
                         </a>
-                        <button onclick="window.downloadVideoFile('${safeTorrentUrl}', '${safeMagnet}', '${safeTitle}')" class="px-2.5 py-1.5 rounded-xl bg-zinc-800 text-zinc-200 font-bold text-[10px] uppercase hover:bg-zinc-700 hover:text-white transition-all whitespace-nowrap flex items-center justify-center gap-1 border border-white/5" title="Download Videobestand (.mp4 / .mkv)">
+                        <button onclick="window.downloadVideoFile('${safeTorrentUrl}', '${safeMagnet}', '${safeJSTitle}')" class="px-2.5 py-1.5 rounded-xl bg-zinc-800 text-zinc-200 font-bold text-[10px] uppercase hover:bg-zinc-700 hover:text-white transition-all whitespace-nowrap flex items-center justify-center gap-1 border border-white/5" title="Download Videobestand (.mp4 / .mkv)">
                             <i class="fa-solid fa-download text-[#cae962]"></i> Download Video
                         </button>
-                        <button onclick="window.selectTorrentAndStream('${safeMagnet}', '${safeTitle}', '${safeTorrentUrl}', '${safeLink}')" class="px-3 py-1.5 rounded-xl bg-[#cae962] text-black font-black text-[10px] uppercase hover:bg-[#b8da4e] transition-all whitespace-nowrap flex items-center justify-center gap-1">
+                        <button onclick="window.selectTorrentAndStream('${safeMagnet}', '${safeJSTitle}', '${safeTorrentUrl}', '${safeLink}')" class="px-3 py-1.5 rounded-xl bg-[#cae962] text-black font-black text-[10px] uppercase hover:bg-[#b8da4e] transition-all whitespace-nowrap flex items-center justify-center gap-1">
                             <i class="fa-solid fa-play"></i> Stream Direct
                         </button>
                     </div>
