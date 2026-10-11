@@ -401,13 +401,6 @@
         let sb = null;
         let sessionData = null;
         let isPasswordResetFlow = false;
-        let isAgePasswordResetFlow = false;
-
-        function checkIsAgeReset() {
-            return window.location.search.includes("mode=age_recovery") ||
-                   window.location.hash.includes("mode=age_recovery") ||
-                   isAgePasswordResetFlow;
-        }
         let saveInterval = null;
         let saveTimeout = null;
         let dubTimeout = null;
@@ -788,63 +781,22 @@
         }
         window.showLoginPage = showLoginPage;
 
-        window.showResetPasswordView = function(overrideType) {
+        window.showResetPasswordView = function() {
             isPasswordResetFlow = true;
-            const isAgeReset = overrideType === 'age' || checkIsAgeReset();
-            if (isAgeReset) {
-                isAgePasswordResetFlow = true;
-            }
-
             document.getElementById('app-header').classList.add('hidden');
             document.getElementById('app-navigation').classList.add('hidden');
             const main = document.getElementById('content');
             if(!main) return;
-
-            if (isAgeReset) {
-                main.innerHTML = `
-                    <div class="w-full max-w-sm sm:max-w-md 2xl:max-w-lg 3xl:max-w-xl 4xl:max-w-2xl mx-auto mt-6 sm:mt-16 p-4 sm:p-8 2xl:p-12 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                        <h2 class="text-2xl sm:text-3xl 2xl:text-4xl 3xl:text-5xl 4xl:text-6xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Leeftijdwachtwoord Herstellen</h2>
-                        <p class="text-[10px] sm:text-xs 2xl:text-sm 3xl:text-base text-zinc-500 uppercase tracking-widest text-center mb-6 sm:mb-8">Stel een nieuw leeftijdwachtwoord in</p>
-                        <form onsubmit="event.preventDefault(); handleResetAgePassword();" class="space-y-4">
-                            <input type="password" id="reset-new-age-password" onkeydown="if(event.key==='Enter'){event.preventDefault();handleResetAgePassword();}" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Nieuw Leeftijdwachtwoord (min. 4 tekens)">
-                            <button type="submit" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Bevestig Leeftijdwachtwoord</button>
-                        </form>
-                    </div>`;
-            } else {
-                main.innerHTML = `
-                    <div class="w-full max-w-sm sm:max-w-md 2xl:max-w-lg 3xl:max-w-xl 4xl:max-w-2xl mx-auto mt-6 sm:mt-16 p-4 sm:p-8 2xl:p-12 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
-                        <h2 class="text-2xl sm:text-3xl 2xl:text-4xl 3xl:text-5xl 4xl:text-6xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Nieuw Wachtwoord</h2>
-                        <p class="text-[10px] sm:text-xs 2xl:text-sm 3xl:text-base text-zinc-500 uppercase tracking-widest text-center mb-6 sm:mb-8">Stel een nieuw wachtwoord in</p>
-                        <form onsubmit="event.preventDefault(); handleResetPassword();" class="space-y-4">
-                            <input type="password" id="reset-new-password" onkeydown="if(event.key==='Enter'){event.preventDefault();handleResetPassword();}" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Nieuw Wachtwoord (min. 6)">
-                            <button type="submit" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Bevestig Wachtwoord</button>
-                        </form>
-                    </div>`;
-            }
+            main.innerHTML = `
+                <div class="w-full max-w-sm sm:max-w-md 2xl:max-w-lg 3xl:max-w-xl 4xl:max-w-2xl mx-auto mt-6 sm:mt-16 p-4 sm:p-8 2xl:p-12 card border border-white/5 shadow-2xl animate-fade-in bg-zinc-950">
+                    <h2 class="text-2xl sm:text-3xl 2xl:text-4xl 3xl:text-5xl 4xl:text-6xl font-black italic accent uppercase tracking-tighter mb-2 text-center text-[#cae962]">Nieuw Wachtwoord</h2>
+                    <p class="text-[10px] sm:text-xs 2xl:text-sm 3xl:text-base text-zinc-500 uppercase tracking-widest text-center mb-6 sm:mb-8">Stel een nieuw wachtwoord in</p>
+                    <form onsubmit="event.preventDefault(); handleResetPassword();" class="space-y-4">
+                        <input type="password" id="reset-new-password" onkeydown="if(event.key==='Enter'){event.preventDefault();handleResetPassword();}" class="w-full bg-zinc-900 border border-white/5 p-3 sm:p-4 2xl:p-5 3xl:p-6 rounded-xl outline-none focus:border-[#cae962] text-white font-bold text-xs sm:text-sm 2xl:text-base 3xl:text-lg" placeholder="Nieuw Wachtwoord (min. 6)">
+                        <button type="submit" class="bg-[#cae962] text-black font-black py-3 sm:py-4 2xl:py-5 3xl:py-6 rounded-xl w-full text-xs sm:text-sm 2xl:text-base 3xl:text-lg uppercase tracking-widest hover:bg-lime-400 transition font-bold">Bevestig Wachtwoord</button>
+                    </form>
+                </div>`;
         }
-
-        window.handleResetAgePassword = async function() {
-            const pass = (document.getElementById('reset-new-age-password')?.value || '').trim();
-            if (pass.length < 4) return window.showToast("Leeftijdwachtwoord moet minimaal 4 tekens bevatten!", "error");
-
-            app.agePassword = pass;
-            app.agePasswordEnabled = true;
-            window.isAgeUnlocked = true;
-            saveCloudData();
-
-            window.showToast("Leeftijdwachtwoord succesvol gewijzigd!", "success");
-            isPasswordResetFlow = false;
-            isAgePasswordResetFlow = false;
-
-            if (window.location.hash || window.location.search) {
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }
-
-            document.getElementById('app-header').classList.remove('hidden');
-            document.getElementById('app-navigation').classList.remove('hidden');
-            app.view = 'settings';
-            render();
-        };
 
 
         window.handleForgotPassword = async function() {
@@ -3017,7 +2969,7 @@
             window.showToast("Herstelfunctie starten voor e-mail...");
             const email = sessionData.user.email;
             const { error } = await sb.auth.resetPasswordForEmail(email, {
-                redirectTo: window.location.origin + window.location.pathname + '?mode=age_recovery'
+                redirectTo: window.location.origin + window.location.pathname
             });
             if (error) {
                 window.showToast("Mislukt: " + error.message, "error");
@@ -3465,18 +3417,18 @@
                                 <!-- Password Lock / Unlock controls if Age Password is enabled -->
                                 ${app.agePasswordEnabled ? `
                                     <div class="bg-zinc-900/80 p-3.5 rounded-xl border border-white/10 space-y-3">
-                                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
-                                            <span class="text-[11px] font-bold text-zinc-300 flex items-center gap-1.5 shrink-0">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[11px] font-bold text-zinc-300 flex items-center gap-1.5">
                                                 <i class="fa-solid ${window.isAgeUnlocked ? 'fa-lock-open text-emerald-400' : 'fa-lock text-red-400'}"></i>
                                                 Status: ${window.isAgeUnlocked ? '<span class="text-emerald-400 font-black uppercase">Ontgrendeld</span>' : '<span class="text-red-400 font-black uppercase">Vergrendeld</span>'}
                                             </span>
                                             ${!window.isAgeUnlocked ? `
-                                                <div class="flex items-center gap-2 w-full sm:w-auto">
-                                                    <input type="password" id="age-unlock-input" placeholder="Wachtwoord" class="flex-1 sm:flex-none sm:w-32 min-w-0 bg-black border border-white/10 px-2.5 py-1.5 rounded text-xs text-white outline-none focus:border-[#cae962]">
-                                                    <button onclick="unlockAgeFilter()" class="bg-[#cae962] hover:bg-lime-400 text-black px-3 py-1.5 rounded text-xs font-black uppercase shrink-0 transition">Ontgrendel</button>
+                                                <div class="flex gap-2">
+                                                    <input type="password" id="age-unlock-input" placeholder="Wachtwoord" class="w-28 bg-black border border-white/10 px-2 py-1 rounded text-xs text-white outline-none">
+                                                    <button onclick="unlockAgeFilter()" class="bg-[#cae962] text-black px-3 py-1 rounded text-xs font-black uppercase">Ontgrendel</button>
                                                 </div>
                                             ` : `
-                                                <button onclick="lockAgeFilter()" class="bg-zinc-800 text-zinc-300 hover:text-white px-3 py-1.5 rounded text-xs font-black uppercase border border-white/10 transition">Vergrendel</button>
+                                                <button onclick="lockAgeFilter()" class="bg-zinc-800 text-zinc-300 hover:text-white px-3 py-1 rounded text-xs font-black uppercase border border-white/10">Vergrendel</button>
                                             `}
                                         </div>
                                         <div class="text-right">
@@ -3487,9 +3439,9 @@
                                         <div class="border-t border-white/5 pt-3 space-y-2">
                                             <p class="text-[10px] font-black uppercase text-zinc-400">Wachtwoord Wijzigen</p>
                                             <div class="flex flex-col sm:flex-row gap-2">
-                                                <input type="password" id="age-pwd-old" placeholder="Oud Wachtwoord" class="flex-1 min-w-0 bg-black border border-white/10 p-2 rounded text-xs text-white outline-none focus:border-[#cae962]">
-                                                <input type="password" id="age-pwd-new" placeholder="Nieuw Wachtwoord" class="flex-1 min-w-0 bg-black border border-white/10 p-2 rounded text-xs text-white outline-none focus:border-[#cae962]">
-                                                <button onclick="changeAgePassword()" class="bg-[#cae962] hover:bg-lime-400 text-black px-3 py-2 rounded text-xs font-black uppercase whitespace-nowrap shrink-0 transition">Opslaan</button>
+                                                <input type="password" id="age-pwd-old" placeholder="Oud Wachtwoord" class="flex-1 bg-black border border-white/10 p-2 rounded text-xs text-white outline-none">
+                                                <input type="password" id="age-pwd-new" placeholder="Nieuw Wachtwoord" class="flex-1 bg-black border border-white/10 p-2 rounded text-xs text-white outline-none">
+                                                <button onclick="changeAgePassword()" class="bg-[#cae962] text-black px-3 py-2 rounded text-xs font-black uppercase whitespace-nowrap">Opslaan</button>
                                             </div>
                                         </div>
                                     </div>
@@ -4300,15 +4252,13 @@
                 return;
             }
             
-            if (window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery') || checkIsAgeReset()) {
+            if (window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery')) {
                 isPasswordResetFlow = true;
-                if (checkIsAgeReset()) isAgePasswordResetFlow = true;
             }
 
             sb.auth.onAuthStateChange(async (event, session) => {
                 if (event === 'PASSWORD_RECOVERY') {
                     isPasswordResetFlow = true;
-                    if (checkIsAgeReset()) isAgePasswordResetFlow = true;
                     showResetPasswordView();
                     return;
                 }
@@ -4320,9 +4270,8 @@
                         await loadCloudData();
                     }
 
-                    if (isPasswordResetFlow || checkIsAgeReset() || window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery')) {
+                    if (isPasswordResetFlow || window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery')) {
                         isPasswordResetFlow = true;
-                        if (checkIsAgeReset()) isAgePasswordResetFlow = true;
                         showResetPasswordView();
                         return;
                     }
@@ -4343,10 +4292,9 @@
             });
 
             sb.auth.getSession().then(({ data: { session } }) => {
-                if (isPasswordResetFlow || checkIsAgeReset() || window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery') || window.location.hash.includes('access_token=')) {
-                    if (isPasswordResetFlow || checkIsAgeReset() || window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery')) {
+                if (isPasswordResetFlow || window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery') || window.location.hash.includes('access_token=')) {
+                    if (isPasswordResetFlow || window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery')) {
                         isPasswordResetFlow = true;
-                        if (checkIsAgeReset()) isAgePasswordResetFlow = true;
                         showResetPasswordView();
                     }
                     return; // Laat onAuthStateChange of recovery dit afhandelen.
