@@ -2361,7 +2361,7 @@
         window.saveRecent = function(id, title, img, ep) {
             let rec = app.recent.filter(i => i && i.id != id);
             rec.unshift({ id, title, img, ep, time: currentPlaybackTime || 0, duration: currentDuration || 0, ts: Date.now() });
-            app.recent = rec.slice(0, 12);
+            app.recent = rec.slice(0, 50);
             saveCloudDataDebounced();
         };
 
