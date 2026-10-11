@@ -29,3 +29,8 @@
 **Vulnerability:** Rich HTML descriptions fetched from external GraphQL APIs (AniList) contained anchor (`<a>`) elements. While `sanitizeHTML` removed unsafe attribute event handlers, stripping all non-`href` attributes allowed external links to navigate away from the SPA window in-place, and omitted `rel="noopener noreferrer"`, leaving the app open to reverse tabnabbing via `window.opener`.
 **Learning:** Sanitizing HTML links requires enforcing secure navigation behavior (`target="_blank"`) and isolation (`rel="noopener noreferrer"`) on valid `<a>` elements after stripping arbitrary or untrusted attributes.
 **Prevention:** In custom HTML sanitizers, explicitly set `child.setAttribute('target', '_blank')` and `child.setAttribute('rel', 'noopener noreferrer')` on all allowed `<a>` tags possessing a valid `href`.
+
+## 2026-10-10 - [Arbitrary Protocol Handler Injection via Dynamic Stream URLs in Custom Application Schemes]
+**Vulnerability:** Stream URLs fetched from third-party video APIs or player responses were directly formatted into custom protocol scheme strings (`vlc://` and `vlc-x-callback://`) and assigned to `vlcBtn.href`. Unsanitized URLs containing arbitrary protocol schemes or parameters could lead to unintended protocol invocation or parameter injection.
+**Learning:** Constructing URI protocol handlers (e.g. `vlc://<url>`) with raw dynamic URLs allows untrusted stream payloads to dictate external application behavior if the inner URL is not validated.
+**Prevention:** Always validate that incoming stream URLs strictly begin with an `http://` or `https://` scheme before appending them to custom application protocol handler URIs or assigning them to element `href` attributes.

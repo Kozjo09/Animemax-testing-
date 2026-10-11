@@ -1359,10 +1359,12 @@
             const vlcBtn = document.getElementById('vlc-btn');
             if (vlcBtn && /^https?:\/\//i.test(m3u8Url)) {
                 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                if (isMobile) {
-                    vlcBtn.href = "vlc-x-callback://x-callback-url/stream?url=" + encodeURIComponent(m3u8Url);
+                if (m3u8Url && /^https?:\/\//i.test(m3u8Url)) {
+                    vlcBtn.href = isMobile
+                        ? "vlc-x-callback://x-callback-url/stream?url=" + encodeURIComponent(m3u8Url)
+                        : "vlc://" + m3u8Url;
                 } else {
-                    vlcBtn.href = "vlc://" + m3u8Url;
+                    vlcBtn.removeAttribute('href');
                 }
             }
 
@@ -1677,10 +1679,12 @@
                         const vlcBtn = document.getElementById('vlc-btn');
                         if (vlcBtn && /^https?:\/\//i.test(best.url)) {
                             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                            if (isMobile) {
-                                vlcBtn.href = "vlc-x-callback://x-callback-url/stream?url=" + encodeURIComponent(best.url);
+                            if (best.url && /^https?:\/\//i.test(best.url)) {
+                                vlcBtn.href = isMobile
+                                    ? "vlc-x-callback://x-callback-url/stream?url=" + encodeURIComponent(best.url)
+                                    : "vlc://" + best.url;
                             } else {
-                                vlcBtn.href = "vlc://" + best.url;
+                                vlcBtn.removeAttribute('href');
                             }
                         }
                         
