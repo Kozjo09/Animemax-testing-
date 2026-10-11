@@ -325,6 +325,7 @@
                             <span id="detail-year" class="bg-zinc-800 px-2 py-0.5 rounded"></span>
                             <span id="detail-episodes" class="bg-zinc-800 px-2 py-0.5 rounded"></span>
                             <span id="detail-status" class="bg-zinc-800 px-2 py-0.5 rounded"></span>
+                            <span id="detail-rating" class="bg-red-950/80 text-red-200 border border-red-500/30 px-2 py-0.5 rounded font-black cursor-help" title=""></span>
                         </div>
                         <button id="detail-play-btn" class="bg-[#cae962] text-black px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 hover:scale-105 active:scale-95 transition-all font-bold mt-2 shadow-[0_0_15px_rgba(202,233,98,0.4)]">
                             <i class="fa-solid fa-play"></i> Kijk Nu
@@ -419,6 +420,7 @@
             view: 'home', id: null, ep: 1, mode: 'sub', server: 'megaplay', searchQuery: '', libraryFilter: 'All',
             searchFilters: { genres: [], country: '', season: '', year: '', format: [], status: [], sort: 'POPULARITY_DESC' }, searchPage: 1,
             user: 'Gebruiker', avatar: null, showContinue: true, lang: 'english', autoPlay: true, autoNext: true, autoSkipIntro: false, skipSeconds: 85,
+            ageFilterEnabled: false, ageFilterLevel: 'Rx', agePasswordEnabled: false, agePassword: null,
             defaultAudio: 'sub', recent: [], xmlLib: [], autoDubFallback: true, anilistToken: null, anilistProfile: null
         };
 
@@ -446,6 +448,49 @@
             }
         }
         window.isValidAvatarUrl = isValidAvatarUrl;
+
+                function getAgeRating(m) {
+            if (!m) return { code: "PG-13", age: 13, isAdult: false, shortDesc: "13+", explanation: "13+ Teens and Older" };
+            const isAdult = m.isAdult === true;
+            const genres = (m.genres || []).map(g => String(g).toLowerCase());
+            let tags = [];
+            if (Array.isArray(m.tags)) {
+                tags = m.tags.map(t => (typeof t === "string" ? t : (t.name || "")).toLowerCase());
+            }
+
+            if (isAdult || genres.includes("hentai") || tags.includes("hentai")) {
+                return { code: "Rx", age: 18, isAdult: true, shortDesc: "18+ Uncen", explanation: "18+ Uncensored / Explicit Adult Content" };
+            }
+            if (genres.includes("ecchi") || tags.includes("ecchi") || tags.includes("nudity") || tags.includes("erotica")) {
+                return { code: "R+", age: 18, isAdult: false, shortDesc: "18+ Cen", explanation: "18+ Censored / Mild Nudity & Erotica" };
+            }
+            if (genres.includes("horror") || tags.includes("gore") || tags.includes("blood") || tags.includes("violence") || tags.includes("horror") || tags.includes("psychological")) {
+                return { code: "R", age: 17, isAdult: false, shortDesc: "17+ / 18+ Cen", explanation: "17+ Mild Gore / Violence / Horror" };
+            }
+            if (genres.includes("kids") || tags.includes("kids") || tags.includes("children")) {
+                return { code: "G", age: 0, isAdult: false, shortDesc: "G / All", explanation: "G - All Ages / Children" };
+            }
+            if (tags.includes("shounen") || tags.includes("family") || genres.includes("slice of life") || genres.includes("sports")) {
+                return { code: "PG", age: 10, isAdult: false, shortDesc: "PG / 10+", explanation: "PG - Children & Family (10+)" };
+            }
+            return { code: "PG-13", age: 13, isAdult: false, shortDesc: "13+", explanation: "13+ Teens and Older" };
+        }
+        window.getAgeRating = getAgeRating;
+        window.isAgeUnlocked = false;
+
+                function isAnimeBlocked(m) {
+            if (!app.ageFilterEnabled) return false;
+            if (!m) return false;
+            if (app.ageFilterLevel === "NO_RESTRICTION") return false;
+
+            const levelRanks = { "G": 1, "PG": 2, "PG-13": 3, "R": 4, "R+": 5, "Rx": 6, "NO_RESTRICTION": 7 };
+            const maxRank = levelRanks[app.ageFilterLevel] || 7;
+            const rateInfo = getAgeRating(m);
+            const animeRank = levelRanks[rateInfo.code] || 1;
+            return animeRank > maxRank;
+        }
+        window.isAnimeBlocked = isAnimeBlocked;
+
 
         window.handleAvatarFileUpload = function(e) {
             const file = e.target.files && e.target.files[0];
@@ -605,7 +650,11 @@
                 autoSkipIntro: app.autoSkipIntro, 
                 skipSeconds: app.skipSeconds, 
                 autoDubFallback: app.autoDubFallback,
-                anilistToken: app.anilistToken || null 
+                anilistToken: app.anilistToken || null,
+                ageFilterEnabled: app.ageFilterEnabled === true,
+                ageFilterLevel: app.ageFilterLevel || 'Rx',
+                agePasswordEnabled: app.agePasswordEnabled === true,
+                agePassword: app.agePassword || null
             };
             await sb.from('anime_users').update({
                 watchlist: app.xmlLib, 
@@ -862,6 +911,10 @@
                             app.autoNext = data.settings.autoNext !== false; app.autoSkipIntro = data.settings.autoSkipIntro === true;
                             app.skipSeconds = parseInt(data.settings.skipSeconds || '85'); app.autoDubFallback = data.settings.autoDubFallback !== false;
                             app.anilistToken = data.settings.anilistToken || null;
+                            app.ageFilterEnabled = data.settings.ageFilterEnabled === true;
+                            app.ageFilterLevel = data.settings.ageFilterLevel || 'Rx';
+                            app.agePasswordEnabled = data.settings.agePasswordEnabled === true;
+                            app.agePassword = data.settings.agePassword || null;
                             if (app.anilistToken) {
                                 fetchAniListProfile();
                                 // Throttle automatic background list sync (once per 10 minutes)
@@ -2149,7 +2202,12 @@
         // =========================================================================
         // DETAILS MODAL / DRAWER
         // =========================================================================
-        window.openDetailsModal = function(id) {
+                window.openDetailsModal = function(id) {
+            if (detailsCache[id] && detailsCache[id].data && detailsCache[id].data.Media) {
+                if (isAnimeBlocked(detailsCache[id].data.Media)) {
+                    return window.showToast("Deze anime is geblokkeerd door de leeftijdsfilter instellingen!", "error");
+                }
+            }
             activeModalId = id;
             const modal = document.getElementById('details-modal');
             modal.classList.remove('hidden');
@@ -2168,6 +2226,10 @@
             const handleDetailsResponse = res => {
                 if (!res || !res.data || !res.data.Media) return;
                 const m = res.data.Media;
+                if (isAnimeBlocked(m)) {
+                    closeDetailsModal();
+                    return window.showToast("Deze anime is geblokkeerd door de leeftijdsfilter instellingen!", "error");
+                }
                 const eps = m.episodes || 12;
                 const titleStr = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                 
@@ -2195,6 +2257,12 @@
                     ? `Aflevering ${releasedEps} van ${anticipatedTotal || '?'} Uit` 
                     : `${releasedEps} Eps (Completed)`;
                 document.getElementById('detail-status').innerText = statusLabel;
+                const rateInfo = getAgeRating(m);
+                const rateEl = document.getElementById('detail-rating');
+                if (rateEl) {
+                    rateEl.innerText = rateInfo.code + ' (' + rateInfo.shortDesc + ')';
+                    rateEl.title = rateInfo.explanation;
+                }
 
                 const loc = app.xmlLib.find(i => i && i.id == id);
                 const statStr = loc ? loc.status : "Not Watching";
@@ -2304,7 +2372,7 @@
             if (detailsCache[id]) {
                 handleDetailsResponse(detailsCache[id]);
             } else {
-                gql(`query($id:Int){Media(id:$id,type:ANIME){id idMal title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status nextAiringEpisode{episode} description genres relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
+                gql(`query($id:Int){Media(id:$id,type:ANIME){id idMal title{romaji english} bannerImage coverImage{extraLarge large} averageScore seasonYear episodes status nextAiringEpisode{episode} description genres tags{name} isAdult relations{edges{relationType node{id type title{romaji english}coverImage{large}}}} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{id name{full} image{large}}}}}}`, {id: parseInt(id)}).then(res => {
                     if (!res || !res.data || !res.data.Media) return;
                     detailsCache[id] = res;
                     setStorageCache("detailsCache", detailsCache);
@@ -2807,7 +2875,7 @@
                     variables.sort ? 'sort: $sort' : ''
                 ].filter(Boolean).join(', ');
 
-                const query = `query ${varStr} { Page(page: $page, perPage: $perPage) { pageInfo { total currentPage lastPage hasNextPage } media(${fieldArgs}) { id title { romaji english } coverImage { large } averageScore } } }`;
+                const query = `query ${varStr} { Page(page: $page, perPage: $perPage) { pageInfo { total currentPage lastPage hasNextPage } media(${fieldArgs}) { id title { romaji english } coverImage { large } averageScore genres tags { name } isAdult } } }`;
 
                 const res = await gql(query, variables);
                 if (requestId !== currentSearchRequestId) return;
@@ -2820,6 +2888,117 @@
         };
 
         window.filterXml = function(status) { app.libraryFilter = status; renderLibraryGrid(); };
+
+
+        // =========================================================================
+        // AGE FILTER AND AGE PASSWORD LOGIC
+        // =========================================================================
+        window.unlockAgeFilter = function() {
+            const val = (document.getElementById('age-unlock-input')?.value || '').trim();
+            if (!val) return window.showToast("Vul uw leeftijdwachtwoord in!", "error");
+            if (val === app.agePassword) {
+                window.isAgeUnlocked = true;
+                window.showToast("Leeftijdsfilter ontgrendeld!", "success");
+                render();
+            } else {
+                window.showToast("Onjuist leeftijdwachtwoord!", "error");
+            }
+        };
+
+        window.lockAgeFilter = function() {
+            window.isAgeUnlocked = false;
+            window.showToast("Leeftijdsfilter opnieuw vergrendeld.", "info");
+            render();
+        };
+
+        window.toggleAgePasswordSetting = function(checked) {
+            if (checked) {
+                if (!app.agePassword) {
+                    const newPwd = prompt("Maak een nieuw leeftijdwachtwoord aan (min. 4 tekens):");
+                    if (!newPwd || newPwd.trim().length < 4) {
+                        window.showToast("Wachtwoord instellen geannuleerd of te kort (min 4 tekens).", "error");
+                        render();
+                        return;
+                    }
+                    app.agePassword = newPwd.trim();
+                    app.agePasswordEnabled = true;
+                    window.isAgeUnlocked = true;
+                    saveCloudData();
+                    window.showToast("Leeftijdwachtwoord ingeschakeld!", "success");
+                    render();
+                } else {
+                    app.agePasswordEnabled = true;
+                    window.isAgeUnlocked = true;
+                    saveCloudData();
+                    window.showToast("Leeftijdwachtwoord ingeschakeld!", "success");
+                    render();
+                }
+            } else {
+                if (app.agePasswordEnabled && app.agePassword && !window.isAgeUnlocked) {
+                    window.showToast("U moet eerst het leeftijdwachtwoord ontgrendelen om dit uit te schakelen!", "error");
+                    render();
+                    return;
+                }
+                app.agePasswordEnabled = false;
+                window.isAgeUnlocked = false;
+                saveCloudData();
+                window.showToast("Leeftijdwachtwoord uitgeschakeld.", "info");
+                render();
+            }
+        };
+
+        window.changeAgePassword = function() {
+            if (!app.agePasswordEnabled || !app.agePassword) return;
+            const oldPwd = (document.getElementById('age-pwd-old')?.value || '').trim();
+            const newPwd = (document.getElementById('age-pwd-new')?.value || '').trim();
+
+            if (!oldPwd || !newPwd) return window.showToast("Vul zowel het oude als het nieuwe wachtwoord in!", "error");
+            if (oldPwd !== app.agePassword) return window.showToast("Het oude wachtwoord is onjuist!", "error");
+            if (newPwd.length < 4) return window.showToast("Het nieuwe wachtwoord moet minimaal 4 tekens bevatten!", "error");
+
+            app.agePassword = newPwd;
+            saveCloudData();
+            window.showToast("Leeftijdwachtwoord succesvol gewijzigd!", "success");
+            render();
+        };
+
+        window.forgotAgePassword = async function() {
+            if (!sessionData || !sessionData.user || !sessionData.user.email) {
+                return window.showToast("Geen e-mailadres gevonden voor dit account.", "error");
+            }
+            window.showToast("Herstelfunctie starten voor e-mail...");
+            const email = sessionData.user.email;
+            const { error } = await sb.auth.resetPasswordForEmail(email, {
+                redirectTo: window.location.origin + window.location.pathname
+            });
+            if (error) {
+                window.showToast("Mislukt: " + error.message, "error");
+            } else {
+                window.showToast("Leeftijdwachtwoord herstellink verzonden naar uw mail!", "success");
+            }
+        };
+
+        window.toggleAgeFilterSetting = function(checked) {
+            if (app.agePasswordEnabled && !window.isAgeUnlocked) {
+                window.showToast("Instelling vergrendeld! Ontgrendel met het leeftijdwachtwoord.", "error");
+                render();
+                return;
+            }
+            app.ageFilterEnabled = checked;
+            saveCloudData();
+            window.showToast(checked ? "Leeftijdsfilter ingeschakeld." : "Leeftijdsfilter uitgeschakeld.");
+        };
+
+        window.changeAgeFilterLevel = function(val) {
+            if (app.agePasswordEnabled && !window.isAgeUnlocked) {
+                window.showToast("Instelling vergrendeld! Ontgrendel met het leeftijdwachtwoord.", "error");
+                render();
+                return;
+            }
+            app.ageFilterLevel = val;
+            saveCloudData();
+            window.showToast("Maximale keuring aangepast naar: " + val, "success");
+        };
 
         window.saveSet = function() {
             app.showContinue = document.getElementById('set-continue').checked;
@@ -3216,6 +3395,97 @@
                         <!-- Profile Card -->
                         <div class="card p-8 border border-[#cae962]/20 space-y-6">
                             <h2 class="font-black uppercase text-sm pb-4 border-b border-white/5 flex items-center justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-[#cae962]"></i> Instellingen</span> <span class="bg-lime-500/10 text-[#cae962] text-[9px] px-2 py-1 rounded">Username: ${escapeHTML(app.user)}</span></h2>
+
+                            <!-- Age Rating & Parental Controls Section -->
+                            <div class="p-4 rounded-xl bg-black/40 border border-white/5 space-y-4">
+                                <h3 class="text-xs font-black uppercase text-[#cae962] flex items-center gap-2">
+                                    <i class="fa-solid fa-shield-halved text-[#cae962]"></i> Leeftijdsfilter & Ouderlijk Toezicht
+                                </h3>
+
+                                <!-- Checkbox 1: Age Password toggle (placed above age filter as requested) -->
+                                <div class="flex justify-between items-center p-1 border-b border-white/5 pb-3">
+                                    <div class="space-y-0.5">
+                                        <p class="text-xs font-black uppercase text-zinc-300">Leeftijd Wachtwoord Inschakelen</p>
+                                        <p class="text-[10px] text-zinc-500">Beveilig leeftijdsinstellingen met een pintoegang/wachtwoord.</p>
+                                    </div>
+                                    <label class="cursor-pointer">
+                                        <input type="checkbox" id="set-age-pwd-enable" onchange="toggleAgePasswordSetting(this.checked)" class="toggle-checkbox hidden" ${app.agePasswordEnabled?'checked':''}>
+                                        <div class="w-8 h-4 bg-zinc-800 rounded-full relative toggle-bg"><div class="w-4 h-4 bg-white rounded-full absolute left-0 toggle-dot transition-transform"></div></div>
+                                    </label>
+                                </div>
+
+                                <!-- Password Lock / Unlock controls if Age Password is enabled -->
+                                ${app.agePasswordEnabled ? `
+                                    <div class="bg-zinc-900/80 p-3.5 rounded-xl border border-white/10 space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[11px] font-bold text-zinc-300 flex items-center gap-1.5">
+                                                <i class="fa-solid ${window.isAgeUnlocked ? 'fa-lock-open text-emerald-400' : 'fa-lock text-red-400'}"></i>
+                                                Status: ${window.isAgeUnlocked ? '<span class="text-emerald-400 font-black uppercase">Ontgrendeld</span>' : '<span class="text-red-400 font-black uppercase">Vergrendeld</span>'}
+                                            </span>
+                                            ${!window.isAgeUnlocked ? `
+                                                <div class="flex gap-2">
+                                                    <input type="password" id="age-unlock-input" placeholder="Wachtwoord" class="w-28 bg-black border border-white/10 px-2 py-1 rounded text-xs text-white outline-none">
+                                                    <button onclick="unlockAgeFilter()" class="bg-[#cae962] text-black px-3 py-1 rounded text-xs font-black uppercase">Ontgrendel</button>
+                                                </div>
+                                            ` : `
+                                                <button onclick="lockAgeFilter()" class="bg-zinc-800 text-zinc-300 hover:text-white px-3 py-1 rounded text-xs font-black uppercase border border-white/10">Vergrendel</button>
+                                            `}
+                                        </div>
+                                        <div class="text-right">
+                                            <button onclick="forgotAgePassword()" class="text-[10px] text-[#cae962] hover:underline font-bold">Wachtwoord vergeten? Stuur herstellink via e-mail</button>
+                                        </div>
+
+                                        <!-- Change password form -->
+                                        <div class="border-t border-white/5 pt-3 space-y-2">
+                                            <p class="text-[10px] font-black uppercase text-zinc-400">Wachtwoord Wijzigen</p>
+                                            <div class="flex flex-col sm:flex-row gap-2">
+                                                <input type="password" id="age-pwd-old" placeholder="Oud Wachtwoord" class="flex-1 bg-black border border-white/10 p-2 rounded text-xs text-white outline-none">
+                                                <input type="password" id="age-pwd-new" placeholder="Nieuw Wachtwoord" class="flex-1 bg-black border border-white/10 p-2 rounded text-xs text-white outline-none">
+                                                <button onclick="changeAgePassword()" class="bg-[#cae962] text-black px-3 py-2 rounded text-xs font-black uppercase whitespace-nowrap">Opslaan</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                <!-- Toggle 2: Age Filter Toggle & Rating Dropdown -->
+                                <div class="flex justify-between items-center p-1 border-t border-white/5 pt-3">
+                                    <div class="space-y-0.5">
+                                        <p class="text-xs font-black uppercase text-zinc-300">Leeftijdsfilter Inschakelen</p>
+                                        <p class="text-[10px] text-zinc-500">Beperk de zichtbare anime op basis van leeftijdskeuring.</p>
+                                    </div>
+                                    <label class="cursor-pointer">
+                                        <input type="checkbox" id="set-age-filter-enable" onchange="toggleAgeFilterSetting(this.checked)" class="toggle-checkbox hidden" ${app.ageFilterEnabled?'checked':''} ${app.agePasswordEnabled && !window.isAgeUnlocked ? 'disabled' : ''}>
+                                        <div class="w-8 h-4 bg-zinc-800 rounded-full relative toggle-bg"><div class="w-4 h-4 bg-white rounded-full absolute left-0 toggle-dot transition-transform"></div></div>
+                                    </label>
+                                </div>
+
+                                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 p-1">
+                                    <span class="text-xs font-black uppercase text-zinc-400">Maximale Toegestane Keuring</span>
+                                    <select id="set-age-filter-level" onchange="changeAgeFilterLevel(this.value)" class="bg-black border border-white/10 p-2.5 rounded-lg text-xs font-bold text-white outline-none" ${app.agePasswordEnabled && !window.isAgeUnlocked ? 'disabled' : ''}>
+                                        <option value="G" ${app.ageFilterLevel==='G'?'selected':''}>G (Alle Leeftijden / Kinderen)</option>
+                                        <option value="PG" ${app.ageFilterLevel==='PG'?'selected':''}>PG (10+ Kinderen &amp; Familie)</option>
+                                        <option value="PG-13" ${app.ageFilterLevel==='PG-13'?'selected':''}>PG-13 (13+ Tieners &amp; Ouder)</option>
+                                        <option value="R" ${app.ageFilterLevel==='R'?'selected':''}>R (17+ Mild Geweld / Bloed / Horror)</option>
+                                        <option value="R+" ${app.ageFilterLevel==='R+'?'selected':''}>R+ (18+ Cen - Mild Naakt &amp; Ecchi)</option>
+                                        <option value="Rx" ${app.ageFilterLevel==='Rx'?'selected':''}>Rx (18+ Uncen - Explicit Adult)</option>
+                                        <option value="NO_RESTRICTION" ${app.ageFilterLevel==='NO_RESTRICTION'?'selected':''}>Geen Beperking (Alle Inhoud)</option>
+                                    </select>
+                                </div>
+
+                                <!-- Explanation of Age Ratings -->
+                                <div class="bg-zinc-950 p-3 rounded-lg border border-white/5 space-y-1.5 text-[10px]">
+                                    <p class="font-black text-zinc-400 uppercase tracking-widest text-[9px]">Uitleg Keuringen &amp; Beperkingen:</p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-zinc-400">
+                                        <div><span class="font-black text-emerald-400">G:</span> Alle leeftijden / Kinderen.</div>
+                                        <div><span class="font-black text-cyan-400">PG:</span> 10+ Kinderen &amp; Familie.</div>
+                                        <div><span class="font-black text-[#cae962]">PG-13:</span> 13+ Tieners en ouder.</div>
+                                        <div><span class="font-black text-amber-400">R:</span> 17+ Mild geweld, bloed &amp; horror.</div>
+                                        <div><span class="font-black text-orange-400">R+:</span> 18+ Cen (Mild naakt, erotica &amp; ecchi).</div>
+                                        <div><span class="font-black text-red-500">Rx:</span> 18+ Uncen (Explicit adult).</div>
+                                        <div class="col-span-1 sm:col-span-2"><span class="font-black text-purple-400">Geen Beperking:</span> Alle anime toegankelijk zonder leeftijdsblokkade.</div>
+                                    </div>
+                                </div>
+                            </div>
                             
                             <div class="space-y-4">
                                 <label class="flex justify-between items-center cursor-pointer p-1"><span class="text-xs font-black uppercase text-zinc-400">Toon 'Verder Kijken'</span>
@@ -3452,7 +3722,7 @@
                     const popShelf = document.getElementById('home-popular');
                     popShelf.innerHTML = '';
                     let popHtml = `<h2 class="text-lg sm:text-xl 2xl:text-2xl 3xl:text-3xl font-black italic uppercase tracking-tighter flex items-center gap-2"><i class="fa-solid fa-heart text-[#cae962]"></i> All-Time Populair</h2><div class="shelf-container no-scrollbar">`;
-                    res.data.popular.media.forEach(m => {
+                    res.data.popular.media.filter(m => !isAnimeBlocked(m)).forEach(m => {
                         const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                         const safeMt = escapeHTML(mt || '');
                         const safeImg = escapeHTML(m.coverImage ? m.coverImage.large : '');
@@ -3505,7 +3775,7 @@
                                             </button>
                                         </div>
                                         <div class="shelf-container no-scrollbar">`;
-                                res.data[cfg.key].media.forEach(m => {
+                                res.data[cfg.key].media.filter(m => !isAnimeBlocked(m)).forEach(m => {
                                     const mt = app.lang === 'english' ? (m.title.english || m.title.romaji) : m.title.romaji;
                                     const safeMt = escapeHTML(mt || '');
                                     const safeImg = escapeHTML(m.coverImage ? m.coverImage.large : '');
