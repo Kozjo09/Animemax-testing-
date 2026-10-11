@@ -408,6 +408,27 @@
                    window.location.hash.includes("mode=age_recovery") ||
                    isAgePasswordResetFlow;
         }
+
+        function parseAuthUrlError() {
+            const raw = (window.location.hash || '') + '&' + (window.location.search || '');
+            if (raw.includes('error=')) {
+                let desc = 'E-maillink is ongeldig of verlopen.';
+                try {
+                    const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?/, '?'));
+                    const searchParams = new URLSearchParams(window.location.search);
+                    const errDesc = hashParams.get('error_description') || searchParams.get('error_description') || hashParams.get('error') || searchParams.get('error');
+                    if (errDesc) {
+                        desc = decodeURIComponent(errDesc.replace(/\+/g, ' '));
+                    }
+                } catch(e) {}
+                window.history.replaceState({}, document.title, window.location.pathname);
+                isPasswordResetFlow = false;
+                isAgePasswordResetFlow = false;
+                window.showToast("Mislukt: " + desc, "error");
+                return true;
+            }
+            return false;
+        }
         let saveInterval = null;
         let saveTimeout = null;
         let dubTimeout = null;
@@ -827,10 +848,14 @@
             const pass = (document.getElementById('reset-new-age-password')?.value || '').trim();
             if (pass.length < 4) return window.showToast("Leeftijdwachtwoord moet minimaal 4 tekens bevatten!", "error");
 
+            if (!sessionData || !sessionData.user) {
+                return window.showToast("Mislukt: U bent niet ingelogd of de herstellink is verlopen.", "error");
+            }
+
             app.agePassword = pass;
             app.agePasswordEnabled = true;
             window.isAgeUnlocked = true;
-            saveCloudData();
+            await saveCloudData();
 
             window.showToast("Leeftijdwachtwoord succesvol gewijzigd!", "success");
             isPasswordResetFlow = false;
@@ -4301,12 +4326,25 @@
                 return;
             }
             
-            if (window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery') || checkIsAgeReset()) {
+            const hasAuthError = parseAuthUrlError();
+
+            if (!hasAuthError && (window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery') || checkIsAgeReset())) {
                 isPasswordResetFlow = true;
                 if (checkIsAgeReset()) isAgePasswordResetFlow = true;
             }
 
             sb.auth.onAuthStateChange(async (event, session) => {
+                if (parseAuthUrlError()) {
+                    sessionData = session;
+                    if (sessionData) {
+                        await loadCloudData();
+                        restoreStateFromUrl();
+                        render();
+                    } else {
+                        showLoginPage('login');
+                    }
+                    return;
+                }
                 if (event === 'PASSWORD_RECOVERY') {
                     isPasswordResetFlow = true;
                     if (checkIsAgeReset()) isAgePasswordResetFlow = true;
@@ -4344,7 +4382,7 @@
             });
 
             sb.auth.getSession().then(({ data: { session } }) => {
-                if (isPasswordResetFlow || checkIsAgeReset() || window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery') || window.location.hash.includes('access_token=')) {
+                if (!hasAuthError && (isPasswordResetFlow || checkIsAgeReset() || window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery') || window.location.hash.includes('access_token='))) {
                     if (isPasswordResetFlow || checkIsAgeReset() || window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery')) {
                         isPasswordResetFlow = true;
                         if (checkIsAgeReset()) isAgePasswordResetFlow = true;
