@@ -3292,7 +3292,7 @@
                                 <p class="text-[9px] font-black text-zinc-500 uppercase">Mijn Lijst Status</p>
                                 <h3 id="local-status-text" class="text-xs font-bold mt-1 text-white"><span class="accent" id="local-status-span">${stat}</span> - Ep ${prog} / ${eps}</h3>
                             </div>
-                            <select id="local-status-dropdown" onchange="onStatusDropdownChange(this, '${app.id}')" class="bg-black border border-white/10 p-2.5 rounded-xl text-xs font-bold text-white outline-none">
+                            <select id="local-status-dropdown" onchange="onStatusDropdownChange(this, '${escapeAttrJS(app.id)}')" class="bg-black border border-white/10 p-2.5 rounded-xl text-xs font-bold text-white outline-none">
                                 <option value="Watching" ${stat==='Watching'?'selected':''}>Watching</option>
                                 <option value="Watched" ${stat==='Watched' || stat==='Completed'?'selected':''}>Completed</option>
                                 <option value="Dropped" ${stat==='Dropped'?'selected':''}>Dropped</option>
