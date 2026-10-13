@@ -3844,7 +3844,7 @@
                                             <h2 class="text-lg sm:text-xl 2xl:text-2xl 3xl:text-3xl font-black italic uppercase tracking-tighter flex items-center gap-2">
                                                 <i class="fa-solid ${cfg.icon} text-[#cae962]"></i> Populair in ${cfg.name}
                                             </h2>
-                                            <button onclick="navByGenre('${cfg.name}')" class="text-xs font-bold text-[#cae962] hover:underline flex items-center gap-1" aria-label="Bekijk alle ${cfg.name} anime">
+                                            <button onclick="navByGenre('${escapeAttrJS(cfg.name)}')" class="text-xs font-bold text-[#cae962] hover:underline flex items-center gap-1" aria-label="Bekijk alle ${cfg.name} anime">
                                                 Bekijk alle <i class="fa-solid fa-chevron-right text-[10px]"></i>
                                             </button>
                                         </div>
