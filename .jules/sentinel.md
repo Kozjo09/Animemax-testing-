@@ -34,3 +34,8 @@
 **Vulnerability:** Stream URLs fetched from third-party video APIs or player responses were directly formatted into custom protocol scheme strings (`vlc://` and `vlc-x-callback://`) and assigned to `vlcBtn.href`. Unsanitized URLs containing arbitrary protocol schemes or parameters could lead to unintended protocol invocation or parameter injection.
 **Learning:** Constructing URI protocol handlers (e.g. `vlc://<url>`) with raw dynamic URLs allows untrusted stream payloads to dictate external application behavior if the inner URL is not validated.
 **Prevention:** Always validate that incoming stream URLs strictly begin with an `http://` or `https://` scheme before appending them to custom application protocol handler URIs or assigning them to element `href` attributes.
+
+## 2026-10-18 - [Proxy Bypass and Pseudo-Protocol Injection via Substring Matching in Stream URL Proxies]
+**Vulnerability:** `proxyM3u8` checked `url.includes('proxy.corsfix.com')` to skip proxying already-proxied URLs. Malicious or untrusted stream URLs (e.g., `javascript:alert(1)//.mp4?proxy.corsfix.com`) containing the proxy hostname anywhere in query strings bypassed proxying and scheme enforcement, allowing untrusted pseudo-protocols to be assigned directly to player element `src` properties.
+**Learning:** Using loose substring checks (`String.prototype.includes`) to determine trusted hostnames or proxy state in URL utilities allows query string parameter pollution to bypass URL transformation and protocol restrictions.
+**Prevention:** Validate that input strings strictly begin with an `http://` or `https://` scheme (`/^https?:\/\//i`) and use strict URL prefix matching (`url.startsWith('https://proxy.corsfix.com/')`) when verifying proxy state.
