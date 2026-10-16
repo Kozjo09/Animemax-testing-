@@ -1800,10 +1800,15 @@
                     let best = streamData.streams.find(s => s.quality === '1080p' || s.quality === 'auto' || s.quality === '720p') || streamData.streams[0];
 
                     if (best.embed || best.type === 'embed' || EMBED_PROVIDERS.includes(pObj.provider.toLowerCase())) {
-                        iframeEl.src = best.embed || best.url;
-                        iframeEl.classList.remove('hidden'); iframeEl.classList.add('block');
-                        nativeEl.classList.add('hidden'); nativeEl.classList.remove('block');
-                        if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+                        const embedUrl = best.embed || best.url;
+                        if (embedUrl && /^https?:\/\//i.test(embedUrl.trim())) {
+                            iframeEl.src = embedUrl;
+                            iframeEl.classList.remove('hidden'); iframeEl.classList.add('block');
+                            nativeEl.classList.add('hidden'); nativeEl.classList.remove('block');
+                            if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+                        } else {
+                            window.showToast("Ongeldige of onveilige stream URL.", "error");
+                        }
                     } else {
                         iframeEl.classList.add('hidden'); iframeEl.classList.remove('block'); iframeEl.src = ""; 
                         nativeEl.classList.remove('hidden'); nativeEl.classList.add('block');
