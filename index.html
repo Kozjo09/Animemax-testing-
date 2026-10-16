@@ -588,9 +588,11 @@
 
         // Custom Anivexa dedicated HLS proxy utilizing proxy.corsfix.com for flawless direct streaming
         function proxyM3u8(url) {
-            if (!url) return "";
-            if (url.includes('proxy.corsfix.com')) return url;
-            return `https://proxy.corsfix.com/?url=${encodeURIComponent(url)}`;
+            if (!url || typeof url !== 'string') return "";
+            const trimmed = url.trim();
+            if (!/^https?:\/\//i.test(trimmed)) return "";
+            if (trimmed.startsWith('https://proxy.corsfix.com/')) return trimmed;
+            return `https://proxy.corsfix.com/?url=${encodeURIComponent(trimmed)}`;
         }
 
         // Direct fetch without proxy for maximum stability and speed
@@ -1476,6 +1478,11 @@
             const video = document.getElementById('native-player');
             if (!video) return;
 
+            if (!m3u8Url || typeof m3u8Url !== 'string' || (!/^https?:\/\//i.test(m3u8Url.trim()) && !m3u8Url.trim().startsWith('blob:'))) {
+                window.showToast("Onveilige of ongeldige video-URL.", "error");
+                return;
+            }
+
             if (typeof stopWebTorrent === 'function') stopWebTorrent();
             if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
             video.innerHTML = ''; 
@@ -2188,7 +2195,7 @@
             }
             statusEl.innerHTML = `<div class="flex items-center gap-2 text-[#cae962]"><i class="fa-solid fa-[#cae962] fa-circle-check"></i><span>AniTorrent stream gestart</span></div><span class="text-zinc-400 font-mono text-[10px] truncate max-w-[220px]">${escapeHTML(torrentTitle || "Direct Stream")}</span>`;
 
-            if (directUrl && /\.(mp4|mkv|webm|m3u8)(\?.*)?$/i.test(directUrl)) {
+            if (directUrl && typeof directUrl === 'string' && /^https?:\/\//i.test(directUrl.trim()) && /\.(mp4|mkv|webm|m3u8)(\?.*)?$/i.test(directUrl.trim())) {
                 iframeEl.classList.add("hidden"); iframeEl.classList.remove("block"); iframeEl.src = "";
                 nativeEl.classList.remove("hidden"); nativeEl.classList.add("block");
                 videoEl.src = proxyM3u8(directUrl);
