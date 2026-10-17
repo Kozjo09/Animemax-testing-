@@ -2139,13 +2139,21 @@
             listEl.innerHTML = html;
         };
 
+        // Security: Validate torrent and magnet schemes to prevent arbitrary URI scheme injection in WebTorrent and location navigation
         window.downloadVideoFile = function(torrentUrl, magnetUrl, title) {
             window.showToast("Videobestand voorbehandelen voor download...", "info");
             const cleanTitle = (title || "Anime_Video").replace(/[^a-zA-Z0-9_.-]/g, "_");
+            const validTorrent = (torrentUrl && /^https?:\/\//i.test(torrentUrl)) ? torrentUrl : null;
+            const validMagnet = (magnetUrl && /^magnet:\?/i.test(magnetUrl)) ? magnetUrl : null;
+            const source = validTorrent || validMagnet;
+
+            if (!source) {
+                window.showToast("Geen geldige download URL of magnet link.", "error");
+                return;
+            }
 
             if (typeof WebTorrent !== "undefined") {
                 const tempClient = new WebTorrent();
-                const source = torrentUrl || magnetUrl;
 
                 tempClient.add(source, { announce: TRACKERS }, function(torrent) {
                     if (typeof torrent.throttleUpload === "function") torrent.throttleUpload(0);
@@ -2162,7 +2170,11 @@
                                 window.showToast("Videobestand download gestart!", "success");
                             } else {
                                 window.showToast("Downloaden via directe mirror...", "warning");
-                                if (torrentUrl && /^https?:\/\//i.test(torrentUrl)) window.open(torrentUrl, "_blank", "noopener,noreferrer");
+                                if (validTorrent) {
+                                    window.open(validTorrent, "_blank", "noopener,noreferrer");
+                                } else if (validMagnet) {
+                                    window.location.href = validMagnet;
+                                }
                             }
                             tempClient.destroy(() => {});
                         });
@@ -2174,11 +2186,17 @@
 
                 tempClient.on("error", function() {
                     window.showToast("Directe download via netwerk starten...", "info");
-                    if (torrentUrl && /^https?:\/\//i.test(torrentUrl)) window.open(torrentUrl, "_blank", "noopener,noreferrer");
+                    if (validTorrent) {
+                        window.open(validTorrent, "_blank", "noopener,noreferrer");
+                    } else if (validMagnet) {
+                        window.location.href = validMagnet;
+                    }
                     tempClient.destroy(() => {});
                 });
-            } else if (torrentUrl && /^https?:\/\//i.test(torrentUrl)) {
-                window.open(torrentUrl, "_blank", "noopener,noreferrer");
+            } else if (validTorrent) {
+                window.open(validTorrent, "_blank", "noopener,noreferrer");
+            } else if (validMagnet) {
+                window.location.href = validMagnet;
             } else {
                 window.showToast("Download niet mogelijk: Geen actieve client.", "error");
             }
